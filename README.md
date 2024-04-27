@@ -1,7 +1,14 @@
 # Ollama-C-lient
-C program for interacting with Ollama server from a Linux terminal
+C program for interacting with Ollama server from a Linux terminal. It is not meant to be a complete library at all. It's just the simplest interface.
 
 ### Version: 0.0.1 (beta)
+
+### Features/Assumptions/Whatever
+<ul>
+  <li>1</li>
+  <li>2</li>
+  <li>3</li>
+</ul>
 
 ### Dependencies:
 <ul>
