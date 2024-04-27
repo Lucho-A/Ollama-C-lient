@@ -22,33 +22,13 @@
 #define PROMPT_DEFAULT					"-> "
 #define BANNER 							printf("\n%s%s v%s by L.%s\n\n",Colors.h_white,PROGRAM_NAME, PROGRAM_VERSION,Colors.def);
 
-bool canceled=FALSE, exitProgram=FALSE, responseInfo=FALSE;
+bool canceled=FALSE, exitProgram=FALSE;
 int prevInput=0;
 struct Colors Colors;
-struct SettingInfo settingInfo;
-struct ModelInfo modelInfo;
-char *chatFile=NULL;
+OCl *ocl=NULL;
 
-int init_OCL(){
-	settingInfo.srvAddr=OLLAMA_SERVER_ADDR;
-	settingInfo.srvPort=OLLAMA_SERVER_PORT;
-	settingInfo.socketConnectTimeout=SOCKET_CONNECT_TIMEOUT_S;
-	settingInfo.socketSendTimeout=SOCKET_SEND_TIMEOUT_MS;
-	settingInfo.socketRecvTimeout=SOCKET_RECV_TIMEOUT_MS;
-	settingInfo.responseSpeed=RESPONSE_SPEED;
-	modelInfo.model=NULL;
-	modelInfo.role=malloc(1);
-	modelInfo.role[0]=0;
-	modelInfo.maxHistoryContext=MAX_HISTORY_CONTEXT;
-	modelInfo.temp=TEMP;
-	modelInfo.maxTokens=MAX_TOKENS;
-	modelInfo.numCtx=NUM_CTX;
-	return RETURN_OK;
-}
-
-int close_OCL(){
-	export_context();
-	load_model(FALSE);
+int close_program(OCl *ocl){
+	OCl_load_model(ocl,FALSE);
 	rl_clear_history();
 	printf("%s\n",Colors.def);
 	exit(EXIT_SUCCESS);
@@ -65,71 +45,6 @@ void init_colors(bool uncolored){
 	Colors.h_cyan="\e[0;96m";
 	Colors.h_white="\e[0;97m";
 	Colors.def="\e[0m";
-}
-
-int setting_model_options(char *modelFile){
-	ssize_t chars=0;
-	size_t len=0;
-	char *line=NULL;
-	FILE *f=fopen(modelFile,"r");
-	if(f==NULL) print_error("Error opening model file: ",strerror(errno),TRUE);
-	char *param=NULL;
-	while((chars=getline(&line, &len, f))!=-1){
-		if((strstr(line,"[MODEL]"))==line){
-			param="model";
-			continue;
-		}
-		if((strstr(line,"[ROLE]"))==line){
-			param="role";
-			continue;
-		}
-		if((strstr(line,"[MAX_HISTORY_CONTEXT]"))==line){
-			param="maxhistoryctx";
-			continue;
-		}
-		if((strstr(line,"[TEMP]"))==line){
-			param="temp";
-			continue;
-		}
-		if((strstr(line,"[MAX_TOKENS]"))==line){
-			param="maxtokens";
-			continue;
-		}
-		if((strstr(line,"[NUM_CTX]"))==line){
-			param="numctx";
-			continue;
-		}
-		if(strcmp(param,"model")==0){
-			modelInfo.model=malloc(chars);
-			memset(modelInfo.model,0,chars);
-			for(int i=0;i<chars-1;i++) modelInfo.model[i]=line[i];
-			continue;
-		}
-		if(strcmp(param,"role")==0){
-			modelInfo.role=realloc(modelInfo.role,strlen(modelInfo.role)+chars+1);
-			strcat(modelInfo.role,line);
-			continue;
-		}
-		if(strcmp(param,"maxhistoryctx")==0){
-			modelInfo.maxHistoryContext=strtol(line,NULL,10);
-			continue;
-		}
-		if(strcmp(param,"temp")==0){
-			modelInfo.temp=strtod(line,NULL);
-			continue;
-		}
-		if(strcmp(param,"maxtokens")==0){
-			modelInfo.maxTokens=strtol(line,NULL,10);
-			continue;
-		}
-		if(strcmp(param,"numctx")==0){
-			modelInfo.numCtx=strtol(line,NULL,10);
-			continue;
-		}
-	}
-	fclose(f);
-	free(line);
-	return RETURN_OK;
 }
 
 int readline_input(FILE *stream){
@@ -171,7 +86,7 @@ void signal_handler(int signalType){
 		canceled=TRUE;
 		break;
 	case SIGHUP:
-		close_OCL();
+		close_program(ocl);
 	case SIGPIPE:
 		print_error("'SIGPIPE' signal received: the write end of the pipe or socket is closed.","", FALSE);
 		break;
@@ -184,7 +99,7 @@ int main(int argc, char *argv[]) {
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
 	char *modelFile=NULL;
-	init_OCL();
+	ocl=OCl_init();
 	init_colors(FALSE);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0){
@@ -192,12 +107,12 @@ int main(int argc, char *argv[]) {
 			exit(EXIT_SUCCESS);
 		}
 		if(strcmp(argv[i],"--server-addr")==0){
-			settingInfo.srvAddr=argv[i+1];
+			ocl->srvAddr=argv[i+1];
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--server-port")==0){
-			settingInfo.srvPort=strtol(argv[i+1],NULL,10);
+			ocl->srvPort=strtol(argv[i+1],NULL,10);
 			i++;
 			continue;
 		}
@@ -206,29 +121,26 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
-		if(strcmp(argv[i],"--chat-file")==0){
-			if(argv[i+1]==NULL) print_error("Error opening chat file: ",strerror(errno),TRUE);
-			chatFile=argv[i+1];
-			FILE *f=fopen(chatFile,"a");
-			if(f==NULL) print_error("Error opening chat file: ",strerror(errno),TRUE);
+		if(strcmp(argv[i],"--context-file")==0){
+			if(argv[i+1]==NULL) print_error("Error opening context file: ",strerror(errno),TRUE);
+			ocl->contextFile=argv[i+1];
+			FILE *f=fopen(ocl->contextFile,"a");
+			if(f==NULL) print_error("Error opening context file: ",strerror(errno),TRUE);
 			fclose(f);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--show-response-info")==0){
-			responseInfo=TRUE;
+			ocl->showResponseInfo=TRUE;
 			continue;
 		}
 		print_error(argv[i],": argument not recognized",TRUE);
 	}
-	if(modelFile==NULL) print_error("Model file not found. ","",TRUE);
-	setting_model_options(modelFile);
-	import_context();
-	if(check_service_status()==RETURN_ERROR){
-		printf("%s\n",Colors.def);
-		exit(EXIT_FAILURE);
-	}
-	load_model(TRUE);
+	int retVal=0;
+	if((retVal=OCl_load_modelfile(ocl, modelFile))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
+	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
+	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
+	if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
 	do{
@@ -241,14 +153,9 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 		if(canceled || strcmp(messagePrompted,"")==0) continue;
-		if(strcmp(messagePrompted,"status;")==0){
-			check_service_status();
-			continue;
-		}
-		int resp=0;
 		printf("↵\n%s",Colors.def);
-		if((resp=send_chat(messagePrompted))!=RETURN_OK){
-			switch(resp){
+		if((retVal=OCl_send_chat(ocl,messagePrompted))!=RETURN_OK){
+			switch(retVal){
 			case ERR_RESPONSE_MESSAGE_ERROR:
 				break;
 			default:
@@ -256,12 +163,12 @@ int main(int argc, char *argv[]) {
 					printf("\n");
 					break;
 				}
-				print_error("",error_handling(resp),FALSE);
+				print_error("",error_handling(retVal),FALSE);
 				break;
 			}
 		}
 		add_history(messagePrompted);
 	}while(TRUE);
 	free(messagePrompted);
-	close_OCL();
+	close_program(ocl);
 }

@@ -7,7 +7,7 @@
  Copyright   : GNU General Public License v3.0
  Description : C file
  ============================================================================
-*/
+ */
 
 #include "libOllama-C-lient.h"
 
@@ -40,13 +40,96 @@ static void log_debug(char *s){
 	fclose(f);
 }
 
-static int create_connection(){
+struct OCl * OCl_init(char *modelfile){
+	struct OCl *ocl=malloc(sizeof(struct OCl));
+	ocl->srvAddr=OLLAMA_SERVER_ADDR;
+	ocl->srvPort=OLLAMA_SERVER_PORT;
+	ocl->socketConnectTimeout=SOCKET_CONNECT_TIMEOUT_S;
+	ocl->socketSendTimeout=SOCKET_SEND_TIMEOUT_MS;
+	ocl->socketRecvTimeout=SOCKET_RECV_TIMEOUT_MS;
+	ocl->responseSpeed=RESPONSE_SPEED;
+	ocl->model=NULL;
+	ocl->role=malloc(1);
+	ocl->role[0]=0;
+	ocl->maxHistoryContext=MAX_HISTORY_CONTEXT;
+	ocl->temp=TEMP;
+	ocl->maxTokens=MAX_TOKENS;
+	ocl->numCtx=NUM_CTX;
+	return ocl;
+}
+
+int OCl_load_modelfile(OCl *ocl, char *modelfile){
+	ssize_t chars=0;
+	size_t len=0;
+	char *line=NULL;
+	FILE *f=fopen(modelfile,"r");
+	if(f==NULL) print_error("Error opening model file: ",strerror(errno),TRUE);
+	char *param=NULL;
+	while((chars=getline(&line, &len, f))!=-1){
+		if((strstr(line,"[MODEL]"))==line){
+			param="model";
+			continue;
+		}
+		if((strstr(line,"[ROLE]"))==line){
+			param="role";
+			continue;
+		}
+		if((strstr(line,"[MAX_HISTORY_CONTEXT]"))==line){
+			param="maxhistoryctx";
+			continue;
+		}
+		if((strstr(line,"[TEMP]"))==line){
+			param="temp";
+			continue;
+		}
+		if((strstr(line,"[MAX_TOKENS]"))==line){
+			param="maxtokens";
+			continue;
+		}
+		if((strstr(line,"[NUM_CTX]"))==line){
+			param="numctx";
+			continue;
+		}
+		if(strcmp(param,"model")==0){
+			ocl->model=malloc(chars);
+			memset(ocl->model,0,chars);
+			for(int i=0;i<chars-1;i++) ocl->model[i]=line[i];
+			continue;
+		}
+		if(strcmp(param,"role")==0){
+			ocl->role=realloc(ocl->role,strlen(ocl->role)+chars+1);
+			strcat(ocl->role,line);
+			continue;
+		}
+		if(strcmp(param,"maxhistoryctx")==0){
+			ocl->maxHistoryContext=strtol(line,NULL,10);
+			continue;
+		}
+		if(strcmp(param,"temp")==0){
+			ocl->temp=strtod(line,NULL);
+			continue;
+		}
+		if(strcmp(param,"maxtokens")==0){
+			ocl->maxTokens=strtol(line,NULL,10);
+			continue;
+		}
+		if(strcmp(param,"numctx")==0){
+			ocl->numCtx=strtol(line,NULL,10);
+			continue;
+		}
+	}
+	fclose(f);
+	free(line);
+	return RETURN_OK;
+}
+
+static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeout){
 	static char ollamaServerIp[INET_ADDRSTRLEN]="";
 	struct addrinfo hints, *res;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family=AF_INET;
 	hints.ai_socktype=SOCK_STREAM;
-	if(getaddrinfo(settingInfo.srvAddr, NULL, &hints, &res)!=0) return ERR_GETTING_HOST_INFO_ERROR;
+	if(getaddrinfo(srvAddr, NULL, &hints, &res)!=0) return ERR_GETTING_HOST_INFO_ERROR;
 	struct sockaddr_in *ipv4=(struct sockaddr_in *)res->ai_addr;
 	void *addr=&(ipv4->sin_addr);
 	inet_ntop(res->ai_family, addr, ollamaServerIp, sizeof(ollamaServerIp));
@@ -54,8 +137,8 @@ static int create_connection(){
 	int socketConn=0;
 	struct sockaddr_in serverAddress;
 	serverAddress.sin_family=AF_INET;
-	serverAddress.sin_port=htons(settingInfo.srvPort);
-	serverAddress.sin_addr.s_addr=inet_addr(settingInfo.srvAddr);
+	serverAddress.sin_port=htons(srvPort);
+	serverAddress.sin_addr.s_addr=inet_addr(ollamaServerIp);
 	if((socketConn=socket(AF_INET, SOCK_STREAM, 0))<0) return ERR_SOCKET_CREATION_ERROR;
 	int socketFlags=fcntl(socketConn, F_GETFL, 0);
 	fcntl(socketConn, F_SETFL, socketFlags | O_NONBLOCK);
@@ -65,14 +148,14 @@ static int create_connection(){
 	FD_ZERO(&rFdset);
 	FD_SET(socketConn, &rFdset);
 	wFdset=rFdset;
-	tv.tv_sec=settingInfo.socketConnectTimeout;
+	tv.tv_sec=socketConnectTimeout;
 	tv.tv_usec=0;
 	if(select(socketConn+1,&rFdset,&wFdset,NULL,&tv)<=0) return ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
 	fcntl(socketConn, F_SETFL, socketFlags);
 	return socketConn;
 }
 
-static void create_new_context_message(char *userMessage, char *assistantMessage, bool isNew){
+static void create_new_context_message(char *userMessage, char *assistantMessage, bool isNew, int maxHistoryContext){
 	Message *newMessage=malloc(sizeof(Message));
 	newMessage->userMessage=malloc(strlen(userMessage)+1);
 	snprintf(newMessage->userMessage,strlen(userMessage)+1,"%s",userMessage);
@@ -80,7 +163,7 @@ static void create_new_context_message(char *userMessage, char *assistantMessage
 	snprintf(newMessage->assistantMessage,strlen(assistantMessage)+1,"%s",assistantMessage);
 	newMessage->isNew=isNew;
 	if(rootContextMessages!=NULL){
-		if(contContextMessages>=modelInfo.maxHistoryContext){
+		if(contContextMessages>=maxHistoryContext){
 			Message *temp=rootContextMessages->nextMessage;
 			if(rootContextMessages->userMessage!=NULL) free(rootContextMessages->userMessage);
 			if(rootContextMessages->assistantMessage!=NULL) free(rootContextMessages->assistantMessage);
@@ -102,46 +185,45 @@ static void create_new_context_message(char *userMessage, char *assistantMessage
 }
 
 
-int export_context(){
-	FILE *f=fopen(chatFile,"a");
-	if(f==NULL) return ERR_OPENING_FILE_ERROR;
-	Message *temp=rootContextMessages;
-	while(temp!=NULL){
-		if(temp->isNew) fprintf(f,"%s\t%s\n",temp->userMessage,temp->assistantMessage);
-		temp=temp->nextMessage;
+int OCl_save_message(OCl *ocl, char *userMessage, char *assistantMessage){
+	if(ocl->contextFile!=NULL){
+		FILE *f=fopen(ocl->contextFile,"a");
+		if(f==NULL) return ERR_OPENING_FILE_ERROR;
+		fprintf(f,"%s\t%s\n",userMessage,assistantMessage);
+		fclose(f);
 	}
-	fclose(f);
-	free(temp);
 	return RETURN_OK;
 }
 
-int import_context(){
-	FILE *f=fopen(chatFile,"r");
-	if(f==NULL) return ERR_OPENING_FILE_ERROR;
-	size_t len=0, i=0, rows=0, initPos=0;
-	ssize_t chars=0;
-	char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;;
-	while((getline(&line, &len, f))!=-1) rows++;
-	if(rows>modelInfo.maxHistoryContext) initPos=rows-modelInfo.maxHistoryContext;
-	rewind(f);
-	int contRows=0;
-	while((chars=getline(&line, &len, f))!=-1){
-		if(contRows>=initPos){
-			userMessage=malloc(chars+1);
-			memset(userMessage,0,chars+1);
-			for(i=0;line[i]!='\t';i++) userMessage[i]=line[i];
-			int index=0;
-			assistantMessage=malloc(chars+1);
-			memset(assistantMessage,0,chars+1);
-			for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
-			create_new_context_message(userMessage, assistantMessage, FALSE);
-			free(userMessage);
-			free(assistantMessage);
+int OCl_import_context(OCl *ocl){
+	if(ocl->contextFile!=NULL){
+		FILE *f=fopen(ocl->contextFile,"r");
+		if(f==NULL) return ERR_OPENING_FILE_ERROR;
+		size_t len=0, i=0, rows=0, initPos=0;
+		ssize_t chars=0;
+		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;;
+		while((getline(&line, &len, f))!=-1) rows++;
+		if(rows>ocl->maxHistoryContext) initPos=rows-ocl->maxHistoryContext;
+		rewind(f);
+		int contRows=0;
+		while((chars=getline(&line, &len, f))!=-1){
+			if(contRows>=initPos){
+				userMessage=malloc(chars+1);
+				memset(userMessage,0,chars+1);
+				for(i=0;line[i]!='\t';i++) userMessage[i]=line[i];
+				int index=0;
+				assistantMessage=malloc(chars+1);
+				memset(assistantMessage,0,chars+1);
+				for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
+				create_new_context_message(userMessage, assistantMessage, FALSE, ocl->maxHistoryContext);
+				free(userMessage);
+				free(assistantMessage);
+			}
+			contRows++;
 		}
-		contRows++;
+		free(line);
+		fclose(f);
 	}
-	free(line);
-	fclose(f);
 	return RETURN_OK;
 }
 
@@ -204,6 +286,9 @@ char * error_handling(int error){
 	case ERR_ZEROBYTESRECV_ERROR:
 		snprintf(error_hndl, 1024,"Zero bytes received. Try again...");
 		break;
+	case ERR_MODEL_FILE_NOT_FOUND:
+		snprintf(error_hndl, 1024,"Model file not found. ");
+		break;
 	case ERR_OPENING_FILE_ERROR:
 		snprintf(error_hndl, 1024,"Error opening file: %s", strerror(errno));
 		break;
@@ -221,6 +306,15 @@ char * error_handling(int error){
 		break;
 	case ERR_NULL_STRUCT_ERROR:
 		snprintf(error_hndl, 1024,"ChatGPT structure null. ");
+		break;
+	case ERR_SERVICE_UNAVAILABLE:
+		snprintf(error_hndl, 1024,"Service unavailable. ");
+		break;
+	case ERR_LOADING_MODEL:
+		snprintf(error_hndl, 1024,"Error loading model. ");
+		break;
+	case ERR_UNLOADING_MODEL:
+		snprintf(error_hndl, 1024,"Error unloading model. ");
 		break;
 	default:
 		snprintf(error_hndl, 1024,"Error not handled. ");
@@ -332,8 +426,8 @@ static void print_response(char *response, long int responseVelocity){
 	free(buffer);
 }
 
-static int get_chat_response(char *url,char *payload, char **fullResponse){
-	int socketConn=create_connection();
+static int get_chat_response(OCl *ocl,char *payload, char **fullResponse){
+	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<0){
 		print_error("",error_handling(socketConn),FALSE);
 		return RETURN_ERROR;
@@ -343,7 +437,7 @@ static int get_chat_response(char *url,char *payload, char **fullResponse){
 	fcntl(socketConn, F_SETFL, O_NONBLOCK);
 	pfds[0].fd=socketConn;
 	pfds[0].events=POLLOUT;
-	numEvents=poll(pfds,1,settingInfo.socketSendTimeout);
+	numEvents=poll(pfds,1,ocl->socketSendTimeout);
 	if(numEvents==0){
 		close(socketConn);
 		return ERR_SOCKET_SEND_TIMEOUT_ERROR;
@@ -365,7 +459,7 @@ static int get_chat_response(char *url,char *payload, char **fullResponse){
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
 	pfds[0].events=POLLIN;
-	numEvents=poll(pfds, 1, settingInfo.socketRecvTimeout);
+	numEvents=poll(pfds, 1, ocl->socketRecvTimeout);
 	if(numEvents==0){
 		close(socketConn);
 		return ERR_SOCKET_RECV_TIMEOUT_ERROR;
@@ -386,13 +480,13 @@ static int get_chat_response(char *url,char *payload, char **fullResponse){
 				}
 				char result[1024]="";
 				get_string_from_token(buffer, "\"content\":\"", result, '"');
-				print_response(result, settingInfo.responseSpeed);
+				print_response(result, ocl->responseSpeed);
 				*fullResponse=realloc(*fullResponse,totalBytesReceived+1);
 				strcat(*fullResponse,result);
 				if(strstr(buffer,"\"done\":false")!=NULL){
 					continue;
 				}else{
-					if(responseInfo){
+					if(ocl->showResponseInfo){
 						printf("%s\n\n",Colors.yellow);
 
 						memset(result,0,1024);
@@ -442,7 +536,7 @@ static int get_chat_response(char *url,char *payload, char **fullResponse){
 	return totalBytesReceived;
 }
 
-int send_chat(char *message){
+int OCl_send_chat(OCl *ocl, char *message){
 	char *messageParsed=NULL;
 	parse_input(&messageParsed, message);
 	char *context=malloc(1), *buf=NULL;
@@ -474,12 +568,12 @@ int send_chat(char *message){
 		}
 	}
 	char *roleParsed=NULL;
-	parse_input(&roleParsed, modelInfo.role);
+	parse_input(&roleParsed, ocl->role);
 	ssize_t len=
-			strlen(modelInfo.model)
-			+sizeof(modelInfo.temp)
-			+sizeof(modelInfo.maxTokens)
-			+sizeof(modelInfo.numCtx)
+			strlen(ocl->model)
+			+sizeof(ocl->temp)
+			+sizeof(ocl->maxTokens)
+			+sizeof(ocl->numCtx)
 			+strlen(roleParsed)
 			+strlen(context)
 			+strlen(messageParsed)
@@ -496,15 +590,15 @@ int send_chat(char *message){
 			"\"messages\":["
 			"{\"role\":\"system\",\"content\":\"%s\"},"
 			"%s""{\"role\": \"user\",\"content\": \"%s\"}]}",
-			modelInfo.model,
-			modelInfo.temp,
-			modelInfo.maxTokens,
-			modelInfo.numCtx,
+			ocl->model,
+			ocl->temp,
+			ocl->maxTokens,
+			ocl->numCtx,
 			roleParsed,context,
 			messageParsed);
 	free(context);
 	free(roleParsed);
-	len=strlen(settingInfo.srvAddr)+sizeof(settingInfo.srvPort)+sizeof((int) strlen(body))+strlen(body)+512;
+	len=strlen(ocl->srvAddr)+sizeof(ocl->srvPort)+sizeof((int) strlen(body))+strlen(body)+512;
 	char *msg=malloc(len);
 	memset(msg,0,len);
 	snprintf(msg,len,
@@ -512,11 +606,11 @@ int send_chat(char *message){
 			"Host: %s:%d\r\n"
 			"Content-Type: application/json\r\n"
 			"Content-Length: %d\r\n\r\n"
-			"%s",settingInfo.srvAddr,settingInfo.srvPort,(int) strlen(body), body);
+			"%s",ocl->srvAddr,ocl->srvPort,(int) strlen(body), body);
 	free(body);
 	log_debug(msg); //TODO
 	char *fullResponse=NULL;
-	int resp=get_chat_response(settingInfo.srvAddr, msg, &fullResponse);
+	int resp=get_chat_response(ocl, msg, &fullResponse);
 	free(msg);
 	log_debug(fullResponse); //TODO
 	if(resp<0){
@@ -525,61 +619,49 @@ int send_chat(char *message){
 		return resp;
 	}
 	if(!canceled && resp>0 && message[0]!=';'){
-		create_new_context_message(messageParsed, fullResponse, TRUE);
+		create_new_context_message(messageParsed, fullResponse, TRUE, ocl->maxHistoryContext);
+		OCl_save_message(ocl, messageParsed, fullResponse);
 	}
 	free(messageParsed);
 	free(fullResponse);
-	if(resp<=0) return resp;
 	return RETURN_OK;
 }
 
-static int send_message(char *msg, char *buffer){
-	int socketConn=create_connection();
-	if(socketConn<0){
-		print_error("",error_handling(socketConn),FALSE);
-		return RETURN_ERROR;
-	}
+static int send_message(OCl *ocl, char *msg, char *buffer){
+	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
+	if(socketConn<0) return ERR_SOCKET_CREATION_ERROR;
 	int resp=send(socketConn, msg, strlen(msg),0);
 	if(resp<=0){
-		perror("");
-		print_error("",error_handling(resp),FALSE);
 		close(socketConn);
-		return resp;
+		return ERR_SENDING_PACKETS_ERROR;
 	}
 	resp=recv(socketConn,buffer, BUFFER_SIZE_16K,0);
 	if(resp<0){
-		perror("");
-		print_error("",error_handling(resp),FALSE);
 		close(socketConn);
-		return resp;
+		return ERR_RECEIVING_PACKETS_ERROR;
 	}
 	return RETURN_OK;
 }
 
-int check_service_status(){
-	int socketConn=create_connection();
-	if(socketConn<0){
-		print_error("",error_handling(socketConn),FALSE);
-		return RETURN_ERROR;
-	}
+int OCl_check_service_status(OCl *ocl){
 	char msg[2048]="";
 	snprintf(msg,2048,
 			"GET / HTTP/1.1\r\n"
-			"Host: %s:%d\r\n\r\n",settingInfo.srvAddr,settingInfo.srvPort);
+			"Host: %s:%d\r\n\r\n",ocl->srvAddr,ocl->srvPort);
 	char buffer[BUFFER_SIZE_16K]="";
-	send_message(msg, buffer);
+	int retVal=0;
+	if((retVal=send_message(ocl, msg, buffer))!=RETURN_OK) return ERR_SERVICE_UNAVAILABLE;
 	printf("%s\n%s\n%s",Colors.h_white, strstr(buffer,"Ollama"),Colors.def);
 	fflush(stdout);
-	close(socketConn);
 	return RETURN_OK;
 }
 
-int load_model(bool load){
+int OCl_load_model(OCl *ocl, bool load){
 	char body[1024]="";
 	if(load){
-		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": -1}",modelInfo.model);
+		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": -1}",ocl->model);
 	}else{
-		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": 0}",modelInfo.model);
+		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": 0}",ocl->model);
 	}
 	char msg[2048]="";
 	snprintf(msg,2048,
@@ -587,23 +669,21 @@ int load_model(bool load){
 			"Host: %s:%d\r\n"
 			"Content-Type: application/json\r\n"
 			"Content-Length: %d\r\n\r\n"
-			"%s",settingInfo.srvAddr,settingInfo.srvPort,(int) strlen(body), body);
+			"%s",ocl->srvAddr,ocl->srvPort,(int) strlen(body), body);
 	char buffer[BUFFER_SIZE_16K]="";
-	send_message(msg, buffer);
+	if(send_message(ocl, msg, buffer)!=RETURN_OK) return ERR_LOADING_MODEL;
 	if(load){
 		if(strstr(buffer,"200 OK")!=NULL){
 			printf("%s\n%s\n%s",Colors.h_white, "Model succesfully loaded...",Colors.def);
-		}else{
-			printf("%s\n%s\n%s",Colors.h_red, "Error loading model...",Colors.def);
+			return RETURN_OK;
 		}
-		return RETURN_OK;
+		return ERR_LOADING_MODEL;
 	}
 	if(strstr(buffer,"200 OK")!=NULL){
 		printf("%s\n%s\n%s",Colors.h_white, "Model succesfully unloaded...",Colors.def);
-	}else{
-		printf("%s\n%s\n%s",Colors.h_red, "Error unloading model...",Colors.def);
+		return RETURN_OK;
 	}
-	return RETURN_OK;
+	return ERR_UNLOADING_MODEL;
 }
 
 
