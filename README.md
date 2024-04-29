@@ -2,7 +2,7 @@
 
 C program for interacting with Ollama server from a Linux terminal. It is not meant to be a complete library at all. At the moment, it's just the simplest interface that I'm developing solely for my personal and daily usage.
 
-Btw, because of this, the development of ChatGP-Terminal it is not more maintained by now.
+Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lucho-A/ChatGP-Terminal) it is not more maintained by now.
 
 ### Version:
 <ul>
