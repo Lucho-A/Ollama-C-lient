@@ -26,9 +26,8 @@
 #define LIBOLLAMA_C_LIENT_DESCRIPTION				"C library for interacting with Ollama server"
 
 #define DBG											printf("\nWTFFF?!?!\n");
-#define DBG_FILE									"debug.log"
 
-#define OLLAMA_SERVER_ADDR							"192.168.1.2"
+#define OLLAMA_SERVER_ADDR							"127.0.0.1"
 #define OLLAMA_SERVER_PORT							443
 
 #define	RESPONSE_SPEED								15000
