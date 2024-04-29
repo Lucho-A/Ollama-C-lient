@@ -28,8 +28,8 @@
 #define DBG											printf("\nWTFFF?!?!\n");
 #define DBG_FILE									"debug.log"
 
-#define OLLAMA_SERVER_ADDR							"127.0.0.1"
-#define OLLAMA_SERVER_PORT							11434
+#define OLLAMA_SERVER_ADDR							"192.168.1.2"
+#define OLLAMA_SERVER_PORT							443
 
 #define	RESPONSE_SPEED								15000
 
@@ -97,7 +97,7 @@ typedef struct OCl{
 	int socketSendTimeout;
 	int socketRecvTimeout;
 	char *model;
-	char *role;
+	char *systemRole;
 	int maxHistoryContext;
 	double temp;
 	int maxTokens;
@@ -106,8 +106,10 @@ typedef struct OCl{
 	bool showResponseInfo;
 }OCl;
 
-OCl * OCl_init();
-//int OCl_close(OCl *);
+int OCl_init();
+OCl * OCl_get_instance();
+int OCl_free(OCl *);
+int OCl_flush_context();
 int OCl_load_modelfile(OCl *, char *);
 int OCl_send_chat(OCl *, char *);
 int OCl_check_service_status(OCl *);

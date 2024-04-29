@@ -7,7 +7,7 @@
  Copyright   : GNU General Public License v3.0
  Description : Main file
  ============================================================================
-*/
+ */
 
 #include "lib/libOllama-C-lient.h"
 
@@ -29,6 +29,7 @@ OCl *ocl=NULL;
 
 int close_program(OCl *ocl){
 	OCl_load_model(ocl,FALSE);
+	OCl_free(ocl);
 	rl_clear_history();
 	printf("%s\n",Colors.def);
 	exit(EXIT_SUCCESS);
@@ -99,7 +100,8 @@ int main(int argc, char *argv[]) {
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
 	char *modelFile=NULL;
-	ocl=OCl_init();
+	OCl_init();
+	ocl=OCl_get_instance();
 	init_colors(FALSE);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0){
@@ -136,11 +138,12 @@ int main(int argc, char *argv[]) {
 		}
 		print_error(argv[i],": argument not recognized",TRUE);
 	}
+	printf("\n");
 	int retVal=0;
 	if((retVal=OCl_load_modelfile(ocl, modelFile))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
 	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
 	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
-	if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
+	if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error("\n\n",error_handling(retVal),TRUE);
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
 	do{
@@ -153,14 +156,18 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 		if(canceled || strcmp(messagePrompted,"")==0) continue;
-		printf("↵\n%s",Colors.def);
+		printf("↵\n\n%s",Colors.def);
+		if(strcmp(messagePrompted,"flush;")==0){
+			OCl_flush_context();
+			continue;
+		}
 		if((retVal=OCl_send_chat(ocl,messagePrompted))!=RETURN_OK){
 			switch(retVal){
 			case ERR_RESPONSE_MESSAGE_ERROR:
 				break;
 			default:
 				if(canceled){
-					printf("\n");
+					printf("\n\n");
 					break;
 				}
 				print_error("",error_handling(retVal),FALSE);
@@ -168,6 +175,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		add_history(messagePrompted);
+		printf("\n");
 	}while(TRUE);
 	free(messagePrompted);
 	close_program(ocl);
