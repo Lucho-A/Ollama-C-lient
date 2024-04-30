@@ -9,25 +9,24 @@
  ============================================================================
  */
 
-#include "lib/libOllama-C-lient.h"
-
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <signal.h>
 #include <errno.h>
+#include "../src/lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
 #define PROGRAM_VERSION					"0.0.1"
 
 #define PROMPT_DEFAULT					"-> "
-#define BANNER 							printf("\n%s%s v%s by L.%s\n\n",Colors.h_white,PROGRAM_NAME, PROGRAM_VERSION,Colors.def);
+#define BANNER 							printf("\n%s%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>%s\n\n",Colors.h_white,PROGRAM_NAME, PROGRAM_VERSION,Colors.def);
 
 bool canceled=FALSE, exitProgram=FALSE;
 int prevInput=0;
 struct Colors Colors;
 OCl *ocl=NULL;
 
-int close_program(OCl *ocl){
+static int close_program(OCl *ocl){
 	OCl_load_model(ocl,FALSE);
 	OCl_free(ocl);
 	rl_clear_history();
@@ -35,20 +34,15 @@ int close_program(OCl *ocl){
 	exit(EXIT_SUCCESS);
 }
 
-void init_colors(bool uncolored){
-	if(uncolored){
-		Colors.yellow=Colors.h_green=Colors.h_red=Colors.h_cyan=Colors.h_white=Colors.def="";
-		return;
+static void print_error(char *msg, char *error, bool exitProgram){
+	printf("%s%s%s%s",Colors.h_red, msg,error,Colors.def);
+	if(exitProgram){
+		printf("\n\n");
+		exit(EXIT_FAILURE);
 	}
-	Colors.yellow="\e[0;33m";
-	Colors.h_green="\e[0;92m";
-	Colors.h_red="\e[0;91m";
-	Colors.h_cyan="\e[0;96m";
-	Colors.h_white="\e[0;97m";
-	Colors.def="\e[0m";
 }
 
-int readline_input(FILE *stream){
+static int readline_input(FILE *stream){
 	int c=fgetc(stream);
 	if(c==13 && prevInput==27){
 		if(strlen(rl_line_buffer)==0){
@@ -80,7 +74,7 @@ static char *readline_get(const char *prompt, bool addHistory){
 	return(lineRead);
 }
 
-void signal_handler(int signalType){
+static void signal_handler(int signalType){
 	switch(signalType){
 	case SIGINT:
 	case SIGTSTP:
@@ -101,49 +95,53 @@ int main(int argc, char *argv[]) {
 	signal(SIGHUP, signal_handler);
 	char *modelFile=NULL;
 	OCl_init();
+	OCl_init_colors(FALSE);
 	ocl=OCl_get_instance();
-	init_colors(FALSE);
+	int retVal=0;
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0){
 			BANNER;
 			exit(EXIT_SUCCESS);
 		}
 		if(strcmp(argv[i],"--server-addr")==0){
-			ocl->srvAddr=argv[i+1];
+			if((retVal=OCl_set_server_addr(ocl, argv[i+1]))!=RETURN_OK) print_error("\n",OCL_error_handling(retVal),TRUE);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--server-port")==0){
-			ocl->srvPort=strtol(argv[i+1],NULL,10);
+			if((retVal=OCl_set_server_port(ocl, argv[i+1]))!=RETURN_OK) print_error("\n",OCL_error_handling(retVal),TRUE);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--model-file")==0){
+			if(argv[i+1]==NULL) print_error("\n",OCL_error_handling(ERR_MODEL_FILE_NOT_FOUND),TRUE);
+			FILE *f=fopen(argv[i+1],"r");
+			if(f==NULL)print_error("\n",OCL_error_handling(ERR_MODEL_FILE_NOT_FOUND),TRUE);
 			modelFile=argv[i+1];
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--context-file")==0){
-			if(argv[i+1]==NULL) print_error("Error opening context file: ",strerror(errno),TRUE);
-			ocl->contextFile=argv[i+1];
-			FILE *f=fopen(ocl->contextFile,"a");
-			if(f==NULL) print_error("Error opening context file: ",strerror(errno),TRUE);
-			fclose(f);
+			if((retVal=OCl_set_contextfile(ocl, argv[i+1]))!=RETURN_OK) print_error("\n",OCL_error_handling(retVal),TRUE);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--show-response-info")==0){
-			ocl->showResponseInfo=TRUE;
+			OCl_set_show_resp_info(ocl, TRUE);
 			continue;
 		}
+		if(strcmp(argv[i],"--uncolored")==0){
+			OCl_init_colors(TRUE);
+			continue;
+		}
+		printf("\n");
 		print_error(argv[i],": argument not recognized",TRUE);
 	}
 	printf("\n");
-	int retVal=0;
-	if((retVal=OCl_load_modelfile(ocl, modelFile))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
-	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
-	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("",error_handling(retVal),TRUE);
-	if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error("\n\n",error_handling(retVal),TRUE);
+	if((retVal=OCl_load_modelfile(ocl, modelFile))!=RETURN_OK) print_error("",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error("\n\n",OCL_error_handling(retVal),TRUE);
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
 	do{
@@ -170,7 +168,7 @@ int main(int argc, char *argv[]) {
 					printf("\n\n");
 					break;
 				}
-				print_error("",error_handling(retVal),FALSE);
+				print_error("",OCL_error_handling(retVal),FALSE);
 				break;
 			}
 		}

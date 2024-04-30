@@ -65,6 +65,7 @@ enum errors{
 	ERR_RESPONSE_MESSAGE_ERROR,
 	ERR_ZEROBYTESRECV_ERROR,
 	ERR_MODEL_FILE_NOT_FOUND,
+	ERR_CONTEXT_FILE_NOT_FOUND,
 	ERR_OPENING_FILE_ERROR,
 	ERR_OPENING_ROLE_FILE_ERROR,
 	ERR_NO_HISTORY_CONTEXT_ERROR,
@@ -73,11 +74,16 @@ enum errors{
 	ERR_NULL_STRUCT_ERROR,
 	ERR_SERVICE_UNAVAILABLE,
 	ERR_LOADING_MODEL,
-	ERR_UNLOADING_MODEL
+	ERR_UNLOADING_MODEL,
+	ERR_SERVER_ADDR,
+	ERR_PORT,
+	ERR_TEMP,
+	ERR_MAX_MSG_CTX,
+	ERR_MAX_TOKENS_CTX,
+	ERR_MAX_TOKENS
 };
 
-extern struct Colors Colors;
-extern bool canceled;
+typedef struct _ocl OCl;
 
 struct Colors{
 	char *yellow;
@@ -88,34 +94,26 @@ struct Colors{
 	char *def;
 };
 
-typedef struct OCl{
-	char *srvAddr;
-	int srvPort;
-	int responseSpeed;
-	int socketConnectTimeout;
-	int socketSendTimeout;
-	int socketRecvTimeout;
-	char *model;
-	char *systemRole;
-	int maxHistoryContext;
-	double temp;
-	int maxTokens;
-	int numCtx;
-	char *contextFile;
-	bool showResponseInfo;
-}OCl;
+extern struct Colors Colors;
+extern bool canceled;
+
+int OCl_set_server_addr(OCl *, char *);
+int OCl_set_server_port(OCl *, char *);
+int OCl_set_modelfile(OCl *, char *);
+int OCl_set_contextfile(OCl *, char *);
+int OCl_set_show_resp_info(OCl *, bool);
+
+void OCl_init_colors(bool);
 
 int OCl_init();
 OCl * OCl_get_instance();
 int OCl_free(OCl *);
 int OCl_flush_context();
 int OCl_load_modelfile(OCl *, char *);
+int OCl_load_model(OCl *, bool);
 int OCl_send_chat(OCl *, char *);
 int OCl_check_service_status(OCl *);
-int OCl_load_model(OCl *, bool);
 int OCl_import_context(OCl *);
-int OCl_export_context(OCl *);
-void print_error(char *, char *, bool);
-char * error_handling(int);
+char * OCL_error_handling(int);
 
 #endif /* HEADERS_LIBOLLAMA_C_LIENT_H_ */

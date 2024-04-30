@@ -9,7 +9,7 @@
  ============================================================================
  */
 
-#include "libOllama-C-lient.h"
+#include "../../src/lib/libOllama-C-lient.h"
 
 #include <sys/socket.h>
 #include <poll.h>
@@ -23,6 +23,53 @@
 #include <openssl/ssl.h>
 
 #define BUFFER_SIZE_16K						(1024*16)
+
+typedef struct _ocl{
+	char *srvAddr;
+	int srvPort;
+	int responseSpeed;
+	int socketConnectTimeout;
+	int socketSendTimeout;
+	int socketRecvTimeout;
+	char *model;
+	char *systemRole;
+	double temp;
+	int maxMessageContext;
+	int maxTokensContext;
+	int maxTokens;
+	char *contextFile;
+	bool showResponseInfo;
+}OCl;
+
+int OCl_set_server_addr(OCl *ocl, char *param){
+	if(param==NULL) return ERR_SERVER_ADDR;
+	ocl->srvAddr=param;
+	return RETURN_OK;
+}
+
+int OCl_set_server_port(OCl *ocl, char *param){
+	if(param==NULL) return ERR_PORT;
+	char *tail=NULL;
+	int value=0;
+	value=strtol((char*)param, &tail, 10);
+	if(value<1||value>65535||strcmp(tail,"")!=0) return ERR_PORT;
+	ocl->srvPort=value;
+	return RETURN_OK;
+}
+
+int OCl_set_contextfile(OCl *ocl, char *param){
+	if(param==NULL) return ERR_CONTEXT_FILE_NOT_FOUND;
+	FILE *f=fopen(param,"r");
+	if(f==NULL) return ERR_CONTEXT_FILE_NOT_FOUND;
+	fclose(f);
+	ocl->contextFile=param;
+	return RETURN_OK;
+}
+
+int OCl_set_show_resp_info(OCl *ocl, bool param){
+	ocl->showResponseInfo=param;
+	return RETURN_OK;
+}
 
 typedef struct Response{
 	char *fullResponse;
@@ -39,14 +86,27 @@ typedef struct Message{
 Message *rootContextMessages=NULL;
 int contContextMessages=0;
 
+void OCl_init_colors(bool uncolored){
+	if(uncolored){
+		Colors.yellow=Colors.h_green=Colors.h_red=Colors.h_cyan=Colors.h_white=Colors.def="";
+		return;
+	}
+	Colors.yellow="\e[0;33m";
+	Colors.h_green="\e[0;92m";
+	Colors.h_red="\e[0;91m";
+	Colors.h_cyan="\e[0;96m";
+	Colors.h_white="\e[0;97m";
+	Colors.def="\e[0m";
+}
+
 int OCl_init(){
 	SSL_library_init();
 	return RETURN_OK;
 }
 
-struct OCl * OCl_get_instance(char *modelfile){
+OCl * OCl_get_instance(char *modelfile){
 	SSL_library_init();
-	struct OCl *ocl=malloc(sizeof(struct OCl));
+	OCl *ocl=malloc(sizeof(OCl));
 	ocl->srvAddr=OLLAMA_SERVER_ADDR;
 	ocl->srvPort=OLLAMA_SERVER_PORT;
 	ocl->socketConnectTimeout=SOCKET_CONNECT_TIMEOUT_S;
@@ -56,10 +116,10 @@ struct OCl * OCl_get_instance(char *modelfile){
 	ocl->model=NULL;
 	ocl->systemRole=malloc(1);
 	ocl->systemRole[0]=0;
-	ocl->maxHistoryContext=MAX_HISTORY_CONTEXT;
+	ocl->maxMessageContext=MAX_HISTORY_CONTEXT;
 	ocl->temp=TEMP;
 	ocl->maxTokens=MAX_TOKENS;
-	ocl->numCtx=NUM_CTX;
+	ocl->maxTokensContext=NUM_CTX;
 	return ocl;
 }
 
@@ -96,58 +156,48 @@ int OCl_load_modelfile(OCl *ocl, char *modelfile){
 	size_t len=0;
 	char *line=NULL;
 	FILE *f=fopen(modelfile,"r");
-	if(f==NULL) print_error("Error opening model file: ",strerror(errno),TRUE);
-	char *param=NULL;
+	if(f==NULL) return ERR_MODEL_FILE_NOT_FOUND;
 	while((chars=getline(&line, &len, f))!=-1){
 		if((strstr(line,"[MODEL]"))==line){
-			param="model";
-			continue;
-		}
-		if((strstr(line,"[ROLE]"))==line){
-			param="systemRole";
-			continue;
-		}
-		if((strstr(line,"[MAX_HISTORY_CONTEXT]"))==line){
-			param="maxhistoryctx";
-			continue;
-		}
-		if((strstr(line,"[TEMP]"))==line){
-			param="temp";
-			continue;
-		}
-		if((strstr(line,"[MAX_TOKENS]"))==line){
-			param="maxtokens";
-			continue;
-		}
-		if((strstr(line,"[NUM_CTX]"))==line){
-			param="numctx";
-			continue;
-		}
-		if(strcmp(param,"model")==0){
+			chars=getline(&line, &len, f);
 			ocl->model=malloc(chars);
 			memset(ocl->model,0,chars);
 			for(int i=0;i<chars-1;i++) ocl->model[i]=line[i];
 			continue;
 		}
-		if(strcmp(param,"role")==0){
-			ocl->systemRole=realloc(ocl->systemRole,strlen(ocl->systemRole)+chars+1);
-			strcat(ocl->systemRole,line);
+		if((strstr(line,"[TEMP]"))==line){
+			chars=getline(&line, &len, f);
+			char *tail=NULL;
+			ocl->temp=strtod(line,&tail);
+			if(ocl->temp<=0.0 || strcmp(tail,"\n")!=0) return ERR_TEMP;
 			continue;
 		}
-		if(strcmp(param,"maxhistoryctx")==0){
-			ocl->maxHistoryContext=strtol(line,NULL,10);
+		if((strstr(line,"[MAX_MSG_CTX]"))==line){
+			chars=getline(&line, &len, f);
+			char *tail=NULL;
+			ocl->maxMessageContext=strtol(line,&tail,10);
+			if(ocl->maxMessageContext<0 || strcmp(tail,"\n")!=0) return ERR_MAX_MSG_CTX;
 			continue;
 		}
-		if(strcmp(param,"temp")==0){
-			ocl->temp=strtod(line,NULL);
+		if((strstr(line,"[MAX_TOKENS_CTX]"))==line){
+			chars=getline(&line, &len, f);
+			char *tail=NULL;
+			ocl->maxTokensContext=strtol(line,&tail,10);
+			if(ocl->maxTokensContext<0 || strcmp(tail,"\n")!=0) return ERR_MAX_TOKENS_CTX;
 			continue;
 		}
-		if(strcmp(param,"maxtokens")==0){
-			ocl->maxTokens=strtol(line,NULL,10);
+		if((strstr(line,"[MAX_TOKENS]"))==line){
+			chars=getline(&line, &len, f);
+			char *tail=NULL;
+			ocl->maxTokens=strtol(line,&tail,10);
+			if(ocl->maxTokens<0 || strcmp(tail,"\n")!=0) return ERR_MAX_TOKENS;
 			continue;
 		}
-		if(strcmp(param,"numctx")==0){
-			ocl->numCtx=strtol(line,NULL,10);
+		if((strstr(line,"[SYSTEM_ROLE]"))==line){
+			while((chars=getline(&line, &len, f))!=-1){
+				ocl->systemRole=realloc(ocl->systemRole,strlen(ocl->systemRole)+chars+1);
+				strcat(ocl->systemRole,line);
+			}
 			continue;
 		}
 	}
@@ -243,7 +293,7 @@ int OCl_import_context(OCl *ocl){
 		ssize_t chars=0;
 		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;;
 		while((getline(&line, &len, f))!=-1) rows++;
-		if(rows>ocl->maxHistoryContext) initPos=rows-ocl->maxHistoryContext;
+		if(rows>ocl->maxMessageContext) initPos=rows-ocl->maxMessageContext;
 		rewind(f);
 		int contRows=0;
 		while((chars=getline(&line, &len, f))!=-1){
@@ -255,7 +305,7 @@ int OCl_import_context(OCl *ocl){
 				assistantMessage=malloc(chars+1);
 				memset(assistantMessage,0,chars+1);
 				for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
-				create_new_context_message(userMessage, assistantMessage, FALSE, ocl->maxHistoryContext);
+				create_new_context_message(userMessage, assistantMessage, FALSE, ocl->maxMessageContext);
 				free(userMessage);
 				free(assistantMessage);
 			}
@@ -267,15 +317,7 @@ int OCl_import_context(OCl *ocl){
 	return RETURN_OK;
 }
 
-void print_error(char *msg, char *error, bool exitProgram){
-	printf("%s%s%s%s",Colors.h_red, msg,error,Colors.def);
-	if(exitProgram){
-		printf("\n\n");
-		exit(EXIT_FAILURE);
-	}
-}
-
-char * error_handling(int error){
+char * OCL_error_handling(int error){
 	static char error_hndl[1024]="";
 	switch(error){
 	case ERR_MALLOC_ERROR:
@@ -329,6 +371,9 @@ char * error_handling(int error){
 	case ERR_MODEL_FILE_NOT_FOUND:
 		snprintf(error_hndl, 1024,"Model file not found. ");
 		break;
+	case ERR_CONTEXT_FILE_NOT_FOUND:
+		snprintf(error_hndl, 1024,"Context file not found. ");
+		break;
 	case ERR_OPENING_FILE_ERROR:
 		snprintf(error_hndl, 1024,"Error opening file: %s", strerror(errno));
 		break;
@@ -355,6 +400,24 @@ char * error_handling(int error){
 		break;
 	case ERR_UNLOADING_MODEL:
 		snprintf(error_hndl, 1024,"Error unloading model. ");
+		break;
+	case ERR_SERVER_ADDR:
+		snprintf(error_hndl, 1024,"Server address not valid. ");
+		break;
+	case ERR_PORT:
+		snprintf(error_hndl, 1024,"Port not valid. ");
+		break;
+	case ERR_TEMP:
+		snprintf(error_hndl, 1024,"Temperature value not valid. Check modfile.");
+		break;
+	case ERR_MAX_MSG_CTX:
+		snprintf(error_hndl, 1024,"Max. message context value not valid. Check modfile.");
+		break;
+	case ERR_MAX_TOKENS_CTX:
+		snprintf(error_hndl, 1024,"Max. tokens context value not valid. Check modfile.");
+		break;
+	case ERR_MAX_TOKENS:
+		snprintf(error_hndl, 1024,"Max. tokens value not valid. Check modfile.");
 		break;
 	default:
 		snprintf(error_hndl, 1024,"Error not handled. ");
@@ -468,10 +531,7 @@ static void print_response(char *response, long int responseVelocity){
 
 static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
-	if(socketConn<0){
-		print_error("",error_handling(socketConn),FALSE);
-		return RETURN_ERROR;
-	}
+	if(socketConn<0) return ERR_SOCKET_CREATION_ERROR;
 	SSL *sslConn=NULL;
 	SSL_CTX *sslCtx=NULL;
 	if((sslCtx=SSL_CTX_new(TLS_client_method()))==NULL){
@@ -529,27 +589,26 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
 	pfds[0].events=POLLIN;
-	numEvents=poll(pfds, 1, ocl->socketRecvTimeout);
-	if(numEvents==0){
-		close(socketConn);
-		clean_ssl(sslConn);
-		SSL_CTX_free(sslCtx);
-		return ERR_SOCKET_RECV_TIMEOUT_ERROR;
+	*fullResponse=malloc(1);
+	(*fullResponse)[0]=0;
+	if(content!=NULL){
+		*content=malloc(1);
+		(*content)[0]=0;
 	}
-	pollinHappened = pfds[0].revents & POLLIN;
-	if (pollinHappened){
-		printf("%s",Colors.h_white);
-		*fullResponse=malloc(1);
-		(*fullResponse)[0]=0;
-		if(content!=NULL){
-			*content=malloc(1);
-			(*content)[0]=0;
+	printf("%s",Colors.h_white);
+	do{
+		numEvents=poll(pfds, 1, ocl->socketRecvTimeout);
+		if(numEvents==0){
+			close(socketConn);
+			clean_ssl(sslConn);
+			SSL_CTX_free(sslCtx);
+			return ERR_SOCKET_RECV_TIMEOUT_ERROR;
 		}
-		do{
+		pollinHappened = pfds[0].revents & POLLIN;
+		if (pollinHappened){
 			char buffer[BUFFER_SIZE_16K]="";
 			bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
 			if(bytesReceived>0){
-				//printf("\n%s\n",buffer); //TODO
 				totalBytesReceived+=bytesReceived;
 				char result[BUFFER_SIZE_16K]="";
 				if(streamed){
@@ -563,6 +622,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 				*fullResponse=realloc(*fullResponse,totalBytesReceived+1);
 				strcat(*fullResponse,buffer);
 				if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
+				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
 			}
 			if(bytesReceived==0){
 				close(socketConn);
@@ -575,8 +635,8 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 				SSL_CTX_free(sslCtx);
 				return ERR_RECEIVING_PACKETS_ERROR;
 			}
-		}while(TRUE && !canceled);
-	}
+		}
+	}while(TRUE && !canceled);
 	clean_ssl(sslConn);
 	SSL_CTX_free(sslCtx);
 	printf("%s",Colors.def);
@@ -620,7 +680,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 			strlen(ocl->model)
 			+sizeof(ocl->temp)
 			+sizeof(ocl->maxTokens)
-			+sizeof(ocl->numCtx)
+			+sizeof(ocl->maxTokensContext)
 			+strlen(roleParsed)
 			+strlen(context)
 			+strlen(messageParsed)
@@ -641,7 +701,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 			ocl->model,
 			ocl->temp,
 			ocl->maxTokens,
-			ocl->numCtx,
+			ocl->maxTokensContext,
 			roleParsed,context,
 			messageParsed);
 	free(context);
@@ -656,16 +716,16 @@ int OCl_send_chat(OCl *ocl, char *message){
 			"Content-Length: %d\r\n\r\n"
 			"%s",ocl->srvAddr,ocl->srvPort,(int) strlen(body), body);
 	free(body);
-	//printf("\n%s\n",msg); //TODO
 	char *fullResponse=NULL, *content=NULL;
 	int resp=send_message(ocl, msg, &fullResponse, &content, TRUE);
 	free(msg);
 	if(resp<0){
 		free(messageParsed);
 		free(fullResponse);
+		free(content);
 		return resp;
 	}
-	if(!canceled && resp>0 && message[strlen(message)-1]!=';'){
+	if(!canceled && resp>0){
 		if(ocl->showResponseInfo){
 			printf("%s\n\n",Colors.yellow);
 			char result[1024]="";
@@ -697,12 +757,14 @@ int OCl_send_chat(OCl *ocl, char *message){
 
 			printf("- Tokens per sec.: %.2f",ec/ed);
 		}
-		create_new_context_message(messageParsed, content, TRUE, ocl->maxHistoryContext);
-		//printf("\n%s\n%s\n", fullResponse, content);
-		OCl_save_message(ocl, messageParsed, content);
+		if(message[strlen(message)-1]!=';'){
+			create_new_context_message(messageParsed, content, TRUE, ocl->maxMessageContext);
+			OCl_save_message(ocl, messageParsed, content);
+		}
 	}
 	free(messageParsed);
 	free(fullResponse);
+	free(content);
 	return RETURN_OK;
 }
 
@@ -718,8 +780,8 @@ int OCl_check_service_status(OCl *ocl){
 		return ERR_SERVICE_UNAVAILABLE;
 	}
 	if(strstr(buffer,"Ollama")==NULL){
-	 	free(buffer);
-	 	return ERR_SERVICE_UNAVAILABLE;
+		free(buffer);
+		return ERR_SERVICE_UNAVAILABLE;
 	}
 	printf("%s%s\n%s",Colors.h_white, strstr(buffer,"Ollama"),Colors.def);
 	free(buffer);
