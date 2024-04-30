@@ -6,7 +6,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 
 ### Version:
 
-- 0.0.1 (beta/non-productive)
+- 0.0.1 (beta)
 
 ### Features/Assumptions/Scope/Whatever
 
@@ -26,7 +26,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 
 ```
 git clone https://github.com/lucho-a/Ollama-C-lient.git
-cd src/
+cd Ollama-C-lient/src/
 gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lreadline
 ```
 
@@ -46,19 +46,48 @@ The options (and arguments -> 'dataType:defaultValue [boundaries]') supported ar
 
 Note: * mandatory options.
 
-#### Others
+#### Considerations
 
 - The sent messages are kept into the prompt history, so you can retrieve and editing them using the key up & down arrows.
-- In case that you want to input a new line without submitting, just use 'Alt+Enter'. Same key combination for exiting when empty prompt.
+- The sent messages & the responses are written into the context file if '--context-file' is specified.
+- If '--context-file' is specified, the last '[MAX_MSG_CTX]' (parameter in modelfile) messages/responses are read when the program starts as context.
+- So, if '[MAX_MSG_CTX]' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions.
+- If prompting 'flush;', the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
 - The template of modelfile that must be used with '--modelfile': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/modelfile).
-- If the entered prompt finish with ';', the query doesn't take into account the context (and is not written into context file).
-- If prompting 'flush;', the context in RAM (in line with modelfile->MAX_MSG_CTX parameter) will be removing (this action won't delete the messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or change to a new topic.
+- If the entered prompt finish with ';', the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
+- In case that you want to input a new line without submitting, just use 'alt+enter'. Same key combination for exiting when empty prompt.
 
 ### Examples:
+
+#### Suggested set up:
+
+```
+$ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/mymodelModelFile --context-file ~/ollama/context
+```
+
+... with a modelFile like:
+
+```
+[MODEL]
+modelNameAlreadyPulled
+[TEMP]
+0.5
+[MAX_MSG_CTX]
+5
+[MAX_TOKENS_CTX]
+4096
+[MAX_TOKENS]
+4096
+[SYSTEM_ROLE]
+You are the assistance and
+bla,
+bla, bla...
+```
+
+#### Others
 
 ```
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
 $ ollama-c-lient --model-file ~/ollama/any3modelModelFile --uncolored
 ```
-
