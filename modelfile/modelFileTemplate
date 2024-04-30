@@ -1,7 +1,6 @@
 # Model file template. All options has default values (the commented ones), except [MODEL].
 [MODEL]
-phi3
-#modelNameAlreadyPulled
+modelNameAlreadyPulled
 #[TEMP]
 #0.5
 #[MAX_MSG_CTX]
