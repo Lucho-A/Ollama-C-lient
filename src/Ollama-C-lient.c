@@ -13,7 +13,7 @@
 #include <readline/history.h>
 #include <signal.h>
 #include <errno.h>
-#include "../src/lib/libOllama-C-lient.h"
+#include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
 #define PROGRAM_VERSION					"0.0.1"
@@ -94,10 +94,10 @@ int main(int argc, char *argv[]) {
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
 	char *modelFile=NULL;
-	OCl_init();
 	OCl_init_colors(FALSE);
-	ocl=OCl_get_instance();
 	int retVal=0;
+	if((retVal=OCl_init())!=RETURN_OK) print_error("\nOCl init error. ",OCL_error_handling(retVal),TRUE);
+	if((ocl=OCl_get_instance())==NULL) print_error("\nOCl getting instance error. ",NULL,TRUE);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0){
 			BANNER;
@@ -138,9 +138,9 @@ int main(int argc, char *argv[]) {
 		print_error(argv[i],": argument not recognized",TRUE);
 	}
 	printf("\n");
-	if((retVal=OCl_load_modelfile(ocl, modelFile))!=RETURN_OK) print_error("",OCL_error_handling(retVal),TRUE);
-	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("",OCL_error_handling(retVal),TRUE);
-	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_load_modelfile(ocl, modelFile))!=RETURN_OK) print_error("Loading model file error. ",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("Importing context error. ",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("Checking service error. ",OCL_error_handling(retVal),TRUE);
 	if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error("\n\n",OCL_error_handling(retVal),TRUE);
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;

@@ -1,6 +1,6 @@
 /*
  ============================================================================
- Name        : libGPT.c
+ Name        : libOllama-C-lient.c
  Author      : L. (lucho-a.github.io)
  Version     : 0.0.1
  Created on	 : 2024/04/19
@@ -9,7 +9,7 @@
  ============================================================================
  */
 
-#include "../../src/lib/libOllama-C-lient.h"
+#include "libOllama-C-lient.h"
 
 #include <sys/socket.h>
 #include <poll.h>
@@ -21,6 +21,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <openssl/ssl.h>
+#include <openssl/err.h>
 
 #define BUFFER_SIZE_16K						(1024*16)
 
@@ -85,6 +86,7 @@ typedef struct Message{
 
 Message *rootContextMessages=NULL;
 int contContextMessages=0;
+SSL_CTX *sslCtx=NULL;
 
 void OCl_init_colors(bool uncolored){
 	if(uncolored){
@@ -101,6 +103,9 @@ void OCl_init_colors(bool uncolored){
 
 int OCl_init(){
 	SSL_library_init();
+	if((sslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return ERR_SSL_CONTEXT_ERROR;
+	SSL_CTX_set_verify(sslCtx, SSL_VERIFY_PEER, NULL);
+	SSL_CTX_set_default_verify_paths(sslCtx);
 	return RETURN_OK;
 }
 
@@ -113,13 +118,14 @@ OCl * OCl_get_instance(char *modelfile){
 	ocl->socketSendTimeout=SOCKET_SEND_TIMEOUT_MS;
 	ocl->socketRecvTimeout=SOCKET_RECV_TIMEOUT_MS;
 	ocl->responseSpeed=RESPONSE_SPEED;
-	ocl->model=NULL;
+	ocl->model="";
 	ocl->systemRole=malloc(1);
 	ocl->systemRole[0]=0;
 	ocl->maxMessageContext=MAX_HISTORY_CONTEXT;
 	ocl->temp=TEMP;
 	ocl->maxTokens=MAX_TOKENS;
 	ocl->maxTokensContext=NUM_CTX;
+	ocl->contextFile=NULL;
 	return ocl;
 }
 
@@ -319,6 +325,7 @@ int OCl_import_context(OCl *ocl){
 
 char * OCL_error_handling(int error){
 	static char error_hndl[1024]="";
+	int sslErr=ERR_get_error();
 	switch(error){
 	case ERR_MALLOC_ERROR:
 		snprintf(error_hndl, 1024,"Malloc() error: %s", strerror(errno));
@@ -336,19 +343,22 @@ char * OCL_error_handling(int error){
 		snprintf(error_hndl, 1024,"Socket connection time out. ");
 		break;
 	case ERR_SSL_CONTEXT_ERROR:
-		snprintf(error_hndl, 1024,"Error creating SSL context: %s", strerror(errno));
+		snprintf(error_hndl, 1024,"Error creating SSL context: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
+		break;
+	case ERR_SSL_CERT_NOT_FOUND:
+		snprintf(error_hndl, 1024,"SSL cert. not found: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
 	case ERR_SSL_FD_ERROR:
-		snprintf(error_hndl, 1024,"SSL fd error: %s", strerror(errno));
+		snprintf(error_hndl, 1024,"SSL fd error: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
 	case ERR_SSL_CONNECT_ERROR:
-		snprintf(error_hndl, 1024,"SSL Connection error: %s", strerror(errno));
+		snprintf(error_hndl, 1024,"SSL Connection error: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
 	case ERR_SOCKET_SEND_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Sending packet time out. ");
 		break;
 	case ERR_SENDING_PACKETS_ERROR:
-		snprintf(error_hndl, 1024,"Sending packet error. ");
+		snprintf(error_hndl, 1024,"Sending packet error. SSL Error: %s", ERR_error_string(sslErr, NULL));
 		break;
 	case ERR_POLLIN_ERROR:
 		snprintf(error_hndl, 1024,"Pollin error. ");
@@ -360,7 +370,7 @@ char * OCL_error_handling(int error){
 		snprintf(error_hndl, 1024,"Time out value not valid. ");
 		break;
 	case ERR_RECEIVING_PACKETS_ERROR:
-		snprintf(error_hndl, 1024,"Receiving packet error. ");
+		snprintf(error_hndl, 1024,"Receiving packet error. SSL Error: %s",ERR_error_string(sslErr, NULL));
 		break;
 	case ERR_RESPONSE_MESSAGE_ERROR:
 		snprintf(error_hndl, 1024,"Error message into JSON. ");
@@ -373,6 +383,9 @@ char * OCL_error_handling(int error){
 		break;
 	case ERR_CONTEXT_FILE_NOT_FOUND:
 		snprintf(error_hndl, 1024,"Context file not found. ");
+		break;
+	case ERR_CERT_FILE_NOT_FOUND:
+		snprintf(error_hndl, 1024,"Cert. file not found. ");
 		break;
 	case ERR_OPENING_FILE_ERROR:
 		snprintf(error_hndl, 1024,"Error opening file: %s", strerror(errno));
@@ -533,26 +546,18 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<0) return ERR_SOCKET_CREATION_ERROR;
 	SSL *sslConn=NULL;
-	SSL_CTX *sslCtx=NULL;
-	if((sslCtx=SSL_CTX_new(TLS_client_method()))==NULL){
-		SSL_CTX_free(sslCtx);
-		return ERR_SSL_CONTEXT_ERROR;
-	}
 	if((sslConn=SSL_new(sslCtx))==NULL){
 		clean_ssl(sslConn);
-		SSL_CTX_free(sslCtx);
 		return ERR_SSL_CONTEXT_ERROR;
 	}
 	if(!SSL_set_fd(sslConn, socketConn)){
 		clean_ssl(sslConn);
-		SSL_CTX_free(sslCtx);
 		return ERR_SSL_FD_ERROR;
 	}
 	SSL_set_connect_state(sslConn);
 	SSL_set_tlsext_host_name(sslConn, ocl->srvAddr);
 	if(!SSL_connect(sslConn)){
 		clean_ssl(sslConn);
-		SSL_CTX_free(sslCtx);
 		return ERR_SSL_CONNECT_ERROR;
 	}
 	struct pollfd pfds[1];
@@ -564,7 +569,6 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 	if(numEvents==0){
 		close(socketConn);
 		clean_ssl(sslConn);
-		SSL_CTX_free(sslCtx);
 		return ERR_SOCKET_SEND_TIMEOUT_ERROR;
 	}
 	pollinHappened=pfds[0].revents & POLLOUT;
@@ -575,7 +579,6 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(bytesSent<=0){
 				close(socketConn);
 				clean_ssl(sslConn);
-				SSL_CTX_free(sslCtx);
 				if(bytesSent==0) return ERR_ZEROBYTESRECV_ERROR;
 				return ERR_SENDING_PACKETS_ERROR;
 			}
@@ -584,28 +587,26 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 	}else{
 		close(socketConn);
 		clean_ssl(sslConn);
-		SSL_CTX_free(sslCtx);
 		return ERR_POLLIN_ERROR;
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
 	pfds[0].events=POLLIN;
-	*fullResponse=malloc(1);
-	(*fullResponse)[0]=0;
-	if(content!=NULL){
-		*content=malloc(1);
-		(*content)[0]=0;
+	numEvents=poll(pfds, 1, ocl->socketRecvTimeout);
+	if(numEvents==0){
+		close(socketConn);
+		clean_ssl(sslConn);
+		return ERR_SOCKET_RECV_TIMEOUT_ERROR;
 	}
-	printf("%s",Colors.h_white);
-	do{
-		numEvents=poll(pfds, 1, ocl->socketRecvTimeout);
-		if(numEvents==0){
-			close(socketConn);
-			clean_ssl(sslConn);
-			SSL_CTX_free(sslCtx);
-			return ERR_SOCKET_RECV_TIMEOUT_ERROR;
+	pollinHappened = pfds[0].revents & POLLIN;
+	if (pollinHappened){
+		*fullResponse=malloc(1);
+		(*fullResponse)[0]=0;
+		if(content!=NULL){
+			*content=malloc(1);
+			(*content)[0]=0;
 		}
-		pollinHappened = pfds[0].revents & POLLIN;
-		if (pollinHappened){
+		printf("%s",Colors.h_white);
+		do{
 			char buffer[BUFFER_SIZE_16K]="";
 			bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
 			if(bytesReceived>0){
@@ -632,13 +633,12 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(bytesReceived<0 && (errno!=EAGAIN)){
 				close(socketConn);
 				clean_ssl(sslConn);
-				SSL_CTX_free(sslCtx);
 				return ERR_RECEIVING_PACKETS_ERROR;
 			}
-		}
-	}while(TRUE && !canceled);
+
+		}while(TRUE && !canceled);
+	}
 	clean_ssl(sslConn);
-	SSL_CTX_free(sslCtx);
 	printf("%s",Colors.def);
 	return totalBytesReceived;
 }
@@ -725,6 +725,10 @@ int OCl_send_chat(OCl *ocl, char *message){
 		free(content);
 		return resp;
 	}
+	if(strstr(fullResponse,"{\"error")!=NULL){
+		printf("%s\n%s%s",Colors.h_red, strstr(fullResponse,"{\"error"),Colors.def);
+		return ERR_RESPONSE_MESSAGE_ERROR;
+	}
 	if(!canceled && resp>0){
 		if(ocl->showResponseInfo){
 			printf("%s\n\n",Colors.yellow);
@@ -758,6 +762,8 @@ int OCl_send_chat(OCl *ocl, char *message){
 			printf("- Tokens per sec.: %.2f",ec/ed);
 		}
 		if(message[strlen(message)-1]!=';'){
+			char *buf=NULL;
+			parse_input(&buf, content);
 			create_new_context_message(messageParsed, content, TRUE, ocl->maxMessageContext);
 			OCl_save_message(ocl, messageParsed, content);
 		}
@@ -777,7 +783,7 @@ int OCl_check_service_status(OCl *ocl){
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, &buffer,NULL, FALSE))<0){
 		free(buffer);
-		return ERR_SERVICE_UNAVAILABLE;
+		return retVal;
 	}
 	if(strstr(buffer,"Ollama")==NULL){
 		free(buffer);
