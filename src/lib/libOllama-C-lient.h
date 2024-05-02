@@ -18,7 +18,7 @@
 #define RETURN_ERROR 								-1
 #define RETURN_OK 									0
 
-#define LIBOLLAMA_C_LIENT_NAME 						"libGPT"
+#define LIBOLLAMA_C_LIENT_NAME 						"libOCl"
 #define LIBOLLAMA_C_LIENT_MAJOR_VERSION				"0"
 #define LIBOLLAMA_C_LIENT_MINOR_VERSION				"0"
 #define LIBOLLAMA_C_LIENT_MICRO_VERSION				"1"

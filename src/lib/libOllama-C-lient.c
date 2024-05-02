@@ -126,6 +126,7 @@ OCl * OCl_get_instance(char *modelfile){
 	ocl->maxTokens=MAX_TOKENS;
 	ocl->maxTokensContext=NUM_CTX;
 	ocl->contextFile=NULL;
+	ocl->showResponseInfo=FALSE;
 	return ocl;
 }
 
@@ -711,10 +712,12 @@ int OCl_send_chat(OCl *ocl, char *message){
 	memset(msg,0,len);
 	snprintf(msg,len,
 			"POST /api/chat HTTP/1.1\r\n"
-			"Host: %s:%d\r\n"
+			"Host: %s\r\n"
+			"User-agent: Ollama-C-lient/0.0.1 (Linux; x64)\r\n"
+			"Accept: */*\r\n"
 			"Content-Type: application/json\r\n"
 			"Content-Length: %d\r\n\r\n"
-			"%s",ocl->srvAddr,ocl->srvPort,(int) strlen(body), body);
+			"%s",ocl->srvAddr,(int) strlen(body), body);
 	free(body);
 	char *fullResponse=NULL, *content=NULL;
 	int resp=send_message(ocl, msg, &fullResponse, &content, TRUE);
