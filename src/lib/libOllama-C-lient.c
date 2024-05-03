@@ -7,7 +7,7 @@
  Copyright   : GNU General Public License v3.0
  Description : C file
  ============================================================================
- */
+*/
 
 #include "libOllama-C-lient.h"
 
@@ -43,25 +43,25 @@ typedef struct _ocl{
 }OCl;
 
 int OCl_set_server_addr(OCl *ocl, char *param){
-	if(param==NULL) return ERR_SERVER_ADDR;
+	if(param==NULL) return OCL_ERR_SERVER_ADDR;
 	ocl->srvAddr=param;
 	return RETURN_OK;
 }
 
 int OCl_set_server_port(OCl *ocl, char *param){
-	if(param==NULL) return ERR_PORT;
+	if(param==NULL) return OCL_ERR_PORT;
 	char *tail=NULL;
 	int value=0;
 	value=strtol((char*)param, &tail, 10);
-	if(value<1||value>65535||strcmp(tail,"")!=0) return ERR_PORT;
+	if(value<1||value>65535||strcmp(tail,"")!=0) return OCL_ERR_PORT;
 	ocl->srvPort=value;
 	return RETURN_OK;
 }
 
 int OCl_set_contextfile(OCl *ocl, char *param){
-	if(param==NULL) return ERR_CONTEXT_FILE_NOT_FOUND;
+	if(param==NULL) return OCL_ERR_CONTEXT_FILE_NOT_FOUND;
 	FILE *f=fopen(param,"r");
-	if(f==NULL) return ERR_CONTEXT_FILE_NOT_FOUND;
+	if(f==NULL) return OCL_ERR_CONTEXT_FILE_NOT_FOUND;
 	fclose(f);
 	ocl->contextFile=param;
 	return RETURN_OK;
@@ -103,7 +103,7 @@ void OCl_init_colors(bool uncolored){
 
 int OCl_init(){
 	SSL_library_init();
-	if((sslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return ERR_SSL_CONTEXT_ERROR;
+	if((sslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return OCL_ERR_SSL_CONTEXT_ERROR;
 	SSL_CTX_set_verify(sslCtx, SSL_VERIFY_PEER, NULL);
 	SSL_CTX_set_default_verify_paths(sslCtx);
 	return RETURN_OK;
@@ -163,7 +163,7 @@ int OCl_load_modelfile(OCl *ocl, char *modelfile){
 	size_t len=0;
 	char *line=NULL;
 	FILE *f=fopen(modelfile,"r");
-	if(f==NULL) return ERR_MODEL_FILE_NOT_FOUND;
+	if(f==NULL) return OCL_ERR_MODEL_FILE_NOT_FOUND;
 	while((chars=getline(&line, &len, f))!=-1){
 		if((strstr(line,"[MODEL]"))==line){
 			chars=getline(&line, &len, f);
@@ -176,28 +176,28 @@ int OCl_load_modelfile(OCl *ocl, char *modelfile){
 			chars=getline(&line, &len, f);
 			char *tail=NULL;
 			ocl->temp=strtod(line,&tail);
-			if(ocl->temp<=0.0 || strcmp(tail,"\n")!=0) return ERR_TEMP;
+			if(ocl->temp<=0.0 || strcmp(tail,"\n")!=0) return OCL_ERR_TEMP;
 			continue;
 		}
 		if((strstr(line,"[MAX_MSG_CTX]"))==line){
 			chars=getline(&line, &len, f);
 			char *tail=NULL;
 			ocl->maxMessageContext=strtol(line,&tail,10);
-			if(ocl->maxMessageContext<0 || strcmp(tail,"\n")!=0) return ERR_MAX_MSG_CTX;
+			if(ocl->maxMessageContext<0 || strcmp(tail,"\n")!=0) return OCL_ERR_MAX_MSG_CTX;
 			continue;
 		}
 		if((strstr(line,"[MAX_TOKENS_CTX]"))==line){
 			chars=getline(&line, &len, f);
 			char *tail=NULL;
 			ocl->maxTokensContext=strtol(line,&tail,10);
-			if(ocl->maxTokensContext<0 || strcmp(tail,"\n")!=0) return ERR_MAX_TOKENS_CTX;
+			if(ocl->maxTokensContext<0 || strcmp(tail,"\n")!=0) return OCL_ERR_MAX_TOKENS_CTX;
 			continue;
 		}
 		if((strstr(line,"[MAX_TOKENS]"))==line){
 			chars=getline(&line, &len, f);
 			char *tail=NULL;
 			ocl->maxTokens=strtol(line,&tail,10);
-			if(ocl->maxTokens<0 || strcmp(tail,"\n")!=0) return ERR_MAX_TOKENS;
+			if(ocl->maxTokens<0 || strcmp(tail,"\n")!=0) return OCL_ERR_MAX_TOKENS;
 			continue;
 		}
 		if((strstr(line,"[SYSTEM_ROLE]"))==line){
@@ -226,7 +226,7 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family=AF_INET;
 	hints.ai_socktype=SOCK_STREAM;
-	if(getaddrinfo(srvAddr, NULL, &hints, &res)!=0) return ERR_GETTING_HOST_INFO_ERROR;
+	if(getaddrinfo(srvAddr, NULL, &hints, &res)!=0) return OCL_ERR_GETTING_HOST_INFO_ERROR;
 	struct sockaddr_in *ipv4=(struct sockaddr_in *)res->ai_addr;
 	void *addr=&(ipv4->sin_addr);
 	inet_ntop(res->ai_family, addr, ollamaServerIp, sizeof(ollamaServerIp));
@@ -236,7 +236,7 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 	serverAddress.sin_family=AF_INET;
 	serverAddress.sin_port=htons(srvPort);
 	serverAddress.sin_addr.s_addr=inet_addr(ollamaServerIp);
-	if((socketConn=socket(AF_INET, SOCK_STREAM, 0))<0) return ERR_SOCKET_CREATION_ERROR;
+	if((socketConn=socket(AF_INET, SOCK_STREAM, 0))<0) return OCL_ERR_SOCKET_CREATION_ERROR;
 	int socketFlags=fcntl(socketConn, F_GETFL, 0);
 	fcntl(socketConn, F_SETFL, socketFlags | O_NONBLOCK);
 	connect(socketConn, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
@@ -247,7 +247,7 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 	wFdset=rFdset;
 	tv.tv_sec=socketConnectTimeout;
 	tv.tv_usec=0;
-	if(select(socketConn+1,&rFdset,&wFdset,NULL,&tv)<=0) return ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
+	if(select(socketConn+1,&rFdset,&wFdset,NULL,&tv)<=0) return OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
 	fcntl(socketConn, F_SETFL, socketFlags);
 	return socketConn;
 }
@@ -285,7 +285,7 @@ static void create_new_context_message(char *userMessage, char *assistantMessage
 int OCl_save_message(OCl *ocl, char *userMessage, char *assistantMessage){
 	if(ocl->contextFile!=NULL){
 		FILE *f=fopen(ocl->contextFile,"a");
-		if(f==NULL) return ERR_OPENING_FILE_ERROR;
+		if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
 		fprintf(f,"%s\t%s\n",userMessage,assistantMessage);
 		fclose(f);
 	}
@@ -295,7 +295,7 @@ int OCl_save_message(OCl *ocl, char *userMessage, char *assistantMessage){
 int OCl_import_context(OCl *ocl){
 	if(ocl->contextFile!=NULL){
 		FILE *f=fopen(ocl->contextFile,"r");
-		if(f==NULL) return ERR_OPENING_FILE_ERROR;
+		if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
 		size_t len=0, i=0, rows=0, initPos=0;
 		ssize_t chars=0;
 		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;;
@@ -328,109 +328,109 @@ char * OCL_error_handling(int error){
 	static char error_hndl[1024]="";
 	int sslErr=ERR_get_error();
 	switch(error){
-	case ERR_MALLOC_ERROR:
+	case OCL_ERR_MALLOC_ERROR:
 		snprintf(error_hndl, 1024,"Malloc() error: %s", strerror(errno));
 		break;
-	case ERR_REALLOC_ERROR:
+	case OCL_ERR_REALLOC_ERROR:
 		snprintf(error_hndl, 1024,"Realloc() error: %s", strerror(errno));
 		break;
-	case ERR_GETTING_HOST_INFO_ERROR:
+	case OCL_ERR_GETTING_HOST_INFO_ERROR:
 		snprintf(error_hndl, 1024,"Error getting host info: %s", strerror(errno));
 		break;
-	case ERR_SOCKET_CREATION_ERROR:
+	case OCL_ERR_SOCKET_CREATION_ERROR:
 		snprintf(error_hndl, 1024,"Error creating socket: %s", strerror(errno));
 		break;
-	case ERR_SOCKET_CONNECTION_TIMEOUT_ERROR:
+	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Socket connection time out. ");
 		break;
-	case ERR_SSL_CONTEXT_ERROR:
+	case OCL_ERR_SSL_CONTEXT_ERROR:
 		snprintf(error_hndl, 1024,"Error creating SSL context: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
-	case ERR_SSL_CERT_NOT_FOUND:
+	case OCL_ERR_SSL_CERT_NOT_FOUND:
 		snprintf(error_hndl, 1024,"SSL cert. not found: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
-	case ERR_SSL_FD_ERROR:
+	case OCL_ERR_SSL_FD_ERROR:
 		snprintf(error_hndl, 1024,"SSL fd error: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
-	case ERR_SSL_CONNECT_ERROR:
+	case OCL_ERR_SSL_CONNECT_ERROR:
 		snprintf(error_hndl, 1024,"SSL Connection error: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
-	case ERR_SOCKET_SEND_TIMEOUT_ERROR:
+	case OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Sending packet time out. ");
 		break;
-	case ERR_SENDING_PACKETS_ERROR:
+	case OCL_ERR_SENDING_PACKETS_ERROR:
 		snprintf(error_hndl, 1024,"Sending packet error. SSL Error: %s", ERR_error_string(sslErr, NULL));
 		break;
-	case ERR_POLLIN_ERROR:
+	case OCL_ERR_POLLIN_ERROR:
 		snprintf(error_hndl, 1024,"Pollin error. ");
 		break;
-	case ERR_SOCKET_RECV_TIMEOUT_ERROR:
+	case OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Receiving packet time out. ");
 		break;
-	case ERR_RECV_TIMEOUT_ERROR:
+	case OCL_ERR_RECV_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Time out value not valid. ");
 		break;
-	case ERR_RECEIVING_PACKETS_ERROR:
+	case OCL_ERR_RECEIVING_PACKETS_ERROR:
 		snprintf(error_hndl, 1024,"Receiving packet error. SSL Error: %s",ERR_error_string(sslErr, NULL));
 		break;
-	case ERR_RESPONSE_MESSAGE_ERROR:
+	case OCL_ERR_RESPONSE_MESSAGE_ERROR:
 		snprintf(error_hndl, 1024,"Error message into JSON. ");
 		break;
-	case ERR_ZEROBYTESRECV_ERROR:
+	case OCL_ERR_ZEROBYTESRECV_ERROR:
 		snprintf(error_hndl, 1024,"Zero bytes received. Try again...");
 		break;
-	case ERR_MODEL_FILE_NOT_FOUND:
+	case OCL_ERR_MODEL_FILE_NOT_FOUND:
 		snprintf(error_hndl, 1024,"Model file not found. ");
 		break;
-	case ERR_CONTEXT_FILE_NOT_FOUND:
+	case OCL_ERR_CONTEXT_FILE_NOT_FOUND:
 		snprintf(error_hndl, 1024,"Context file not found. ");
 		break;
-	case ERR_CERT_FILE_NOT_FOUND:
+	case OCL_ERR_CERT_FILE_NOT_FOUND:
 		snprintf(error_hndl, 1024,"Cert. file not found. ");
 		break;
-	case ERR_OPENING_FILE_ERROR:
+	case OCL_ERR_OPENING_FILE_ERROR:
 		snprintf(error_hndl, 1024,"Error opening file: %s", strerror(errno));
 		break;
-	case ERR_OPENING_ROLE_FILE_ERROR:
+	case OCL_ERR_OPENING_ROLE_FILE_ERROR:
 		snprintf(error_hndl, 1024,"Error opening 'Role' file: %s", strerror(errno));
 		break;
-	case ERR_NO_HISTORY_CONTEXT_ERROR:
+	case OCL_ERR_NO_HISTORY_CONTEXT_ERROR:
 		snprintf(error_hndl, 1024,"No message to save. ");
 		break;
-	case ERR_UNEXPECTED_JSON_FORMAT_ERROR:
+	case OCL_ERR_UNEXPECTED_JSON_FORMAT_ERROR:
 		snprintf(error_hndl, 1024,"Unexpected JSON format error. ");
 		break;
-	case ERR_CONTEXT_MSGS_ERROR:
+	case OCL_ERR_CONTEXT_MSGS_ERROR:
 		snprintf(error_hndl, 1024,"'Max. Context Message' value out-of-boundaries. ");
 		break;
-	case ERR_NULL_STRUCT_ERROR:
+	case OCL_ERR_NULL_STRUCT_ERROR:
 		snprintf(error_hndl, 1024,"ChatGPT structure null. ");
 		break;
-	case ERR_SERVICE_UNAVAILABLE:
+	case OCL_ERR_SERVICE_UNAVAILABLE:
 		snprintf(error_hndl, 1024,"Service unavailable. ");
 		break;
-	case ERR_LOADING_MODEL:
+	case OCL_ERR_LOADING_MODEL:
 		snprintf(error_hndl, 1024,"Error loading model. ");
 		break;
-	case ERR_UNLOADING_MODEL:
+	case OCL_ERR_UNLOADING_MODEL:
 		snprintf(error_hndl, 1024,"Error unloading model. ");
 		break;
-	case ERR_SERVER_ADDR:
+	case OCL_ERR_SERVER_ADDR:
 		snprintf(error_hndl, 1024,"Server address not valid. ");
 		break;
-	case ERR_PORT:
+	case OCL_ERR_PORT:
 		snprintf(error_hndl, 1024,"Port not valid. ");
 		break;
-	case ERR_TEMP:
+	case OCL_ERR_TEMP:
 		snprintf(error_hndl, 1024,"Temperature value not valid. Check modfile.");
 		break;
-	case ERR_MAX_MSG_CTX:
+	case OCL_ERR_MAX_MSG_CTX:
 		snprintf(error_hndl, 1024,"Max. message context value not valid. Check modfile.");
 		break;
-	case ERR_MAX_TOKENS_CTX:
+	case OCL_ERR_MAX_TOKENS_CTX:
 		snprintf(error_hndl, 1024,"Max. tokens context value not valid. Check modfile.");
 		break;
-	case ERR_MAX_TOKENS:
+	case OCL_ERR_MAX_TOKENS:
 		snprintf(error_hndl, 1024,"Max. tokens value not valid. Check modfile.");
 		break;
 	default:
@@ -445,7 +445,14 @@ static int get_string_from_token(char *text, char *token, char *result, char end
 	char *message=NULL;
 	message=strstr(text,token);
 	if(message==NULL) return RETURN_ERROR;
-	for(int i=strlen(token);(message[i-1]=='\\' || message[i]!=endChar);i++,cont++) (result)[cont]=message[i];
+	for(int i=strlen(token);(message[i-1]=='\\' || message[i]!=endChar);i++,cont++){
+		if(message[i]=='\\' && message[i+1]=='\"' && message[i+2]=='}' && message[i+3]==','){
+			(result)[cont]='\\';
+			i+=3;
+			continue;
+		}
+		(result)[cont]=message[i];
+	}
 	return RETURN_OK;
 }
 
@@ -454,10 +461,10 @@ static int parse_input(char **stringTo, char *stringFrom){
 	for(int i=0;i<strlen(stringFrom);i++){
 		switch(stringFrom[i]){
 		case '\"':
-		case '\\':
 		case '\n':
 		case '\t':
 		case '\r':
+		case '\\':
 			contEsc++;
 			break;
 		default:
@@ -469,9 +476,8 @@ static int parse_input(char **stringTo, char *stringFrom){
 	for(int i=0;i<strlen(stringFrom);i++,cont++){
 		switch(stringFrom[i]){
 		case '\"':
-		case '\\':
 			(*stringTo)[cont]='\\';
-			(*stringTo)[++cont]=stringFrom[i];
+			(*stringTo)[++cont]='\"';
 			break;
 		case '\n':
 			(*stringTo)[cont]='\\';
@@ -484,6 +490,10 @@ static int parse_input(char **stringTo, char *stringFrom){
 		case '\r':
 			(*stringTo)[cont]='\\';
 			(*stringTo)[++cont]='r';
+			break;
+		case '\\':
+			(*stringTo)[cont]='\\';
+			(*stringTo)[++cont]='\\';
 			break;
 		default:
 			(*stringTo)[cont]=stringFrom[i];
@@ -545,21 +555,21 @@ static void print_response(char *response, long int responseVelocity){
 
 static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
-	if(socketConn<0) return ERR_SOCKET_CREATION_ERROR;
+	if(socketConn<0) return OCL_ERR_SOCKET_CREATION_ERROR;
 	SSL *sslConn=NULL;
 	if((sslConn=SSL_new(sslCtx))==NULL){
 		clean_ssl(sslConn);
-		return ERR_SSL_CONTEXT_ERROR;
+		return OCL_ERR_SSL_CONTEXT_ERROR;
 	}
 	if(!SSL_set_fd(sslConn, socketConn)){
 		clean_ssl(sslConn);
-		return ERR_SSL_FD_ERROR;
+		return OCL_ERR_SSL_FD_ERROR;
 	}
 	SSL_set_connect_state(sslConn);
 	SSL_set_tlsext_host_name(sslConn, ocl->srvAddr);
 	if(!SSL_connect(sslConn)){
 		clean_ssl(sslConn);
-		return ERR_SSL_CONNECT_ERROR;
+		return OCL_ERR_SSL_CONNECT_ERROR;
 	}
 	struct pollfd pfds[1];
 	int numEvents=0,pollinHappened=0,bytesSent=0;
@@ -570,7 +580,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 	if(numEvents==0){
 		close(socketConn);
 		clean_ssl(sslConn);
-		return ERR_SOCKET_SEND_TIMEOUT_ERROR;
+		return OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR;
 	}
 	pollinHappened=pfds[0].revents & POLLOUT;
 	if(pollinHappened){
@@ -580,15 +590,15 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(bytesSent<=0){
 				close(socketConn);
 				clean_ssl(sslConn);
-				if(bytesSent==0) return ERR_ZEROBYTESRECV_ERROR;
-				return ERR_SENDING_PACKETS_ERROR;
+				if(bytesSent==0) return OCL_ERR_ZEROBYTESRECV_ERROR;
+				return OCL_ERR_SENDING_PACKETS_ERROR;
 			}
 			totalBytesSent+=bytesSent;
 		}
 	}else{
 		close(socketConn);
 		clean_ssl(sslConn);
-		return ERR_POLLIN_ERROR;
+		return OCL_ERR_POLLIN_ERROR;
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
 	pfds[0].events=POLLIN;
@@ -596,7 +606,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 	if(numEvents==0){
 		close(socketConn);
 		clean_ssl(sslConn);
-		return ERR_SOCKET_RECV_TIMEOUT_ERROR;
+		return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
 	}
 	pollinHappened = pfds[0].revents & POLLIN;
 	if (pollinHappened){
@@ -634,7 +644,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(bytesReceived<0 && (errno!=EAGAIN)){
 				close(socketConn);
 				clean_ssl(sslConn);
-				return ERR_RECEIVING_PACKETS_ERROR;
+				return OCL_ERR_RECEIVING_PACKETS_ERROR;
 			}
 
 		}while(TRUE && !canceled);
@@ -659,7 +669,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 			if(buf==NULL){
 				free(messageParsed);
 				free(context);
-				return ERR_MALLOC_ERROR;
+				return OCL_ERR_MALLOC_ERROR;
 			}
 			memset(buf,0,len);
 			snprintf(buf,len,contextTemplate,temp->userMessage,temp->assistantMessage);
@@ -668,7 +678,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 				free(messageParsed);
 				free(context);
 				free(buf);
-				return ERR_REALLOC_ERROR;
+				return OCL_ERR_REALLOC_ERROR;
 			}
 			strcat(context,buf);
 			temp=temp->nextMessage;
@@ -694,6 +704,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 			"\"max_tokens\": %d,"
 			"\"num_ctx\": %d,"
 			"\"stream\": true,"
+			//"\"format\": \"json\","
 			"\"keep_alive\": -1,"
 			"\"stop\": null,"
 			"\"messages\":["
@@ -715,7 +726,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 			"Host: %s\r\n"
 			"User-agent: Ollama-C-lient/0.0.1 (Linux; x64)\r\n"
 			"Accept: */*\r\n"
-			"Content-Type: application/json\r\n"
+			"Content-Type: application/json; charset=utf-8\r\n"
 			"Content-Length: %d\r\n\r\n"
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	free(body);
@@ -730,7 +741,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 	}
 	if(strstr(fullResponse,"{\"error")!=NULL){
 		printf("%s\n%s%s",Colors.h_red, strstr(fullResponse,"{\"error"),Colors.def);
-		return ERR_RESPONSE_MESSAGE_ERROR;
+		return OCL_ERR_RESPONSE_MESSAGE_ERROR;
 	}
 	if(!canceled && resp>0){
 		if(ocl->showResponseInfo){
@@ -765,8 +776,6 @@ int OCl_send_chat(OCl *ocl, char *message){
 			printf("- Tokens per sec.: %.2f",ec/ed);
 		}
 		if(message[strlen(message)-1]!=';'){
-			char *buf=NULL;
-			parse_input(&buf, content);
 			create_new_context_message(messageParsed, content, TRUE, ocl->maxMessageContext);
 			OCl_save_message(ocl, messageParsed, content);
 		}
@@ -790,7 +799,7 @@ int OCl_check_service_status(OCl *ocl){
 	}
 	if(strstr(buffer,"Ollama")==NULL){
 		free(buffer);
-		return ERR_SERVICE_UNAVAILABLE;
+		return OCL_ERR_SERVICE_UNAVAILABLE;
 	}
 	printf("%s%s\n%s",Colors.h_white, strstr(buffer,"Ollama"),Colors.def);
 	free(buffer);
@@ -823,7 +832,7 @@ int OCl_load_model(OCl *ocl, bool load){
 	if(strstr(buffer,"{\"error")!=NULL){
 		printf("%s\n\n%s%s",Colors.h_red, strstr(buffer,"{\"error"),Colors.def);
 		free(buffer);
-		return ERR_LOADING_MODEL;
+		return OCL_ERR_LOADING_MODEL;
 	}
 	if(strstr(buffer,"200 OK")!=NULL){
 		printf("%s%s\n%s",Colors.h_green, "OK",Colors.def);
@@ -831,8 +840,5 @@ int OCl_load_model(OCl *ocl, bool load){
 		return RETURN_OK;
 	}
 	free(buffer);
-	return ERR_LOADING_MODEL;
+	return OCL_ERR_LOADING_MODEL;
 }
-
-
-

@@ -19,6 +19,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 ### Dependencies:
 
 - libssl.so.3
+- libcrypto.so.3
 - libreadline.so.8
 - libc.so.6
 
@@ -27,7 +28,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 ```
 git clone https://github.com/lucho-a/Ollama-C-lient.git
 cd Ollama-C-lient/src/
-gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lreadline
+gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto -lreadline
 ```
 
 ### Usage:
@@ -36,7 +37,7 @@ gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lreadline
 
 The options (and arguments -> 'dataType:defaultValue [boundaries]') supported are:
 
-- --version             N/A
+- --version             N/A:N/A
 - --server-addr         string:127.0.0.1
 - --server-port         int:443 [1-65535]
 - --model-file          string*

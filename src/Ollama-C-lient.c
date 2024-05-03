@@ -114,9 +114,9 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--model-file")==0){
-			if(argv[i+1]==NULL) print_error("\n",OCL_error_handling(ERR_MODEL_FILE_NOT_FOUND),TRUE);
+			if(argv[i+1]==NULL) print_error("\n",OCL_error_handling(OCL_ERR_MODEL_FILE_NOT_FOUND),TRUE);
 			FILE *f=fopen(argv[i+1],"r");
-			if(f==NULL)print_error("\n",OCL_error_handling(ERR_MODEL_FILE_NOT_FOUND),TRUE);
+			if(f==NULL)print_error("\n",OCL_error_handling(OCL_ERR_MODEL_FILE_NOT_FOUND),TRUE);
 			modelFile=argv[i+1];
 			i++;
 			continue;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
 		}
 		if((retVal=OCl_send_chat(ocl,messagePrompted))!=RETURN_OK){
 			switch(retVal){
-			case ERR_RESPONSE_MESSAGE_ERROR:
+			case OCL_ERR_RESPONSE_MESSAGE_ERROR:
 				break;
 			default:
 				if(canceled){
