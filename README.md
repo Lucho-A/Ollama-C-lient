@@ -57,7 +57,7 @@ Note: * mandatory options.
 - The template of modelfile that must be used with '--modelfile': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/modelfile).
 - '--setting-file' allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/settingfile). The parameters set up in this file, override any parameter passed with any other option.
 - the font format in 'settings' file must be ANSI.
-- if not setting file is specified, uncolored is set by default|.
+- if not setting file is specified, uncolored is set by default.
 - If the entered prompt finish with ';', the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
 - In case that you want to input a new line without submitting, just use 'alt+enter'. Same key combination for exiting when empty prompt.
 
@@ -66,7 +66,7 @@ Note: * mandatory options.
 #### Suggested set up:
 
 ```
-$ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/mymodelFile --model-file ~/ollama/settingFile --context-file ~/ollama/context
+$ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --context-file ~/ollama/context
 ```
 
 ... with a modelFile like:
