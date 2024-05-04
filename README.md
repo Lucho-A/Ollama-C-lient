@@ -66,7 +66,7 @@ Note: * mandatory options.
 #### Suggested set up:
 
 ```
-$ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --context-file ~/ollama/context
+$ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --context-file ~/ollama/context
 ```
 
 ... with a modelFile like:
