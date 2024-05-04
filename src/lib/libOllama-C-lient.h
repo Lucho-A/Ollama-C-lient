@@ -87,28 +87,11 @@ enum errors{
 
 typedef struct _ocl OCl;
 
-struct Colors{
-	char *yellow;
-	char *h_green;
-	char *h_red;
-	char *h_cyan;
-	char *h_white;
-	char *def;
-};
-
-extern struct Colors Colors;
 extern bool canceled;
 
-int OCl_set_server_addr(OCl *, char *);
-int OCl_set_server_port(OCl *, char *);
-int OCl_set_modelfile(OCl *, char *);
-int OCl_set_contextfile(OCl *, char *);
-int OCl_set_show_resp_info(OCl *, bool);
-
-void OCl_init_colors(bool);
-
 int OCl_init();
-OCl * OCl_get_instance();
+int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *, char *,
+		char *,char *, char *, char *, char *, char *);
 int OCl_free(OCl *);
 int OCl_flush_context();
 int OCl_load_modelfile(OCl *, char *);
@@ -117,5 +100,14 @@ int OCl_send_chat(OCl *, char *);
 int OCl_check_service_status(OCl *);
 int OCl_import_context(OCl *);
 char * OCL_error_handling(int);
+
+double OCL_get_load_duration(OCl *);
+double OCL_get_prompt_eval_duration(OCl *);
+double OCL_get_eval_duration(OCl *);
+double OCL_get_total_duration(OCl *);
+int OCL_get_prompt_eval_count(OCl *);
+int OCL_get_eval_count(OCl *);
+double OCL_get_tokens_per_sec(OCl *);
+char * OCL_get_error(OCl *);
 
 #endif /* HEADERS_LIBOLLAMA_C_LIENT_H_ */
