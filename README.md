@@ -35,15 +35,17 @@ gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto -lreadline
 
 - $ ollama-c-lient [options]
 
-The options (and arguments -> 'dataType:defaultValue [boundaries]') supported are:
+The options supported are:
 
-- --version             N/A:N/A
-- --server-addr         string:127.0.0.1
-- --server-port         int:443 [1-65535]
-- --model-file          string*
-- --setting-file        string
-- --context-file        string
-- --show-response-info  N/A:FALSE
+| Parameter | dataType:defaultValue [boundaries] |
+|:--------- | :---------------------------------
+|--version | N/A:N/A |
+|--server-addr | string:127.0.0.1 |
+|--server-port | int:443 [1-65535] |
+|--model-file | string* |
+|--setting-file | string |
+|--context-file | string |
+|--show-response-info | N/A:FALSE |
 
 Note: * mandatory options.
 
