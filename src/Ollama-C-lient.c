@@ -43,7 +43,7 @@ char socketRecvTo[512]="";
 char responseFont[16]="";
 
 static void print_error(char *msg, char *error, bool exitProgram){
-	printf("%s%s. %s",errorFont, msg,error);
+	printf("%sERROR: %s %s",errorFont, msg,error);
 	if(exitProgram){
 		printf("\n\n");
 		exit(EXIT_FAILURE);
@@ -302,20 +302,22 @@ int main(int argc, char *argv[]) {
 		print_error(argv[i],": argument not recognized",TRUE);
 	}
 	printf("\n");
-	if((retVal=load_modelfile(modelFile))!=RETURN_OK) print_error("Loading model file error. ",OCL_error_handling(retVal),TRUE);
+	if(modelFile!=NULL){
+		if((retVal=load_modelfile(modelFile))!=RETURN_OK) print_error("Loading model file error. ",OCL_error_handling(retVal),TRUE);
+	}
 	if(settingFile!=NULL){
-		if((retVal=load_settingfile(settingFile))!=RETURN_OK) print_error("Loading model file error. ",OCL_error_handling(retVal),TRUE);
+		if((retVal=load_settingfile(settingFile))!=RETURN_OK) print_error("Loading setting file error. ",OCL_error_handling(retVal),TRUE);
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo,
 			responseSpeed, responseFont, model, systemRole, maxMsgCtx, temp, maxTokens,maxTokensCtx,
 			contextFile))!=RETURN_OK)
-					print_error("\nOCl getting instance error. ",OCL_error_handling(retVal),TRUE);
+		print_error("OCl getting instance error. ",OCL_error_handling(retVal),TRUE);
 	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("\nImporting context error. ",OCL_error_handling(retVal),TRUE);
 	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("\n\nService not available. ",OCL_error_handling(retVal),TRUE);
-	print_system_msg("Ollama is running\n");
-	print_system_msg("\nLoading model...");
-	if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error(OCL_get_error(ocl),OCL_error_handling(retVal),TRUE);
-	printf("OK\n");
+	print_system_msg("Server status: Ollama is running\n");
+	if(strcmp(OCl_get_model(ocl),"")!=0){
+		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+	}
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
 	do{
@@ -328,11 +330,29 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 		if(canceled || strcmp(messagePrompted,"")==0) continue;
-		printf("↵\n\n");
+		printf("↵\n");
 		if(strcmp(messagePrompted,"flush;")==0){
 			OCl_flush_context();
 			continue;
 		}
+		if(strncmp(messagePrompted,"model;", strlen("model;"))==0){
+			if(strcmp(OCl_get_model(ocl),"")!=0){
+				if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
+					print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+					printf("\n");
+				}
+			}
+			OCl_set_model(ocl,messagePrompted+strlen("model;"));
+			if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK){
+				printf("\n");
+				print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+				printf("\n");
+				OCl_set_model(ocl, "");
+				continue;
+			}
+			continue;
+		}
+		printf("\n");
 		if((retVal=OCl_send_chat(ocl,messagePrompted))!=RETURN_OK){
 			switch(retVal){
 			case OCL_ERR_RESPONSE_MESSAGE_ERROR:
@@ -340,7 +360,7 @@ int main(int argc, char *argv[]) {
 				break;
 			default:
 				if(canceled){
-					printf("\n\n");
+					printf("\n");
 					break;
 				}
 				print_error("",OCL_error_handling(retVal),FALSE);

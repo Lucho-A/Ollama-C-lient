@@ -10,7 +10,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 
 ### Features/Assumptions/Scope/Whatever
 
-- the program load the model when starts, and keeping it in server memory until exit
+- if specify, the program load the model when starts, and keeping it in server memory until exit or model changing
 - it supports window context
 - at the moment, the output is only streamed
 - allows to show the response's info
@@ -37,17 +37,23 @@ gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto -lreadline
 
 The options supported are:
 
-| Parameter | dataType:defaultValue [boundaries] |
+| Parameter | dataType:defaultValue _[boundaries]_ |
 |:--------- | :---------------------------------
 |--version | N/A:N/A |
 |--server-addr | string:127.0.0.1 |
-|--server-port | int:443 [1-65535] |
-|--model-file | string* |
-|--setting-file | string |
-|--context-file | string |
+|--server-port | int:443 _[1-65535_] |
+|--model-file | string:NULL |
+|--setting-file | string:NULL |
+|--context-file | string:NULL |
 |--show-response-info | N/A:FALSE |
 
-Note: * mandatory options.
+On the other hand, some commands can be prompting:
+
+| Command | Argument | Description |
+|:------- |:---------|:----------- |
+|flush;   | N/A:N/A  | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
+|model;   | string   | change the model
+
 
 #### Considerations
 
@@ -55,7 +61,6 @@ Note: * mandatory options.
 - The sent messages & the responses are written into the context file if '--context-file' is specified.
 - If '--context-file' is specified, the last '[MAX_MSG_CTX]' (parameter in modelfile) messages/responses are read when the program starts as context.
 - So, if '[MAX_MSG_CTX]' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions.
-- If prompting 'flush;', the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
 - The template of modelfile that must be used with '--model-file': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/model-file).
 - '--setting-file' allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/setting-file). The parameters set up in this file, override any parameter passed with any other option.
 - the font format in 'settings' file must be ANSI.
@@ -68,10 +73,10 @@ Note: * mandatory options.
 #### Suggested:
 
 ```
-$ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --context-file ~/ollama/context
+$ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --context-file ~/ollama/contextFile
 ```
 
-... with a modelFile like:
+... with a 'model-file' like:
 
 ```
 [MODEL]
@@ -93,9 +98,11 @@ bla, bla...
 #### Others
 
 ```
+$ ollama-c-lient --server-addr 192.168.2.10
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
 $ ollama-c-lient --model-file ~/ollama/any3modelModelFile
+$ Ollama-C-lient --context-file ~/mega-drive/ollama/context
 ```
 
 
