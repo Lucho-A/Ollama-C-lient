@@ -51,7 +51,7 @@ On the other hand, some commands can be prompting:
 
 | Command | Argument | Description |
 |:------- |:---------|:----------- |
-|flush;   | N/A:N/A  | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
+|flush;   | N/A      | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
 |model;   | string   | change the model
 
 
