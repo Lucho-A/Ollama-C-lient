@@ -54,8 +54,8 @@ Note: * mandatory options.
 - If '--context-file' is specified, the last '[MAX_MSG_CTX]' (parameter in modelfile) messages/responses are read when the program starts as context.
 - So, if '[MAX_MSG_CTX]' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions.
 - If prompting 'flush;', the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
-- The template of modelfile that must be used with '--modelfile': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/modelfile).
-- '--setting-file' allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/settingfile). The parameters set up in this file, override any parameter passed with any other option.
+- The template of modelfile that must be used with '--model-file': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/model-file).
+- '--setting-file' allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/setting-file). The parameters set up in this file, override any parameter passed with any other option.
 - the font format in 'settings' file must be ANSI.
 - if not setting file is specified, uncolored is set by default.
 - If the entered prompt finish with ';', the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
@@ -63,7 +63,7 @@ Note: * mandatory options.
 
 ### Examples:
 
-#### Suggested set up:
+#### Suggested:
 
 ```
 $ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --context-file ~/ollama/context
@@ -93,7 +93,7 @@ bla, bla...
 ```
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
-$ ollama-c-lient --model-file ~/ollama/any3modelModelFile --uncolored
+$ ollama-c-lient --model-file ~/ollama/any3modelModelFile
 ```
 
 
