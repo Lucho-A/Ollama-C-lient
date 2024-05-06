@@ -805,7 +805,11 @@ int OCl_check_service_status(OCl *ocl){
 
 int OCl_load_model(OCl *ocl, bool load){
 	char body[1024]="";
-	snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": 0}",ocl->model);
+	if(load){
+		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": -1}",ocl->model);
+	}else{
+		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": 0}",ocl->model);
+	}
 	char msg[2048]="";
 	snprintf(msg,2048,
 			"POST /api/chat HTTP/1.1\r\n"
