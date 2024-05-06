@@ -43,9 +43,9 @@ char socketRecvTo[512]="";
 char responseFont[16]="";
 
 static void print_error(char *msg, char *error, bool exitProgram){
-	printf("%sERROR: %s %s",errorFont, msg,error);
+	printf("\n%sERROR: %s %s",errorFont, msg,error);
 	if(exitProgram){
-		printf("\n\n");
+		printf("\e[0m\n\n");
 		exit(EXIT_FAILURE);
 	}
 }
@@ -196,8 +196,11 @@ static int load_modelfile(char *modelfile){
 }
 
 static int close_program(OCl *ocl){
-	print_system_msg("\nUnloading model... ");
-	OCl_load_model(ocl,FALSE);
+	int retVal=0;
+	if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
+		print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+		printf("\n");
+	}
 	OCl_free(ocl);
 	rl_clear_history();
 	printf("%s\n\n","\e[0m");
@@ -257,7 +260,7 @@ int main(int argc, char *argv[]) {
 	signal(SIGHUP, signal_handler);
 	char *modelFile=NULL, *settingFile=NULL;
 	int retVal=0;
-	if((retVal=OCl_init())!=RETURN_OK) print_error("\nOCl init error. ",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_init())!=RETURN_OK) print_error("OCl init error. ",OCL_error_handling(retVal),TRUE);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0){
 			BANNER;
@@ -274,17 +277,17 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--model-file")==0){
-			if(argv[i+1]==NULL) print_error("\nModel File Not Found.","",TRUE);
+			if(argv[i+1]==NULL) print_error("Model File Not Found.","",TRUE);
 			FILE *f=fopen(argv[i+1],"r");
-			if(f==NULL)print_error("\nModel File Not Found.","",TRUE);
+			if(f==NULL)print_error("Model File Not Found.","",TRUE);
 			modelFile=argv[i+1];
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--setting-file")==0){
-			if(argv[i+1]==NULL) print_error("\nSetting File Not Found.","",TRUE);
+			if(argv[i+1]==NULL) print_error("Setting File Not Found.","",TRUE);
 			FILE *f=fopen(argv[i+1],"r");
-			if(f==NULL) print_error("\nSetting File Not Found.","",TRUE);
+			if(f==NULL) print_error("Setting File Not Found.","",TRUE);
 			settingFile=argv[i+1];
 			i++;
 			continue;
@@ -298,7 +301,6 @@ int main(int argc, char *argv[]) {
 			showResponseInfo=TRUE;
 			continue;
 		}
-		printf("\n");
 		print_error(argv[i],": argument not recognized",TRUE);
 	}
 	printf("\n");
@@ -312,8 +314,8 @@ int main(int argc, char *argv[]) {
 			responseSpeed, responseFont, model, systemRole, maxMsgCtx, temp, maxTokens,maxTokensCtx,
 			contextFile))!=RETURN_OK)
 		print_error("OCl getting instance error. ",OCL_error_handling(retVal),TRUE);
-	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("\nImporting context error. ",OCL_error_handling(retVal),TRUE);
-	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("\n\nService not available. ",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("Importing context error. ",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("Service not available. ",OCL_error_handling(retVal),TRUE);
 	print_system_msg("Server status: Ollama is running\n");
 	if(strcmp(OCl_get_model(ocl),"")!=0){
 		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
@@ -326,7 +328,7 @@ int main(int argc, char *argv[]) {
 		printf("%s\n",promptFont);
 		messagePrompted=readline_get(PROMPT_DEFAULT, FALSE);
 		if(exitProgram){
-			printf("\n⎋\n");
+			printf("\n⎋");
 			break;
 		}
 		if(canceled || strcmp(messagePrompted,"")==0) continue;
@@ -344,7 +346,6 @@ int main(int argc, char *argv[]) {
 			}
 			OCl_set_model(ocl,messagePrompted+strlen("model;"));
 			if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK){
-				printf("\n");
 				print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
 				printf("\n");
 				OCl_set_model(ocl, "");

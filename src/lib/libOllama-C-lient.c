@@ -173,8 +173,8 @@ int OCl_get_instance(OCl **ocl, char *serverAddr, char *serverPort, char *socket
 	}
 	if(systemRole!=NULL && strcmp(systemRole,"")!=0){
 		(*ocl)->systemRole=malloc(strlen(systemRole)+1);
-		memset((*ocl)->systemRole,0,strlen(model)+1);
-		snprintf((*ocl)->systemRole, strlen(model)+1,"%s", systemRole);
+		memset((*ocl)->systemRole,0,strlen(systemRole)+1);
+		snprintf((*ocl)->systemRole, strlen(systemRole)+1,"%s", systemRole);
 	}else{
 		(*ocl)->systemRole=malloc(1);
 		memset((*ocl)->systemRole,0,1);
