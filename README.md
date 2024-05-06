@@ -102,7 +102,7 @@ $ ollama-c-lient --server-addr 192.168.2.10
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
 $ ollama-c-lient --model-file ~/ollama/any3modelModelFile
-$ Ollama-C-lient --context-file ~/mega-drive/ollama/context
+$ Ollama-C-lient --context-file ~/ollama/context
 ```
 
 
