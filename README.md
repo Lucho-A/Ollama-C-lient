@@ -44,7 +44,7 @@ The options supported are:
 |--server-port | int:443 _[1-65535_] | Listening port. Must be SSL/TLS.
 |--model-file | string:NULL | File with the default model and parameters regarding to context, tokens, etc.
 |--setting-file | string:NULL | File with the program settings: server info., timeouts, fonts, etc.
-|--roles-file | string:NULL | File with the different roles that the model can assume.
+|--roles-file | string:NULL | File with the different roles/instructions for the model.
 |--context-file | string:NULL | File where the interactions (except the queries ended with ';') will be stored.
 |--show-response-info | N/A:FALSE | Option for showing the responses' information, as tokens count, durations, etc.
 
@@ -56,7 +56,7 @@ On the other hand, some commands can be prompting:
 |:------- |:---------|:----------- |
 | flush;   | N/A      | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
 | model;   | string   | change the model
-| role;    | string   | role name included into the file ('--roles-file'). Useful when I want to talk about a particular topic, and I want to include a specific system-role/response-instructions, etc.
+| role;    | string   | role name included into the file ('--roles-file').
 
 #### Considerations
 
