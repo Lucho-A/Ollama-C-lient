@@ -25,6 +25,22 @@
 
 #define BUFFER_SIZE_16K						(1024*16)
 
+typedef struct Response{
+	char *fullResponse;
+	char *content;
+}Response;
+
+typedef struct Message{
+	char *userMessage;
+	char *assistantMessage;
+	bool isNew;
+	struct Message *nextMessage;
+}Message;
+
+Message *rootContextMessages=NULL;
+int contContextMessages=0;
+SSL_CTX *sslCtx=NULL;
+
 typedef struct _ocl{
 	char *srvAddr;
 	int srvPort;
@@ -208,22 +224,6 @@ static int OCl_set_error(OCl *ocl, char *err){
 	snprintf(ocl->ocl_resp->error,strlen(err)+1,"%s",err);
 	return RETURN_OK;
 }
-
-typedef struct Response{
-	char *fullResponse;
-	char *content;
-}Response;
-
-typedef struct Message{
-	char *userMessage;
-	char *assistantMessage;
-	bool isNew;
-	struct Message *nextMessage;
-}Message;
-
-Message *rootContextMessages=NULL;
-int contContextMessages=0;
-SSL_CTX *sslCtx=NULL;
 
 int OCl_init(){
 	SSL_library_init();
