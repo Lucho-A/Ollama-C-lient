@@ -1,0 +1,9 @@
+[role1]
+When I ask about whatever, take into consideration this, and this...
+[role2]
+When I ask about whatever2, take into consideration this, and this...
+[role3]
+When I ask about whatever3, provide the response with the following structure:
+a) 
+b)
+c)

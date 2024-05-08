@@ -25,19 +25,6 @@
 
 #define BUFFER_SIZE_16K						(1024*16)
 
-struct _ocl_response{
-	char *fullResponse;
-	char *content;
-	char *error;
-	double loadDuration;
-	double promptEvalDuration;
-	double evalDuration;
-	double totalDuration;
-	int promptEvalCount;
-	int evalCount;
-	double tokensPerSec;
-};
-
 typedef struct _ocl{
 	char *srvAddr;
 	int srvPort;
@@ -56,27 +43,169 @@ typedef struct _ocl{
 	struct _ocl_response *ocl_resp;
 }OCl;
 
-char * OCL_get_error(OCl *ocl){return ocl->ocl_resp->error;}
+struct _ocl_response{
+	char *fullResponse;
+	char *content;
+	char *error;
+	double loadDuration;
+	double promptEvalDuration;
+	double evalDuration;
+	double totalDuration;
+	int promptEvalCount;
+	int evalCount;
+	double tokensPerSec;
+};
+
 
 char * OCl_get_model(OCl *ocl){ return ocl->model;}
-double OCL_get_load_duration(OCl *ocl){ return ocl->ocl_resp->loadDuration;}
-double OCL_get_prompt_eval_duration(OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
-double OCL_get_eval_duration(OCl *ocl){ return ocl->ocl_resp->evalDuration;}
-double OCL_get_total_duration(OCl *ocl){ return ocl->ocl_resp->totalDuration;}
-int OCL_get_prompt_eval_count(OCl *ocl){ return ocl->ocl_resp->promptEvalCount;}
-int OCL_get_eval_count(OCl *ocl){ return ocl->ocl_resp->evalCount;}
-double OCL_get_tokens_per_sec(OCl *ocl){ return ocl->ocl_resp->tokensPerSec;}
+
+double OCL_get_response_load_duration(OCl *ocl){ return ocl->ocl_resp->loadDuration;}
+double OCL_get_response_prompt_eval_duration(OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
+double OCL_get_response_eval_duration(OCl *ocl){ return ocl->ocl_resp->evalDuration;}
+double OCL_get_response_total_duration(OCl *ocl){ return ocl->ocl_resp->totalDuration;}
+int OCL_get_response_prompt_eval_count(OCl *ocl){ return ocl->ocl_resp->promptEvalCount;}
+int OCL_get_response_eval_count(OCl *ocl){ return ocl->ocl_resp->evalCount;}
+double OCL_get_response_tokens_per_sec(OCl *ocl){ return ocl->ocl_resp->tokensPerSec;}
+char * OCL_get_response_error(OCl *ocl){return ocl->ocl_resp->error;}
+
+int OCl_set_server_addr(OCl *ocl, char *serverAddr){
+	if(serverAddr!=NULL && strcmp(serverAddr,"")!=0) ocl->srvAddr=serverAddr;
+	return RETURN_OK;
+}
+
+static int OCl_set_server_port(OCl *ocl, char *serverPort){
+	if(serverPort!=NULL && strcmp(serverPort,"")!=0){
+		char *tail=NULL;
+		ocl->srvPort=strtol(serverPort, &tail, 10);
+		if(ocl->srvPort<1||ocl->srvPort>65535||tail[0]!=0) return OCL_ERR_PORT;
+	}
+	return RETURN_OK;
+}
 
 int OCl_set_model(OCl *ocl, char *model){
-	free(ocl->model);
+	if(ocl->model!=NULL) free(ocl->model);
 	ocl->model=malloc(strlen(model)+1);
 	memset(ocl->model,0,strlen(model)+1);
-	if(model!=NULL){
+	if(model!=NULL && strcmp(model,"")!=0){
 		int cont=0;
 		for(int i=0;i<strlen(model);i++){
 			if(model[i]!=' ') ocl->model[cont++]=model[i];
 		}
 	}
+	return RETURN_OK;
+}
+
+int OCl_set_role(OCl *ocl, char *role){
+	if(role!=NULL && strcmp(role,"")!=0){
+		if(ocl->systemRole!=NULL) free(ocl->systemRole);
+		ocl->systemRole=malloc(strlen(role)+1);
+		memset(ocl->systemRole,0,strlen(role)+1);
+		snprintf(ocl->systemRole, strlen(role)+1,"%s", role);
+	}else{
+		ocl->systemRole=malloc(1);
+		memset(ocl->systemRole,0,1);
+		ocl->systemRole[0]=0;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_connect_timeout(OCl *ocl, char *connectto){
+	if(connectto!=NULL && strcmp(connectto,"")!=0){
+		char *tail=NULL;
+		ocl->socketConnectTimeout=strtol(connectto, &tail, 10);
+		if(ocl->socketConnectTimeout<1||tail[0]!=0) return OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_send_timeout(OCl *ocl, char *sendto){
+	if(sendto!=NULL && strcmp(sendto,"")!=0){
+		char *tail=NULL;
+		ocl->socketSendTimeout=strtol(sendto, &tail, 10);
+		if(ocl->socketSendTimeout<1||tail[0]!=0) return OCL_ERR_SOCKET_SEND_TIMEOUT_NOT_VALID;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_recv_timeout(OCl *ocl, char *recvto){
+	if(recvto!=NULL && strcmp(recvto,"")!=0){
+		char *tail=NULL;
+		ocl->socketRecvTimeout=strtol(recvto, &tail, 10);
+		if(ocl->socketRecvTimeout<1||tail[0]!=0) return OCL_ERR_SOCKET_RECV_TIMEOUT_NOT_VALID;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_response_speed(OCl *ocl, char *respSpeed){
+	if(respSpeed!=NULL && strcmp(respSpeed,"")!=0){
+		char *tail=NULL;
+		ocl->responseSpeed=strtol(respSpeed, &tail, 10);
+		if(ocl->responseSpeed<1||tail[0]!=0) return OCL_ERR_RESPONSE_SPEED_NOT_VALID;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_response_font(OCl *ocl, char *responseFont){
+	if(responseFont!=NULL && strcmp(responseFont,"")!=0){
+		ocl->responseFont=responseFont;
+	}else{
+		ocl->responseFont="";
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_max_context_msg(OCl *ocl, char *maxContextMsg){
+	if(maxContextMsg!=NULL && strcmp(maxContextMsg,"")!=0){
+		char *tail=NULL;
+		ocl->maxMessageContext=strtol(maxContextMsg,&tail,10);
+		if(ocl->maxMessageContext<0 || tail[0]!=0) return OCL_ERR_MAX_MSG_CTX;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_temp(OCl *ocl, char *temp){
+	if(temp!=NULL && strcmp(temp,"")!=0){
+		char *tail=NULL;
+		ocl->temp=strtod(temp,&tail);
+		if(ocl->temp<=0.0 || tail[0]!=0) return OCL_ERR_TEMP;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_max_tokens(OCl *ocl, char *maxTokens){
+	if(maxTokens!=NULL && strcmp(maxTokens,"")!=0){
+		char *tail=NULL;
+		ocl->maxTokens=strtol(maxTokens,&tail,10);
+		if(ocl->maxTokens<0 || tail[0]!=0) return OCL_ERR_MAX_TOKENS;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_max_tokens_ctx(OCl *ocl, char *maxContextCtx){
+	if(maxContextCtx!=NULL && strcmp(maxContextCtx,"")!=0){
+		char *tail=NULL;
+		ocl->maxTokensContext=strtol(maxContextCtx,&tail,10);
+		if(ocl->maxTokensContext<0 || tail[0]!=0) return OCL_ERR_MAX_TOKENS_CTX;
+	}
+	return RETURN_OK;
+}
+
+static int OCl_set_context_file(OCl *ocl, char *contextFile){
+	if(contextFile!=NULL && strcmp(contextFile,"")!=0){
+		FILE *f=fopen(contextFile,"r");
+		if(f==NULL) return OCL_ERR_CONTEXT_FILE_NOT_FOUND;
+		fclose(f);
+		ocl->contextFile=contextFile;
+	}
+	return RETURN_OK;
+}
+
+
+static int OCl_set_error(OCl *ocl, char *err){
+	if(ocl->ocl_resp->error!=NULL) free(ocl->ocl_resp->error);
+	ocl->ocl_resp->error=malloc(strlen(err)+1);
+	memset(ocl->ocl_resp->error,0,strlen(err));
+	snprintf(ocl->ocl_resp->error,strlen(err)+1,"%s",err);
 	return RETURN_OK;
 }
 
@@ -129,6 +258,7 @@ int OCl_free(OCl *ocl){
 		if(ocl->ocl_resp!=NULL){
 			free(ocl->ocl_resp->content);
 			free(ocl->ocl_resp->fullResponse);
+			free(ocl->ocl_resp->error);
 			free(ocl->ocl_resp);
 		}
 		free(ocl);
@@ -141,80 +271,38 @@ int OCl_get_instance(OCl **ocl, char *serverAddr, char *serverPort, char *socket
 		,char *socketRecvTo, char *responseSpeed, char *responseFont, char *model, char *systemRole
 		,char *maxContextMsg, char *temp, char *maxTokens, char *maxTokensCtx, char *contextFile){
 	*ocl=malloc(sizeof(OCl));
-	char *tail=NULL;
-	if(serverAddr!=NULL && strcmp(serverAddr,"")!=0){
-		(*ocl)->srvAddr=serverAddr;
-	}else{
-		(*ocl)->srvAddr=OLLAMA_SERVER_ADDR;
-	}
-	if(serverPort!=NULL && strcmp(serverPort,"")!=0){
-		(*ocl)->srvPort=strtol(serverPort, &tail, 10);
-		if((*ocl)->srvPort<1||(*ocl)->srvPort>65535||tail[0]!=0) return OCL_ERR_PORT;
-	}else{
-		(*ocl)->srvPort=OLLAMA_SERVER_PORT;
-	}
-	(*ocl)->socketConnectTimeout=SOCKET_CONNECT_TIMEOUT_S;
-	(*ocl)->socketSendTimeout=SOCKET_SEND_TIMEOUT_MS;
-	(*ocl)->socketRecvTimeout=SOCKET_RECV_TIMEOUT_MS;
-	(*ocl)->responseSpeed=RESPONSE_SPEED;
-	if(responseFont!=NULL && strcmp(responseFont,"")!=0){
-		(*ocl)->responseFont=responseFont;
-	}else{
-		(*ocl)->responseFont="";
-	}
-	if(model!=NULL && strcmp(model,"")!=0){
-		(*ocl)->model=malloc(strlen(model)+1);
-		memset((*ocl)->model,0,strlen(model)+1);
-		snprintf((*ocl)->model, strlen(model)+1,"%s", model);
-	}else{
-		(*ocl)->model=malloc(1);
-		memset((*ocl)->model,0,1);
-		(*ocl)->model[0]=0;
-	}
-	if(systemRole!=NULL && strcmp(systemRole,"")!=0){
-		(*ocl)->systemRole=malloc(strlen(systemRole)+1);
-		memset((*ocl)->systemRole,0,strlen(systemRole)+1);
-		snprintf((*ocl)->systemRole, strlen(systemRole)+1,"%s", systemRole);
-	}else{
-		(*ocl)->systemRole=malloc(1);
-		memset((*ocl)->systemRole,0,1);
-		(*ocl)->systemRole[0]=0;
-	}
-	if(maxContextMsg!=NULL && strcmp(maxContextMsg,"")!=0){
-		(*ocl)->maxMessageContext=strtol(maxContextMsg,&tail,10);
-		if((*ocl)->maxMessageContext<0 || tail[0]!=0) return OCL_ERR_MAX_MSG_CTX;
-	}else{
-		(*ocl)->maxMessageContext=MAX_HISTORY_CONTEXT;
-	}
-	if(temp!=NULL && strcmp(temp,"")!=0){
-		(*ocl)->temp=strtod(temp,&tail);
-		if((*ocl)->temp<=0.0 || tail[0]!=0) return OCL_ERR_TEMP;
-	}else{
-		(*ocl)->temp=TEMP;
-	}
-	if(maxTokens!=NULL && strcmp(maxTokens,"")!=0){
-		(*ocl)->maxTokens=strtol(maxTokens,&tail,10);
-		if((*ocl)->maxTokens<0 || tail[0]!=0) return OCL_ERR_MAX_TOKENS;
-	}else{
-		(*ocl)->maxTokens=MAX_TOKENS;
-	}
-	if(maxTokensCtx!=NULL && strcmp(maxTokensCtx,"")!=0){
-		(*ocl)->maxTokensContext=strtol(maxTokensCtx,&tail,10);
-		if((*ocl)->maxTokensContext<0 || tail[0]!=0) return OCL_ERR_MAX_TOKENS_CTX;
-	}else{
-		(*ocl)->maxTokensContext=NUM_CTX;
-	}
-	if(contextFile!=NULL && strcmp(contextFile,"")!=0){
-		FILE *f=fopen(contextFile,"r");
-		if(f==NULL) return OCL_ERR_CONTEXT_FILE_NOT_FOUND;
-		fclose(f);
-		(*ocl)->contextFile=contextFile;
-	}else{
-		(*ocl)->contextFile=NULL;
-	}
+	int retVal=0;
+	OCl_set_server_addr(*ocl, OLLAMA_SERVER_ADDR);
+	OCl_set_server_addr(*ocl, serverAddr);
+	OCl_set_server_port(*ocl, OLLAMA_SERVER_PORT);
+	if((retVal=OCl_set_server_port(*ocl, serverPort))!=RETURN_OK) return retVal;
+	OCl_set_connect_timeout(*ocl, SOCKET_CONNECT_TIMEOUT_S);
+	if((retVal=OCl_set_connect_timeout(*ocl, socketConnTo))!=RETURN_OK) return retVal;
+	OCl_set_send_timeout(*ocl, SOCKET_SEND_TIMEOUT_MS);
+	if((retVal=OCl_set_send_timeout(*ocl, socketSendTo))!=RETURN_OK) return retVal;
+	OCl_set_recv_timeout(*ocl, SOCKET_RECV_TIMEOUT_MS);
+	if((retVal=OCl_set_recv_timeout(*ocl, socketRecvTo))!=RETURN_OK) return retVal;
+	OCl_set_response_speed(*ocl, RESPONSE_SPEED);
+	if((retVal=OCl_set_response_speed(*ocl, responseSpeed))!=RETURN_OK) return retVal;
+	OCl_set_response_font(*ocl, responseFont);
+	(*ocl)->model=NULL;
+	OCl_set_model(*ocl, model);
+	(*ocl)->systemRole=NULL;
+	OCl_set_role(*ocl, systemRole);
+	OCl_set_max_context_msg(*ocl, MAX_HISTORY_CONTEXT);
+	if((retVal=OCl_set_max_context_msg(*ocl, maxContextMsg))!=RETURN_OK) return retVal;
+	OCl_set_temp(*ocl, TEMP);
+	if((retVal=OCl_set_temp(*ocl, maxContextMsg))!=RETURN_OK) return retVal;
+	OCl_set_max_tokens(*ocl, MAX_TOKENS);
+	if((retVal=OCl_set_max_tokens(*ocl, maxContextMsg))!=RETURN_OK) return retVal;
+	OCl_set_max_tokens_ctx(*ocl, NUM_CTX);
+	if((retVal=OCl_set_max_tokens_ctx(*ocl, maxContextMsg))!=RETURN_OK) return retVal;
+	(*ocl)->contextFile=NULL;
+	if((retVal=OCl_set_context_file(*ocl,contextFile))!=RETURN_OK) return retVal;
 	(*ocl)->ocl_resp=malloc(sizeof(struct _ocl_response));
 	(*ocl)->ocl_resp->content=NULL;
 	(*ocl)->ocl_resp->fullResponse=NULL;
+	(*ocl)->ocl_resp->error=NULL;
 	return RETURN_OK;
 }
 
@@ -438,6 +526,19 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_MAX_TOKENS:
 		snprintf(error_hndl, 1024,"Max. tokens value not valid. Check modfile.");
 		break;
+	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID:
+		snprintf(error_hndl, 1024,"Connection Timeout value not valid.");
+		break;
+	case OCL_ERR_SOCKET_SEND_TIMEOUT_NOT_VALID:
+		snprintf(error_hndl, 1024,"Send Timeout value not valid.");
+		break;
+	case OCL_ERR_SOCKET_RECV_TIMEOUT_NOT_VALID:
+		snprintf(error_hndl, 1024,"Recv. Timeout value not valid.");
+		break;
+	case OCL_ERR_RESPONSE_SPEED_NOT_VALID:
+		snprintf(error_hndl, 1024,"Response Speed value not valid.");
+		break;
+
 	default:
 		snprintf(error_hndl, 1024,"Error not handled. ");
 		break;
@@ -615,13 +716,13 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 		return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
 	}
 	pollinHappened = pfds[0].revents & POLLIN;
+	*fullResponse=malloc(1);
+	(*fullResponse)[0]=0;
+	if(content!=NULL){
+		*content=malloc(1);
+		(*content)[0]=0;
+	}
 	if (pollinHappened){
-		*fullResponse=malloc(1);
-		(*fullResponse)[0]=0;
-		if(content!=NULL){
-			*content=malloc(1);
-			(*content)[0]=0;
-		}
 		do{
 			char buffer[BUFFER_SIZE_16K]="";
 			bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
@@ -739,7 +840,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 	int resp=send_message(ocl, msg, &fullResponse, &content, TRUE);
 	free(msg);
 	if(strstr(fullResponse,"{\"error")!=NULL){
-		ocl->ocl_resp->error=strstr(fullResponse,"{\"error");
+		OCl_set_error(ocl, strstr(fullResponse,"{\"error"));
 		free(messageParsed);
 		free(fullResponse);
 		free(content);
@@ -821,7 +922,7 @@ int OCl_load_model(OCl *ocl, bool load){
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, &buffer, NULL, FALSE))<0) return retVal;
 	if(strstr(buffer,"{\"error")!=NULL){
-		ocl->ocl_resp->error=strstr(buffer,"{\"error");
+		OCl_set_error(ocl, strstr(buffer,"{\"error"));
 		free(buffer);
 		if(load) return OCL_ERR_LOADING_MODEL;
 		return OCL_ERR_UNLOADING_MODEL;

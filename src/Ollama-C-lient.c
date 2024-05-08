@@ -56,13 +56,13 @@ static void print_system_msg(char *msg){
 
 static void print_response_info(){
 	printf("%s\n\n", showResponseInfoFont);
-	printf("- load_duration (time spent loading the model): %f\n",OCL_get_load_duration(ocl));
-	printf("- prompt_eval_duration (time spent evaluating the prompt): %f\n",OCL_get_prompt_eval_duration(ocl));
-	printf("- eval_duration (time spent generating the response): %f\n",OCL_get_eval_duration(ocl));
-	printf("- total_duration (time spent generating the response): %f\n",OCL_get_total_duration(ocl));
-	printf("- prompt_eval_count (number of tokens in the prompt): %d\n",OCL_get_prompt_eval_count(ocl));
-	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_eval_count(ocl));
-	printf("- Tokens per sec.: %.2f",OCL_get_tokens_per_sec(ocl));
+	printf("- load_duration (time spent loading the model): %f\n",OCL_get_response_load_duration(ocl));
+	printf("- prompt_eval_duration (time spent evaluating the prompt): %f\n",OCL_get_response_prompt_eval_duration(ocl));
+	printf("- eval_duration (time spent generating the response): %f\n",OCL_get_response_eval_duration(ocl));
+	printf("- total_duration (time spent generating the response): %f\n",OCL_get_response_total_duration(ocl));
+	printf("- prompt_eval_count (number of tokens in the prompt): %d\n",OCL_get_response_prompt_eval_count(ocl));
+	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_response_eval_count(ocl));
+	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
 }
 
 
@@ -198,7 +198,7 @@ static int load_modelfile(char *modelfile){
 static int close_program(OCl *ocl){
 	int retVal=0;
 	if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
-		print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+		print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 		printf("\n");
 	}
 	OCl_free(ocl);
@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
 	signal(SIGPIPE, signal_handler);
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
-	char *modelFile=NULL, *settingFile=NULL;
+	char *modelFile=NULL, *settingFile=NULL, *rolesFile=NULL;
 	int retVal=0;
 	if((retVal=OCl_init())!=RETURN_OK) print_error("OCl init error. ",OCL_error_handling(retVal),TRUE);
 	for(int i=1;i<argc;i++){
@@ -292,6 +292,14 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
+		if(strcmp(argv[i],"--roles-file")==0){
+			if(argv[i+1]==NULL) print_error("Roles File Not Found.","",TRUE);
+			FILE *f=fopen(argv[i+1],"r");
+			if(f==NULL) print_error("Roles File Not Found.","",TRUE);
+			rolesFile=argv[i+1];
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--context-file")==0){
 			contextFile=argv[i+1];
 			i++;
@@ -318,7 +326,7 @@ int main(int argc, char *argv[]) {
 	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("Service not available. ",OCL_error_handling(retVal),TRUE);
 	print_system_msg("Server status: Ollama is running\n");
 	if(strcmp(OCl_get_model(ocl),"")!=0){
-		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 	}
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
@@ -340,24 +348,58 @@ int main(int argc, char *argv[]) {
 		if(strncmp(messagePrompted,"model;", strlen("model;"))==0){
 			if(strcmp(OCl_get_model(ocl),"")!=0){
 				if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
-					print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+					print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 					printf("\n");
 				}
 			}
 			OCl_set_model(ocl,messagePrompted+strlen("model;"));
 			if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK){
-				print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+				print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 				printf("\n");
 				OCl_set_model(ocl, "");
 				continue;
 			}
 			continue;
 		}
+		if(strncmp(messagePrompted,"role;", strlen("role;"))==0){
+			if(rolesFile==NULL){
+				print_error("No role file provided\n", "", FALSE);
+				continue;
+			}
+			FILE *f=fopen(rolesFile,"r");
+			if(f==NULL){
+				perror("");
+				exit(1);
+			}
+			ssize_t chars=0;
+			size_t len=0;
+			char *line=NULL;
+			bool found=FALSE;
+			char role[255]="";
+			snprintf(role, 255,"[%s]", messagePrompted+strlen("role;"));
+			if(systemRole!=NULL) free(systemRole);
+			systemRole=malloc(1);
+			systemRole[0]=0;
+			while((chars=getline(&line, &len, f))!=-1){
+				if(strncmp(line, role, strlen(role))==0){
+					found=TRUE;
+					while((chars=getline(&line, &len, f))!=-1){
+						if(line[0]=='[') break;
+						systemRole=realloc(systemRole,strlen(systemRole)+chars+1);
+						strcat(systemRole,line);
+					}
+				}
+				if(found) break;
+			}
+			(found)?(OCl_set_role(ocl, systemRole)):(print_error("Role No Found\n", "", FALSE));
+			fclose(f);
+			continue;
+		}
 		printf("\n");
 		if((retVal=OCl_send_chat(ocl,messagePrompted))!=RETURN_OK){
 			switch(retVal){
 			case OCL_ERR_RESPONSE_MESSAGE_ERROR:
-				print_error(OCL_get_error(ocl),OCL_error_handling(retVal),FALSE);
+				print_error(OCL_get_response_error(ocl),"",FALSE);
 				break;
 			default:
 				if(canceled){
