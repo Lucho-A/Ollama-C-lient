@@ -58,7 +58,7 @@ On the other hand, some commands can be prompting:
 | model;   | string*   | change the model.
 | role;    | string*   | role name included into the file ('--roles-file').
 
-* If 'string' is empty, the model|role will change to the default one ("if --model-file" with that option was set up).
+* If 'string' is empty, the model|role will change to the default one.
 
 #### Considerations
 
