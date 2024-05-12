@@ -202,6 +202,9 @@ static int close_program(OCl *ocl){
 		printf("\n");
 	}
 	OCl_free(ocl);
+	if(serverAddr!=NULL) free(serverAddr);
+	if(serverPort!=NULL) free(serverPort);
+	if(systemRole!=NULL) free(systemRole);
 	rl_clear_history();
 	printf("%s\n\n","\e[0m");
 	exit(EXIT_SUCCESS);
@@ -237,6 +240,14 @@ static char *readline_get(const char *prompt, bool addHistory){
 	lineRead=readline(prompt);
 	if(lineRead && *lineRead && addHistory) add_history(lineRead);
 	return(lineRead);
+}
+
+static int validate_file(char *file){
+	if(file==NULL) return RETURN_ERROR;
+	FILE *f=fopen(file,"r");
+	if(f==NULL) return RETURN_ERROR;
+	fclose(f);
+	return RETURN_OK;
 }
 
 static void signal_handler(int signalType){
@@ -277,30 +288,25 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--model-file")==0){
-			if(argv[i+1]==NULL) print_error("Model File Not Found.","",TRUE);
-			FILE *f=fopen(argv[i+1],"r");
-			if(f==NULL)print_error("Model File Not Found.","",TRUE);
+			if(validate_file(argv[i+1])!=RETURN_OK) print_error("Model file not found.","",TRUE);
 			modelFile=argv[i+1];
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--setting-file")==0){
-			if(argv[i+1]==NULL) print_error("Setting File Not Found.","",TRUE);
-			FILE *f=fopen(argv[i+1],"r");
-			if(f==NULL) print_error("Setting File Not Found.","",TRUE);
+			if(validate_file(argv[i+1])!=RETURN_OK) print_error("Setting file not found.","",TRUE);
 			settingFile=argv[i+1];
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--roles-file")==0){
-			if(argv[i+1]==NULL) print_error("Roles File Not Found.","",TRUE);
-			FILE *f=fopen(argv[i+1],"r");
-			if(f==NULL) print_error("Roles File Not Found.","",TRUE);
+			if(validate_file(argv[i+1])!=RETURN_OK) print_error("Roles file not found.","",TRUE);
 			rolesFile=argv[i+1];
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--context-file")==0){
+			if(validate_file(argv[i+1])!=RETURN_OK) print_error("Context file not found.","",TRUE);
 			contextFile=argv[i+1];
 			i++;
 			continue;
@@ -320,8 +326,7 @@ int main(int argc, char *argv[]) {
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo,
 			responseSpeed, responseFont, model, systemRole, maxMsgCtx, temp, maxTokens,maxTokensCtx,
-			contextFile))!=RETURN_OK)
-		print_error("OCl getting instance error. ",OCL_error_handling(retVal),TRUE);
+			contextFile))!=RETURN_OK) print_error("OCl getting instance error. ",OCL_error_handling(retVal),TRUE);
 	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("Importing context error. ",OCL_error_handling(retVal),TRUE);
 	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("Service not available. ",OCL_error_handling(retVal),TRUE);
 	print_system_msg("Server status: Ollama is running\n");
@@ -352,7 +357,11 @@ int main(int argc, char *argv[]) {
 					printf("\n");
 				}
 			}
-			OCl_set_model(ocl,messagePrompted+strlen("model;"));
+			if(strcmp(messagePrompted+strlen("model;"),"")==0){
+				OCl_set_model(ocl,model);
+			}else{
+				OCl_set_model(ocl,messagePrompted+strlen("model;"));
+			}
 			if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK){
 				print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 				printf("\n");
@@ -362,6 +371,10 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strncmp(messagePrompted,"role;", strlen("role;"))==0){
+			if(strcmp(messagePrompted+strlen("role;"),"")==0){
+				OCl_set_role(ocl, systemRole);
+				continue;
+			}
 			if(rolesFile==NULL){
 				print_error("No role file provided\n", "", FALSE);
 				continue;
@@ -377,22 +390,23 @@ int main(int argc, char *argv[]) {
 			bool found=FALSE;
 			char role[255]="";
 			snprintf(role, 255,"[%s]", messagePrompted+strlen("role;"));
-			if(systemRole!=NULL) free(systemRole);
-			systemRole=malloc(1);
-			systemRole[0]=0;
+			char *newSystemRole=NULL;
+			newSystemRole=malloc(1);
+			newSystemRole[0]=0;
 			while((chars=getline(&line, &len, f))!=-1){
 				if(strncmp(line, role, strlen(role))==0){
 					found=TRUE;
 					while((chars=getline(&line, &len, f))!=-1){
 						if(line[0]=='[') break;
-						systemRole=realloc(systemRole,strlen(systemRole)+chars+1);
-						strcat(systemRole,line);
+						newSystemRole=realloc(newSystemRole,strlen(newSystemRole)+chars+1);
+						strcat(newSystemRole,line);
 					}
 				}
 				if(found) break;
 			}
-			(found)?(OCl_set_role(ocl, systemRole)):(print_error("Role No Found\n", "", FALSE));
+			(found)?(OCl_set_role(ocl, newSystemRole)):(print_error("Role No Found\n", "", FALSE));
 			fclose(f);
+			free(newSystemRole);
 			continue;
 		}
 		printf("\n");

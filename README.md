@@ -55,8 +55,10 @@ On the other hand, some commands can be prompting:
 | Command | Argument | Description |
 |:------- |:---------|:----------- |
 | flush;   | N/A      | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
-| model;   | string   | change the model
-| role;    | string   | role name included into the file ('--roles-file').
+| model;   | string*   | change the model.
+| role;    | string*   | role name included into the file ('--roles-file').
+
+* If 'string' is empty, the model|role will change to the default one ("if --model-file" with that option was set up).
 
 #### Considerations
 

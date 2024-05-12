@@ -99,7 +99,6 @@ int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, cha
 int OCl_free(OCl *);
 
 int OCl_flush_context();
-int OCl_load_modelfile(OCl *, char *);
 int OCl_load_model(OCl *, bool load);
 int OCl_send_chat(OCl *, char *);
 int OCl_check_service_status(OCl *);
