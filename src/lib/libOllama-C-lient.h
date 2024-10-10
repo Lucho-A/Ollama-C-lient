@@ -44,7 +44,7 @@
 typedef enum{
 	FALSE=0,
 	TRUE
-}bool;
+}Bool;
 
 enum errors{
 	OCL_ERR_INIT_ERROR=-50,
@@ -64,6 +64,8 @@ enum errors{
 	OCL_ERR_RECV_TIMEOUT_ERROR,
 	OCL_ERR_RECEIVING_PACKETS_ERROR,
 	OCL_ERR_RESPONSE_MESSAGE_ERROR,
+	OCL_ERR_PARTIAL_RESPONSE_RECV,
+	OCL_ERR_ZEROBYTESSENT_ERROR,
 	OCL_ERR_ZEROBYTESRECV_ERROR,
 	OCL_ERR_MODEL_FILE_NOT_FOUND,
 	OCL_ERR_CONTEXT_FILE_NOT_FOUND,
@@ -75,6 +77,7 @@ enum errors{
 	OCL_ERR_CONTEXT_MSGS_ERROR,
 	OCL_ERR_NULL_STRUCT_ERROR,
 	OCL_ERR_SERVICE_UNAVAILABLE,
+	OCL_ERR_GETTING_MODELS,
 	OCL_ERR_LOADING_MODEL,
 	OCL_ERR_UNLOADING_MODEL,
 	OCL_ERR_SERVER_ADDR,
@@ -91,7 +94,7 @@ enum errors{
 
 typedef struct _ocl OCl;
 
-extern bool canceled;
+extern Bool canceled;
 
 int OCl_init();
 int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *, char *,
@@ -99,12 +102,13 @@ int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, cha
 int OCl_free(OCl *);
 
 int OCl_flush_context();
-int OCl_load_model(OCl *, bool load);
+int OCl_load_model(OCl *, Bool load);
 int OCl_send_chat(OCl *, char *);
 int OCl_check_service_status(OCl *);
 int OCl_import_context(OCl *);
 char * OCL_error_handling(int);
 
+int OCl_get_models(OCl *, char ***);
 char * OCl_get_model(OCl *);
 double OCL_get_response_load_duration(OCl *);
 double OCL_get_response_prompt_eval_duration(OCl *);

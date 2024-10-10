@@ -7,7 +7,7 @@
  Copyright   : GNU General Public License v3.0
  Description : Main file
  ============================================================================
- */
+*/
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -21,7 +21,7 @@
 #define PROMPT_DEFAULT					"-> "
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
-bool canceled=FALSE, exitProgram=FALSE, showResponseInfo=FALSE;
+Bool canceled=FALSE, exitProgram=FALSE, showResponseInfo=FALSE;
 int prevInput=0;
 OCl *ocl=NULL;
 
@@ -42,7 +42,7 @@ char socketSendTo[512]="";
 char socketRecvTo[512]="";
 char responseFont[16]="";
 
-static void print_error(char *msg, char *error, bool exitProgram){
+static void print_error(char *msg, char *error, Bool exitProgram){
 	printf("\n%sERROR: %s %s",errorFont, msg,error);
 	if(exitProgram){
 		printf("\e[0m\n\n");
@@ -231,7 +231,7 @@ static int readline_input(FILE *stream){
 	return c;
 }
 
-static char *readline_get(const char *prompt, bool addHistory){
+static char *readline_get(const char *prompt, Bool addHistory){
 	char *lineRead=(char *)NULL;
 	if(lineRead){
 		free(lineRead);
@@ -252,6 +252,7 @@ static int validate_file(char *file){
 
 static void signal_handler(int signalType){
 	switch(signalType){
+	case SIGSEGV:
 	case SIGINT:
 	case SIGTSTP:
 		canceled=TRUE;
@@ -269,11 +270,12 @@ int main(int argc, char *argv[]) {
 	signal(SIGPIPE, signal_handler);
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
+	signal(SIGSEGV, signal_handler);
 	char *modelFile=NULL, *settingFile=NULL, *rolesFile=NULL;
 	int retVal=0;
 	if((retVal=OCl_init())!=RETURN_OK) print_error("OCl init error. ",OCL_error_handling(retVal),TRUE);
 	for(int i=1;i<argc;i++){
-		if(strcmp(argv[i],"--version")==0){
+		if(strcmp(argv[i],"--version")==0 || strcmp(argv[i],"--help")==0){
 			BANNER;
 			exit(EXIT_SUCCESS);
 		}
@@ -350,11 +352,28 @@ int main(int argc, char *argv[]) {
 			OCl_flush_context();
 			continue;
 		}
+		if(strcmp(messagePrompted,"models;")==0){
+			char **models=NULL;
+			int cantModels=OCl_get_models(ocl, &models);
+			if(cantModels<0) {
+				print_error(OCL_get_response_error(ocl),OCL_error_handling(cantModels),FALSE);
+				printf("\n");
+				continue;
+			}
+			printf("%s\n", responseFont);
+			for(int i=0;i<cantModels;i++){
+				printf("%s\n", models[i]);
+				free(models[i]);
+			}
+			free(models);
+			continue;
+		}
 		if(strncmp(messagePrompted,"model;", strlen("model;"))==0){
 			if(strcmp(OCl_get_model(ocl),"")!=0){
 				if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
 					print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 					printf("\n");
+					continue;
 				}
 			}
 			if(strcmp(messagePrompted+strlen("model;"),"")==0){
@@ -387,7 +406,7 @@ int main(int argc, char *argv[]) {
 			ssize_t chars=0;
 			size_t len=0;
 			char *line=NULL;
-			bool found=FALSE;
+			Bool found=FALSE;
 			char role[255]="";
 			snprintf(role, 255,"[%s]", messagePrompted+strlen("role;"));
 			char *newSystemRole=NULL;

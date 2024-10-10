@@ -23,7 +23,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#define BUFFER_SIZE_16K						(1024*16)
+#define BUFFER_SIZE_16K			(1024*16)
 
 typedef struct Response{
 	char *fullResponse;
@@ -33,7 +33,7 @@ typedef struct Response{
 typedef struct Message{
 	char *userMessage;
 	char *assistantMessage;
-	bool isNew;
+	Bool isNew;
 	struct Message *nextMessage;
 }Message;
 
@@ -71,7 +71,6 @@ struct _ocl_response{
 	int evalCount;
 	double tokensPerSec;
 };
-
 
 char * OCl_get_model(OCl *ocl){ return ocl->model;}
 
@@ -303,6 +302,13 @@ int OCl_get_instance(OCl **ocl, char *serverAddr, char *serverPort, char *socket
 	(*ocl)->ocl_resp->content=NULL;
 	(*ocl)->ocl_resp->fullResponse=NULL;
 	(*ocl)->ocl_resp->error=NULL;
+	(*ocl)->ocl_resp->loadDuration=0.0;
+	(*ocl)->ocl_resp->promptEvalDuration=0.0;
+	(*ocl)->ocl_resp->evalDuration=0.0;
+	(*ocl)->ocl_resp->totalDuration=0.0;
+	(*ocl)->ocl_resp->promptEvalCount=0;
+	(*ocl)->ocl_resp->evalCount=0;
+	(*ocl)->ocl_resp->tokensPerSec=0.0;
 	return RETURN_OK;
 }
 
@@ -345,7 +351,7 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 	return socketConn;
 }
 
-static void create_new_context_message(char *userMessage, char *assistantMessage, bool isNew, int maxHistoryContext){
+static void create_new_context_message(char *userMessage, char *assistantMessage, Bool isNew, int maxHistoryContext){
 	Message *newMessage=malloc(sizeof(Message));
 	newMessage->userMessage=malloc(strlen(userMessage)+1);
 	snprintf(newMessage->userMessage,strlen(userMessage)+1,"%s",userMessage);
@@ -469,6 +475,12 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_RESPONSE_MESSAGE_ERROR:
 		snprintf(error_hndl, 1024,"Error message into JSON. ");
 		break;
+	case OCL_ERR_PARTIAL_RESPONSE_RECV:
+		snprintf(error_hndl, 1024,"Partial response received. ");
+		break;
+	case OCL_ERR_ZEROBYTESSENT_ERROR:
+		snprintf(error_hndl, 1024,"Zero bytes sent. Try again...");
+		break;
 	case OCL_ERR_ZEROBYTESRECV_ERROR:
 		snprintf(error_hndl, 1024,"Zero bytes received. Try again...");
 		break;
@@ -501,6 +513,9 @@ char * OCL_error_handling(int error){
 		break;
 	case OCL_ERR_SERVICE_UNAVAILABLE:
 		snprintf(error_hndl, 1024,"Service unavailable. ");
+		break;
+	case OCL_ERR_GETTING_MODELS:
+		snprintf(error_hndl, 1024,"Error getting models. ");
 		break;
 	case OCL_ERR_LOADING_MODEL:
 		snprintf(error_hndl, 1024,"Error loading model. ");
@@ -546,20 +561,31 @@ char * OCL_error_handling(int error){
 	return error_hndl;
 }
 
-static int get_string_from_token(char *text, char *token, char *result, char endChar){
+static int get_string_from_token(char *text, char *token, char ***result, char endChar){
+	char *message=strstr(text,token);
+	int entriesFound=0;
 	ssize_t cont=0;
-	char *message=NULL;
-	message=strstr(text,token);
-	if(message==NULL) return RETURN_ERROR;
-	for(int i=strlen(token);(message[i-1]=='\\' || message[i]!=endChar);i++,cont++){
-		if(message[i]=='\\' && message[i+1]=='\"' && message[i+2]=='}' && message[i+3]==','){
-			(result)[cont]='\\';
-			i+=3;
-			continue;
+	*result=NULL;
+	while(message!=NULL){
+		entriesFound++;
+		cont=0;
+		*result=(char**) realloc(*result, entriesFound * sizeof(char*));
+		char buffer[BUFFER_SIZE_16K]={0};
+		for(int i=strlen(token);(message[i-1]=='\\' || message[i]!=endChar);i++) buffer[i-strlen(token)]=message[i];
+		(*result)[entriesFound-1]=malloc(strlen(buffer)+1);
+		memset((*result)[entriesFound-1],0,strlen(buffer)+1);
+		for(int i=0;i<strlen(buffer);i++,cont++){
+			if(message[i]=='\\' && message[i+1]=='\"' && message[i+2]=='}' && message[i+3]==','){
+				(*result)[entriesFound-1][cont]='\\';
+				i+=3;
+				continue;
+			}
+			(*result)[entriesFound-1][cont]=buffer[i];
 		}
-		(result)[cont]=message[i];
+		message[0]=' ';
+		message=strstr(message,token);
 	}
-	return RETURN_OK;
+	return entriesFound;
 }
 
 static int parse_input(char **stringTo, char *stringFrom){
@@ -660,7 +686,7 @@ static void print_response(char *response, OCl *ocl){
 	free(buffer);
 }
 
-static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, bool streamed){
+static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, Bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<0) return OCL_ERR_SOCKET_CREATION_ERROR;
 	SSL *sslConn=NULL;
@@ -697,7 +723,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(bytesSent<=0){
 				close(socketConn);
 				clean_ssl(sslConn);
-				if(bytesSent==0) return OCL_ERR_ZEROBYTESRECV_ERROR;
+				if(bytesSent==0) return OCL_ERR_ZEROBYTESSENT_ERROR;
 				return OCL_ERR_SENDING_PACKETS_ERROR;
 			}
 			totalBytesSent+=bytesSent;
@@ -728,13 +754,17 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
 			if(bytesReceived>0){
 				totalBytesReceived+=bytesReceived;
-				char result[BUFFER_SIZE_16K]="";
+				char **result=NULL;
 				if(streamed){
-					get_string_from_token(buffer, "\"content\":\"", result, '"');
-					print_response(result, ocl);
-					if(content!=NULL){
-						*content=realloc(*content,totalBytesReceived+1);
-						strcat(*content,result);
+					int retVal=get_string_from_token(buffer, "\"content\":\"", &result, '"');
+					if(retVal>0){
+						print_response(result[0], ocl);
+						if(content!=NULL){
+							*content=realloc(*content,totalBytesReceived+1);
+							strcat(*content,result[0]);
+							free(result[0]);
+							free(result);
+						}
 					}
 				}
 				*fullResponse=realloc(*fullResponse,totalBytesReceived+1);
@@ -742,17 +772,13 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 				if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
 			}
-			if(bytesReceived==0){
-				close(socketConn);
-				break;
-			}
+			if(bytesReceived==0) break;
 			if(bytesReceived<0 && (errno==EAGAIN || errno==EWOULDBLOCK)) continue;
 			if(bytesReceived<0 && (errno!=EAGAIN)){
 				close(socketConn);
 				clean_ssl(sslConn);
 				return OCL_ERR_RECEIVING_PACKETS_ERROR;
 			}
-
 		}while(TRUE && !canceled);
 	}
 	close(socketConn);
@@ -837,7 +863,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	free(body);
 	char *fullResponse=NULL, *content=NULL;
-	int resp=send_message(ocl, msg, &fullResponse, &content, TRUE);
+	int retVal=send_message(ocl, msg, &fullResponse, &content, TRUE);
 	free(msg);
 	if(strstr(fullResponse,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(fullResponse,"{\"error"));
@@ -846,33 +872,64 @@ int OCl_send_chat(OCl *ocl, char *message){
 		free(content);
 		return OCL_ERR_RESPONSE_MESSAGE_ERROR;
 	}
-	if(resp<0){
+	if(strstr(fullResponse," 503 ")!=NULL){
 		free(messageParsed);
 		free(fullResponse);
 		free(content);
-		return resp;
+		return OCL_ERR_SERVICE_UNAVAILABLE;
 	}
-	if(!canceled && resp>0){
-		char result[1024]="";
-		memset(result,0,1024);
-		get_string_from_token(fullResponse, "\"load_duration\":", result, ',');
-		ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
-		memset(result,0,1024);
-		get_string_from_token(fullResponse, "\"prompt_eval_duration\":", result, ',');
-		ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
-		memset(result,0,1024);
-		get_string_from_token(fullResponse, "\"eval_duration\":", result, '}');
-		ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
-		memset(result,0,1024);
-		get_string_from_token(fullResponse, "\"total_duration\":", result, ',');
-		ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
-		memset(result,0,1024);
-		get_string_from_token(fullResponse, "\"prompt_eval_count\":", result, ',');
-		ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
-		memset(result,0,1024);
-		get_string_from_token(fullResponse, "\"eval_count\":", result, ',');
-		ocl->ocl_resp->evalCount=strtol(result,NULL,10);
-		ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
+	if(strstr(fullResponse,"\"done\":true")==NULL || strstr(fullResponse,"\"done\": true")!=NULL){
+		free(messageParsed);
+		free(fullResponse);
+		free(content);
+		return OCL_ERR_PARTIAL_RESPONSE_RECV;
+	}
+	if(retVal<0){
+		free(messageParsed);
+		free(fullResponse);
+		free(content);
+		return retVal;
+	}
+	if(!canceled && retVal>0){
+		char **result=NULL;
+		int retVal=0;
+		retVal=get_string_from_token(fullResponse, "\"load_duration\":", &result, ',');
+		if(retVal>0){
+			ocl->ocl_resp->loadDuration=strtod(result[0],NULL)/1000000000.0;
+			free(result[0]);
+			free(result);
+		}
+		retVal=get_string_from_token(fullResponse, "\"prompt_eval_duration\":", &result, ',');
+		if(retVal>0){
+			ocl->ocl_resp->promptEvalDuration=strtod(result[0],NULL)/1000000000.0;
+			free(result[0]);
+			free(result);
+		}
+		retVal=get_string_from_token(fullResponse, "\"eval_duration\":", &result, '}');
+		if(retVal>0){
+			ocl->ocl_resp->evalDuration=strtod(result[0],NULL)/1000000000.0;
+			free(result[0]);
+			free(result);
+		}
+		retVal=get_string_from_token(fullResponse, "\"total_duration\":", &result, ',');
+		if(retVal>0){
+			ocl->ocl_resp->totalDuration=strtod(result[0],NULL)/1000000000.0;
+			free(result[0]);
+			free(result);
+		}
+		retVal=get_string_from_token(fullResponse, "\"prompt_eval_count\":", &result, ',');
+		if(retVal>0){
+			ocl->ocl_resp->promptEvalCount=strtol(result[0],NULL,10);
+			free(result[0]);
+			free(result);
+		}
+		retVal=get_string_from_token(fullResponse, "\"eval_count\":", &result, ',');
+		if(retVal>0){
+			ocl->ocl_resp->evalCount=strtol(result[0],NULL,10);
+			free(result[0]);
+			free(result);
+		}
+		if(retVal>0) ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 		if(message[strlen(message)-1]!=';'){
 			create_new_context_message(messageParsed, content, TRUE, ocl->maxMessageContext);
 			OCl_save_message(ocl, messageParsed, content);
@@ -892,6 +949,7 @@ int OCl_check_service_status(OCl *ocl){
 	char *buffer=NULL;
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, &buffer,NULL, FALSE))<0){
+		printf("\n%s\n\n%d\n", buffer, retVal);
 		free(buffer);
 		return retVal;
 	}
@@ -904,7 +962,7 @@ int OCl_check_service_status(OCl *ocl){
 }
 
 
-int OCl_load_model(OCl *ocl, bool load){
+int OCl_load_model(OCl *ocl, Bool load){
 	char body[1024]="";
 	if(load){
 		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": -1}",ocl->model);
@@ -931,7 +989,41 @@ int OCl_load_model(OCl *ocl, bool load){
 		free(buffer);
 		return RETURN_OK;
 	}
+	if(strstr(buffer," 503 ")!=NULL){
+		free(buffer);
+		return OCL_ERR_SERVICE_UNAVAILABLE;
+	}
 	free(buffer);
+	printf("\n%s\n\n%d\n", buffer, retVal);
 	if(load) return OCL_ERR_LOADING_MODEL;
 	return OCL_ERR_UNLOADING_MODEL;
+}
+
+int OCl_get_models(OCl *ocl, char ***models){
+	char body[1024]="", msg[2048]="";
+	snprintf(msg,2048,
+			"GET /api/tags HTTP/1.1\r\n"
+			"Host: %s\r\n"
+			"Content-Type: application/json\r\n"
+			"Content-Length: %d\r\n\r\n"
+			"%s",ocl->srvAddr,(int) strlen(body), body);
+	char *buffer=NULL;
+	int retVal=0;
+	if((retVal=send_message(ocl, msg, &buffer, NULL, FALSE))<0) return retVal;
+	if(strstr(buffer,"{\"error")!=NULL){
+		OCl_set_error(ocl, strstr(buffer,"{\"error"));
+		free(buffer);
+		return OCL_ERR_GETTING_MODELS;
+	}
+	if(strstr(buffer," 503 ")!=NULL){
+		free(buffer);
+		return OCL_ERR_SERVICE_UNAVAILABLE;
+	}
+	if(retVal<0){
+		printf("\n%s\n\n%d\n", buffer, retVal); //TODO
+		return retVal;
+	}
+	int cantModels=get_string_from_token(buffer, "\"name\":", models, ',');
+	free(buffer);
+	return cantModels;
 }

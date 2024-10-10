@@ -1,6 +1,6 @@
 # Ollama-C-lient
 
-C program for interacting with Ollama server from a Linux terminal. It is not meant to be a complete library at all. At the moment, it's just the simplest interface that I'm developing solely for my personal and daily usage.
+C program for interacting with [Ollama](https://github.com/ollama/ollama) server from a Linux terminal. It is not meant to be a complete library at all. At the moment, it's just the simplest interface that I'm developing solely for my personal and daily usage.
 
 Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lucho-A/ChatGP-Terminal) it is not more maintained by now.
 
@@ -54,9 +54,10 @@ On the other hand, some commands can be prompting:
 
 | Command | Argument | Description |
 |:------- |:---------|:----------- |
-| flush;   | N/A      | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
-| model;   | string*   | change the model.
-| role;    | string*   | role name included into the file ('--roles-file').
+| flush;   | N/A     | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
+| models;  | N/A     | shows available models.
+| model;   | string* | change the model.
+| role;    | string* | role name included into the file ('--roles-file').
 
 * If 'string' is empty, the model|role will change to the default one.
 
