@@ -23,6 +23,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#include <wchar.h>
+
 #define BUFFER_SIZE_16K			(1024*16)
 
 typedef struct Response{
@@ -575,9 +577,9 @@ static int get_string_from_token(char *text, char *token, char ***result, char e
 		(*result)[entriesFound-1]=malloc(strlen(buffer)+1);
 		memset((*result)[entriesFound-1],0,strlen(buffer)+1);
 		for(int i=0;i<strlen(buffer);i++,cont++){
-			if(message[i]=='\\' && message[i+1]=='\"' && message[i+2]=='}' && message[i+3]==','){
+			if(buffer[i]=='\\' && buffer[i+1]=='\"' && buffer[i+2]=='}' && buffer[i+3]==','){
 				(*result)[entriesFound-1][cont]='\\';
-				i+=3;
+				i+=4;
 				continue;
 			}
 			(*result)[entriesFound-1][cont]=buffer[i];
@@ -657,6 +659,12 @@ static int parse_output(char **stringTo, char *stringFrom){
 				break;
 			case '"':
 				(*stringTo)[cont]='\"';
+				break;
+			case 'u':
+				char buffer[5]="";
+				snprintf(buffer,5,"%c%c%c%c",stringFrom[i+2],stringFrom[i+3],stringFrom[i+4],stringFrom[i+5]);
+				(*stringTo)[cont]=strtol(buffer,NULL,16);
+				i+=4;
 				break;
 			default:
 				break;
@@ -949,7 +957,7 @@ int OCl_check_service_status(OCl *ocl){
 			"Host: %s\r\n\r\n",ocl->srvAddr);
 	char *buffer=NULL;
 	int retVal=0;
-	if((retVal=send_message(ocl, msg, &buffer,NULL, FALSE))<0){
+	if((retVal=send_message(ocl, msg, &buffer,NULL, FALSE))<=0){
 		free(buffer);
 		return retVal;
 	}
@@ -978,7 +986,10 @@ int OCl_load_model(OCl *ocl, Bool load){
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	char *buffer=NULL;
 	int retVal=0;
-	if((retVal=send_message(ocl, msg, &buffer, NULL, FALSE))<0) return retVal;
+	if((retVal=send_message(ocl, msg, &buffer, NULL, FALSE))<=0){
+		free(buffer);
+		return retVal;
+	}
 	if(strstr(buffer,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(buffer,"{\"error"));
 		free(buffer);
@@ -1008,7 +1019,10 @@ int OCl_get_models(OCl *ocl, char ***models){
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	char *buffer=NULL;
 	int retVal=0;
-	if((retVal=send_message(ocl, msg, &buffer, NULL, FALSE))<0) return retVal;
+	if((retVal=send_message(ocl, msg, &buffer, NULL, FALSE))<=0){
+		free(buffer);
+		return retVal;
+	}
 	if(strstr(buffer,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(buffer,"{\"error"));
 		free(buffer);
@@ -1018,7 +1032,6 @@ int OCl_get_models(OCl *ocl, char ***models){
 		free(buffer);
 		return OCL_ERR_SERVICE_UNAVAILABLE;
 	}
-	if(retVal<0) return retVal;
 	int cantModels=get_string_from_token(buffer, "\"name\":", models, ',');
 	free(buffer);
 	return cantModels;

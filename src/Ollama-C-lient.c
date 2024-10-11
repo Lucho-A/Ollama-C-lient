@@ -321,19 +321,24 @@ int main(int argc, char *argv[]) {
 	}
 	printf("\n");
 	if(modelFile!=NULL){
-		if((retVal=load_modelfile(modelFile))!=RETURN_OK) print_error("Loading model file error. ",OCL_error_handling(retVal),TRUE);
+		if((retVal=load_modelfile(modelFile))!=RETURN_OK)
+			print_error("Loading model file error. ",OCL_error_handling(retVal),TRUE);
 	}
 	if(settingFile!=NULL){
-		if((retVal=load_settingfile(settingFile))!=RETURN_OK) print_error("Loading setting file error. ",OCL_error_handling(retVal),TRUE);
+		if((retVal=load_settingfile(settingFile))!=RETURN_OK)
+			print_error("Loading setting file error. ",OCL_error_handling(retVal),TRUE);
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo,
 			responseSpeed, responseFont, model, systemRole, maxMsgCtx, temp, maxTokens,maxTokensCtx,
 			contextFile))!=RETURN_OK) print_error("OCl getting instance error. ",OCL_error_handling(retVal),TRUE);
-	if((retVal=OCl_import_context(ocl))!=RETURN_OK) print_error("Importing context error. ",OCL_error_handling(retVal),TRUE);
-	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK) print_error("Service not available. ",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_import_context(ocl))!=RETURN_OK)
+		print_error("Importing context error. ",OCL_error_handling(retVal),TRUE);
+	if((retVal=OCl_check_service_status(ocl))!=RETURN_OK)
+		print_error("Service not available. ",OCL_error_handling(retVal),TRUE);
 	print_system_msg("Server status: Ollama is running\n");
 	if(strcmp(OCl_get_model(ocl),"")!=0){
-		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK) print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
+		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK)
+			print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 	}
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
@@ -388,6 +393,9 @@ int main(int argc, char *argv[]) {
 				continue;
 			}
 			continue;
+		}
+		if(strncmp(messagePrompted,"roles;", strlen("roles;"))==0){
+			//TODO
 		}
 		if(strncmp(messagePrompted,"role;", strlen("role;"))==0){
 			if(strcmp(messagePrompted+strlen("role;"),"")==0){
