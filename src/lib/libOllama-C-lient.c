@@ -949,7 +949,6 @@ int OCl_check_service_status(OCl *ocl){
 	char *buffer=NULL;
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, &buffer,NULL, FALSE))<0){
-		printf("\n%s\n\n%d\n", buffer, retVal);
 		free(buffer);
 		return retVal;
 	}
