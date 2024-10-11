@@ -779,11 +779,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 				if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
 			}
-			if(SSL_pending(sslConn)){
-				continue;
-			}else{
-				break;
-			}
+			if(!SSL_pending(sslConn)) break;
 		}while(TRUE && !canceled);
 	}
 	close(socketConn);
@@ -870,6 +866,12 @@ int OCl_send_chat(OCl *ocl, char *message){
 	char *fullResponse=NULL, *content=NULL;
 	int retVal=send_message(ocl, msg, &fullResponse, &content, TRUE);
 	free(msg);
+	if(retVal<0){
+		free(messageParsed);
+		free(fullResponse);
+		free(content);
+		return retVal;
+	}
 	if(strstr(fullResponse,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(fullResponse,"{\"error"));
 		free(messageParsed);
@@ -888,12 +890,6 @@ int OCl_send_chat(OCl *ocl, char *message){
 		free(fullResponse);
 		free(content);
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
-	}
-	if(retVal<0){
-		free(messageParsed);
-		free(fullResponse);
-		free(content);
-		return retVal;
 	}
 	if(!canceled && retVal>0){
 		char **result=NULL;
@@ -998,7 +994,6 @@ int OCl_load_model(OCl *ocl, Bool load){
 		return OCL_ERR_SERVICE_UNAVAILABLE;
 	}
 	free(buffer);
-	printf("\n%s\n\n%d\n", buffer, retVal);
 	if(load) return OCL_ERR_LOADING_MODEL;
 	return OCL_ERR_UNLOADING_MODEL;
 }
@@ -1023,10 +1018,7 @@ int OCl_get_models(OCl *ocl, char ***models){
 		free(buffer);
 		return OCL_ERR_SERVICE_UNAVAILABLE;
 	}
-	if(retVal<0){
-		printf("\n%s\n\n%d\n", buffer, retVal); //TODO
-		return retVal;
-	}
+	if(retVal<0) return retVal;
 	int cantModels=get_string_from_token(buffer, "\"name\":", models, ',');
 	free(buffer);
 	return cantModels;

@@ -260,7 +260,7 @@ static void signal_handler(int signalType){
 	case SIGHUP:
 		close_program(ocl);
 	case SIGPIPE:
-		print_error("'SIGPIPE' signal received: the write end of the pipe or socket is closed.","", FALSE);
+		//print_error("'SIGPIPE' signal received: the write end of the pipe or socket is closed.","", FALSE);
 		break;
 	}
 }
