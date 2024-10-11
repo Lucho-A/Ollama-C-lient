@@ -16,7 +16,7 @@
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.1"
+#define PROGRAM_VERSION					"0.0.1-beta"
 
 #define PROMPT_DEFAULT					"-> "
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
@@ -64,7 +64,6 @@ static void print_response_info(){
 	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_response_eval_count(ocl));
 	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
 }
-
 
 static int load_settingfile(char *settingfile){
 	ssize_t chars=0;

@@ -555,7 +555,6 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_RESPONSE_SPEED_NOT_VALID:
 		snprintf(error_hndl, 1024,"Response Speed value not valid.");
 		break;
-
 	default:
 		snprintf(error_hndl, 1024,"Error not handled. ");
 		break;
