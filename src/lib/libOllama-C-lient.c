@@ -688,7 +688,7 @@ static void print_response(char *response, OCl *ocl){
 
 static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, Bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
-	if(socketConn<0) return OCL_ERR_SOCKET_CREATION_ERROR;
+	if(socketConn<0) return socketConn;
 	SSL *sslConn=NULL;
 	if((sslConn=SSL_new(sslCtx))==NULL){
 		clean_ssl(sslConn);
@@ -752,6 +752,13 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 		do{
 			char buffer[BUFFER_SIZE_16K]="";
 			bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
+			if(bytesReceived==0) break;
+			if(bytesReceived<0 && (errno==EAGAIN || errno==EWOULDBLOCK)) continue;
+			if(bytesReceived<0 && (errno!=EAGAIN)){
+				close(socketConn);
+				clean_ssl(sslConn);
+				return OCL_ERR_RECEIVING_PACKETS_ERROR;
+			}
 			if(bytesReceived>0){
 				totalBytesReceived+=bytesReceived;
 				char **result=NULL;
@@ -772,12 +779,10 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 				if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
 			}
-			if(bytesReceived==0) break;
-			if(bytesReceived<0 && (errno==EAGAIN || errno==EWOULDBLOCK)) continue;
-			if(bytesReceived<0 && (errno!=EAGAIN)){
-				close(socketConn);
-				clean_ssl(sslConn);
-				return OCL_ERR_RECEIVING_PACKETS_ERROR;
+			if(SSL_pending(sslConn)){
+				continue;
+			}else{
+				break;
 			}
 		}while(TRUE && !canceled);
 	}
