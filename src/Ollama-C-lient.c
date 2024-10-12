@@ -96,12 +96,12 @@ static int load_settingfile(char *settingfile){
 			for(int i=0;i<chars-1;i++) socketConnTo[i]=line[i];
 			continue;
 		}
-		if((strstr(line,"[SOCKET_SEND_TO_MS]"))==line){
+		if((strstr(line,"[SOCKET_SEND_TO_S]"))==line){
 			chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) socketSendTo[i]=line[i];
 			continue;
 		}
-		if((strstr(line,"[SOCKET_RECV_TO_MS]"))==line){
+		if((strstr(line,"[SOCKET_RECV_TO_S]"))==line){
 			chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) socketRecvTo[i]=line[i];
 			continue;

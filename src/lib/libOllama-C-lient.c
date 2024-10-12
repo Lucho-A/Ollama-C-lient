@@ -321,38 +321,6 @@ static void clean_ssl(SSL *ssl){
 	SSL_free(ssl);
 }
 
-static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeout){
-	static char ollamaServerIp[INET_ADDRSTRLEN]="";
-	struct addrinfo hints, *res;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family=AF_INET;
-	hints.ai_socktype=SOCK_STREAM;
-	if(getaddrinfo(srvAddr, NULL, &hints, &res)!=0) return OCL_ERR_GETTING_HOST_INFO_ERROR;
-	struct sockaddr_in *ipv4=(struct sockaddr_in *)res->ai_addr;
-	void *addr=&(ipv4->sin_addr);
-	inet_ntop(res->ai_family, addr, ollamaServerIp, sizeof(ollamaServerIp));
-	freeaddrinfo(res);
-	int socketConn=0;
-	struct sockaddr_in serverAddress;
-	serverAddress.sin_family=AF_INET;
-	serverAddress.sin_port=htons(srvPort);
-	serverAddress.sin_addr.s_addr=inet_addr(ollamaServerIp);
-	if((socketConn=socket(AF_INET, SOCK_STREAM, 0))<0) return OCL_ERR_SOCKET_CREATION_ERROR;
-	int socketFlags=fcntl(socketConn, F_GETFL, 0);
-	fcntl(socketConn, F_SETFL, socketFlags | O_NONBLOCK);
-	connect(socketConn, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
-	fd_set rFdset, wFdset;
-	struct timeval tv;
-	FD_ZERO(&rFdset);
-	FD_SET(socketConn, &rFdset);
-	wFdset=rFdset;
-	tv.tv_sec=socketConnectTimeout;
-	tv.tv_usec=0;
-	if(select(socketConn+1,&rFdset,&wFdset,NULL,&tv)<=0) return OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
-	fcntl(socketConn, F_SETFL, socketFlags);
-	return socketConn;
-}
-
 static void create_new_context_message(char *userMessage, char *assistantMessage, Bool isNew, int maxHistoryContext){
 	Message *newMessage=malloc(sizeof(Message));
 	newMessage->userMessage=malloc(strlen(userMessage)+1);
@@ -448,7 +416,8 @@ char * OCL_error_handling(int error){
 		snprintf(error_hndl, 1024,"Error creating SSL context: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
 	case OCL_ERR_SSL_CERT_NOT_FOUND:
-		snprintf(error_hndl, 1024,"SSL cert. not found: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
+		snprintf(error_hndl, 1024,"SSL cert. not found: %s. SSL Error: %s", strerror(errno),
+				ERR_error_string(sslErr, NULL));
 		break;
 	case OCL_ERR_SSL_FD_ERROR:
 		snprintf(error_hndl, 1024,"SSL fd error: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
@@ -693,6 +662,37 @@ static void print_response(char *response, OCl *ocl){
 	free(buffer);
 }
 
+static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeout){
+	static char ollamaServerIp[INET_ADDRSTRLEN]="";
+	struct addrinfo hints, *res;
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family=AF_INET;
+	hints.ai_socktype=SOCK_STREAM;
+	if(getaddrinfo(srvAddr, NULL, &hints, &res)!=0) return OCL_ERR_GETTING_HOST_INFO_ERROR;
+	struct sockaddr_in *ipv4=(struct sockaddr_in *)res->ai_addr;
+	void *addr=&(ipv4->sin_addr);
+	inet_ntop(res->ai_family, addr, ollamaServerIp, sizeof(ollamaServerIp));
+	freeaddrinfo(res);
+	int socketConn=0;
+	struct sockaddr_in serverAddress;
+	serverAddress.sin_family=AF_INET;
+	serverAddress.sin_port=htons(srvPort);
+	serverAddress.sin_addr.s_addr=inet_addr(ollamaServerIp);
+	if((socketConn=socket(AF_INET, SOCK_STREAM, 0))<0) return OCL_ERR_SOCKET_CREATION_ERROR;
+	int socketFlags=fcntl(socketConn, F_GETFL, 0);
+	fcntl(socketConn, F_SETFL, socketFlags | O_NONBLOCK);
+	struct timeval tvConnectionTo;
+	connect(socketConn, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+	fd_set rFdset, wFdset;
+	FD_ZERO(&rFdset);
+	FD_SET(socketConn, &rFdset);
+	wFdset=rFdset;
+	tvConnectionTo.tv_sec=socketConnectTimeout;
+	tvConnectionTo.tv_usec=0;
+	if(select(socketConn+1,&rFdset,&wFdset,NULL,&tvConnectionTo)<=0) return OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
+	return socketConn;
+}
+
 static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, Bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<0) return socketConn;
@@ -711,84 +711,84 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 		clean_ssl(sslConn);
 		return OCL_ERR_SSL_CONNECT_ERROR;
 	}
-	struct pollfd pfds[1];
-	int numEvents=0,pollinHappened=0,bytesSent=0;
-	fcntl(socketConn, F_SETFL, O_NONBLOCK);
-	pfds[0].fd=socketConn;
-	pfds[0].events=POLLOUT;
-	numEvents=poll(pfds,1,ocl->socketSendTimeout);
-	if(numEvents==0){
-		close(socketConn);
-		clean_ssl(sslConn);
-		return OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR;
-	}
-	pollinHappened=pfds[0].revents & POLLOUT;
-	if(pollinHappened){
-		int totalBytesSent=0;
-		while(totalBytesSent<strlen(payload)){
-			bytesSent=SSL_write(sslConn, payload + totalBytesSent, strlen(payload) - totalBytesSent);
-			if(bytesSent<=0){
-				close(socketConn);
-				clean_ssl(sslConn);
-				if(bytesSent==0) return OCL_ERR_ZEROBYTESSENT_ERROR;
-				return OCL_ERR_SENDING_PACKETS_ERROR;
-			}
+	fd_set rFdset, wFdset;
+	int bytesSent=0;
+	int totalBytesSent=0;
+	struct timeval tvSendTo;
+	while(totalBytesSent<strlen(payload)){
+		int sk = SSL_get_fd(sslConn);
+		FD_ZERO(&wFdset);
+		FD_SET(sk, &wFdset);
+		tvSendTo.tv_sec=ocl->socketSendTimeout;
+		tvSendTo.tv_usec=0;
+		if(select(sk+1,NULL,&wFdset,NULL,&tvSendTo)<=0) return OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR;
+		bytesSent=SSL_write(sslConn, payload + totalBytesSent, strlen(payload) - totalBytesSent);
+		int sslError=SSL_get_error(sslConn, bytesSent);
+		switch(sslError){
+		case SSL_ERROR_NONE:
 			totalBytesSent+=bytesSent;
+			continue;
+		case SSL_ERROR_WANT_READ:
+		case SSL_ERROR_WANT_X509_LOOKUP:
+			continue;
+		default:
+			close(socketConn);
+			clean_ssl(sslConn);
+			return OCL_ERR_SENDING_PACKETS_ERROR;
 		}
-	}else{
-		close(socketConn);
-		clean_ssl(sslConn);
-		return OCL_ERR_POLLIN_ERROR;
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
-	pfds[0].events=POLLIN;
-	numEvents=poll(pfds, 1, ocl->socketRecvTimeout);
-	if(numEvents==0){
-		close(socketConn);
-		clean_ssl(sslConn);
-		return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
-	}
-	pollinHappened = pfds[0].revents & POLLIN;
 	*fullResponse=malloc(1);
 	(*fullResponse)[0]=0;
 	if(content!=NULL){
 		*content=malloc(1);
 		(*content)[0]=0;
 	}
-	if (pollinHappened){
-		do{
-			char buffer[BUFFER_SIZE_16K]="";
-			bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
-			if(bytesReceived==0) break;
-			if(bytesReceived<0 && (errno==EAGAIN || errno==EWOULDBLOCK)) continue;
-			if(bytesReceived<0 && (errno!=EAGAIN)){
-				close(socketConn);
-				clean_ssl(sslConn);
-				return OCL_ERR_RECEIVING_PACKETS_ERROR;
-			}
-			if(bytesReceived>0){
-				totalBytesReceived+=bytesReceived;
-				char **result=NULL;
-				if(streamed){
-					int retVal=get_string_from_token(buffer, "\"content\":\"", &result, '"');
-					if(retVal>0){
-						print_response(result[0], ocl);
-						if(content!=NULL){
-							*content=realloc(*content,totalBytesReceived+1);
-							strcat(*content,result[0]);
-							free(result[0]);
-							free(result);
-						}
+	struct timeval tvRecvTo;
+	do{
+		int sk = SSL_get_fd(sslConn);
+		FD_ZERO(&rFdset);
+		FD_SET(sk, &rFdset);
+		tvRecvTo.tv_sec=ocl->socketRecvTimeout;
+		tvRecvTo.tv_usec=0;
+		if(select(sk+1,&rFdset,NULL,NULL,&tvRecvTo)<=0) return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
+		char buffer[BUFFER_SIZE_16K]="";
+		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
+		int sslError=SSL_get_error(sslConn, bytesReceived);
+		switch(sslError){
+		case SSL_ERROR_NONE:
+			break;
+		case SSL_ERROR_WANT_READ:
+		case SSL_ERROR_WANT_X509_LOOKUP:
+			continue;
+		default:
+			close(socketConn);
+			clean_ssl(sslConn);
+			return OCL_ERR_RECEIVING_PACKETS_ERROR;
+		}
+		if(bytesReceived==0) break;
+		if(bytesReceived>0){
+			totalBytesReceived+=bytesReceived;
+			char **result=NULL;
+			if(streamed){
+				int retVal=get_string_from_token(buffer, "\"content\":\"", &result, '"');
+				if(retVal>0){
+					print_response(result[0], ocl);
+					if(content!=NULL){
+						*content=realloc(*content,totalBytesReceived+1);
+						strcat(*content,result[0]);
+						free(result[0]);
+						free(result);
 					}
 				}
-				*fullResponse=realloc(*fullResponse,totalBytesReceived+1);
-				strcat(*fullResponse,buffer);
-				if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
-				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
 			}
-			if(!SSL_pending(sslConn)) break;
-		}while(TRUE && !canceled);
-	}
+			*fullResponse=realloc(*fullResponse,totalBytesReceived+1);
+			strcat(*fullResponse,buffer);
+			if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
+			if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
+		}
+		if(!SSL_pending(sslConn)) break;
+	}while(TRUE && !canceled);
 	close(socketConn);
 	clean_ssl(sslConn);
 	return totalBytesReceived;
@@ -844,7 +844,6 @@ int OCl_send_chat(OCl *ocl, char *message){
 			"\"max_tokens\": %d,"
 			"\"num_ctx\": %d,"
 			"\"stream\": true,"
-			//"\"format\": \"json\","
 			"\"keep_alive\": -1,"
 			"\"stop\": null,"
 			"\"messages\":["

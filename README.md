@@ -10,7 +10,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 
 ### Features/Assumptions/Scope/Whatever
 
-- if specify, the program load the model when starts, and keeping it in server memory until exit or model changing
+- if specified, the program load a model when starts, and keeping it in server memory until exit or model changing
 - it supports window context
 - at the moment, the output is only streamed
 - allows to show the response's info
@@ -116,8 +116,4 @@ $ Ollama-C-lient --roles-file ~/ollama/roles --context-file ~/ollama/context
 #### Bugs known/unknown
 
 In line with a Top Down approach (and the Beta stage), several bugs can be found.
-
-
-
-
 
