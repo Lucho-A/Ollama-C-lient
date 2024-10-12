@@ -7,7 +7,7 @@
  Copyright   : GNU General Public License v3.0
  Description : Main file
  ============================================================================
-*/
+ */
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -196,9 +196,11 @@ static int load_modelfile(char *modelfile){
 
 static int close_program(OCl *ocl){
 	int retVal=0;
-	if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
-		print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
-		printf("\n");
+	if(strcmp(OCl_get_model(ocl),"")!=0){
+		if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
+			print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
+			printf("\n");
+		}
 	}
 	OCl_free(ocl);
 	if(serverAddr!=NULL) free(serverAddr);
@@ -254,12 +256,12 @@ static void signal_handler(int signalType){
 	case SIGSEGV:
 	case SIGINT:
 	case SIGTSTP:
+	case SIGPIPE:
 		canceled=TRUE;
 		break;
 	case SIGHUP:
 		close_program(ocl);
-	case SIGPIPE:
-		//print_error("'SIGPIPE' signal received: the write end of the pipe or socket is closed.","", FALSE);
+	default:
 		break;
 	}
 }
@@ -336,8 +338,10 @@ int main(int argc, char *argv[]) {
 		print_error("Service not available. ",OCL_error_handling(retVal),TRUE);
 	print_system_msg("Server status: Ollama is running\n");
 	if(strcmp(OCl_get_model(ocl),"")!=0){
-		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK)
+		if((retVal=OCl_load_model(ocl,TRUE))!=RETURN_OK){
 			print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
+			OCl_set_model(ocl, "");
+		}
 	}
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
@@ -377,7 +381,6 @@ int main(int argc, char *argv[]) {
 				if((retVal=OCl_load_model(ocl,FALSE))!=RETURN_OK){
 					print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),FALSE);
 					printf("\n");
-					continue;
 				}
 			}
 			if(strcmp(messagePrompted+strlen("model;"),"")==0){
@@ -395,6 +398,7 @@ int main(int argc, char *argv[]) {
 		}
 		if(strncmp(messagePrompted,"roles;", strlen("roles;"))==0){
 			//TODO
+			continue;
 		}
 		if(strncmp(messagePrompted,"role;", strlen("role;"))==0){
 			if(strcmp(messagePrompted+strlen("role;"),"")==0){
