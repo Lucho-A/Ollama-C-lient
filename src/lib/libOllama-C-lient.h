@@ -91,7 +91,7 @@ enum ocl_errors{
 
 typedef struct _ocl OCl;
 
-extern Bool canceled;
+extern Bool ocl_canceled;
 
 int OCl_init();
 int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *, char *,

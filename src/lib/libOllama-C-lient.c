@@ -42,6 +42,7 @@ typedef struct Message{
 Message *rootContextMessages=NULL;
 int contContextMessages=0;
 SSL_CTX *sslCtx=NULL;
+Bool ocl_canceled=FALSE;
 
 typedef struct _ocl{
 	char *srvAddr;
@@ -231,6 +232,7 @@ int OCl_init(){
 	if((sslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return OCL_ERR_SSL_CONTEXT_ERROR;
 	SSL_CTX_set_verify(sslCtx, SSL_VERIFY_PEER, NULL);
 	SSL_CTX_set_default_verify_paths(sslCtx);
+	ocl_canceled=FALSE;
 	return RETURN_OK;
 }
 
@@ -653,7 +655,7 @@ static void print_response(char *response, OCl *ocl){
 	if(ocl->responseSpeed==0){
 		printf("%s",buffer);
 	}else{
-		for(int i=0;buffer[i]!=0 && !canceled;i++){
+		for(int i=0;buffer[i]!=0 && !ocl_canceled;i++){
 			usleep(ocl->responseSpeed);
 			printf("%c",buffer[i]);
 			fflush(stdout);
@@ -788,7 +790,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
 		}
 		if(!SSL_pending(sslConn)) break;
-	}while(TRUE && !canceled);
+	}while(TRUE && !ocl_canceled);
 	close(socketConn);
 	clean_ssl(sslConn);
 	return totalBytesReceived;
@@ -897,7 +899,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 		free(content);
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
 	}
-	if(!canceled && retVal>0){
+	if(!ocl_canceled && retVal>0){
 		char **result=NULL;
 		int retVal=0;
 		retVal=get_string_from_token(fullResponse, "\"load_duration\":", &result, ',');

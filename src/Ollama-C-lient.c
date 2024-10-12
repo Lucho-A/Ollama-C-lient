@@ -23,7 +23,7 @@
 #define PROMPT_DEFAULT					"-> "
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
-Bool canceled=FALSE, exitProgram=FALSE, showResponseInfo=FALSE;
+Bool exitProgram=FALSE, showResponseInfo=FALSE;
 int prevInput=0;
 OCl *ocl=NULL;
 
@@ -259,7 +259,7 @@ static void signal_handler(int signalType){
 	case SIGINT:
 	case SIGTSTP:
 	case SIGPIPE:
-		canceled=TRUE;
+		ocl_canceled=TRUE;
 		break;
 	case SIGHUP:
 		close_program(ocl);
@@ -349,7 +349,7 @@ int main(int argc, char *argv[]) {
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
 	do{
-		exitProgram=canceled=FALSE;
+		exitProgram=ocl_canceled=FALSE;
 		free(messagePrompted);
 		printf("%s\n",promptFont);
 		messagePrompted=readline_get(PROMPT_DEFAULT, FALSE);
@@ -357,7 +357,7 @@ int main(int argc, char *argv[]) {
 			printf("\n⎋");
 			break;
 		}
-		if(canceled || strcmp(messagePrompted,"")==0) continue;
+		if(ocl_canceled || strcmp(messagePrompted,"")==0) continue;
 		printf("↵\n");
 		if(strcmp(messagePrompted,"flush;")==0){
 			OCl_flush_context();
@@ -449,7 +449,7 @@ int main(int argc, char *argv[]) {
 				print_error(OCL_get_response_error(ocl),"",FALSE);
 				break;
 			default:
-				if(canceled){
+				if(ocl_canceled){
 					printf("\n");
 					break;
 				}
@@ -457,7 +457,7 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 		}else{
-			if(showResponseInfo && !canceled) print_response_info();
+			if(showResponseInfo && !ocl_canceled) print_response_info();
 		}
 		add_history(messagePrompted);
 		printf("\n");
