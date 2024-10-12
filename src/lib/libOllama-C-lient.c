@@ -414,6 +414,9 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Socket connection time out. ");
 		break;
+	case OCL_ERR_SSLCTX_NULL_ERROR:
+		snprintf(error_hndl, 1024,"SSL context null: %s (Did you call OCL_init()?). SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
+		break;
 	case OCL_ERR_SSL_CONTEXT_ERROR:
 		snprintf(error_hndl, 1024,"Error creating SSL context: %s. SSL Error: %s", strerror(errno),ERR_error_string(sslErr, NULL));
 		break;
@@ -698,6 +701,7 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, Bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<0) return socketConn;
+	if(sslCtx==NULL) return OCL_ERR_SSLCTX_NULL_ERROR;
 	SSL *sslConn=NULL;
 	if((sslConn=SSL_new(sslCtx))==NULL){
 		clean_ssl(sslConn);
