@@ -12,41 +12,38 @@
 #ifndef HEADERS_LIBOLLAMA_C_LIENT_H_
 #define HEADERS_LIBOLLAMA_C_LIENT_H_
 
-#include <stdio.h>
-#include <stdlib.h>
+#define RETURN_ERROR 							-1
+#define RETURN_OK 								0
 
-#define RETURN_ERROR 								-1
-#define RETURN_OK 									0
+#define OCL_NAME 								"libOCl"
+#define OCL_MAJOR_VERSION						"0"
+#define OCL_MINOR_VERSION						"0"
+#define OCL_MICRO_VERSION						"1"
+#define OCL_VERSION								PROGRAM_MAJOR_VERSION"."PROGRAM_MINOR_VERSION"."PROGRAM_MICRO_VERSION
+#define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
-#define LIBOLLAMA_C_LIENT_NAME 						"libOCl"
-#define LIBOLLAMA_C_LIENT_MAJOR_VERSION				"0"
-#define LIBOLLAMA_C_LIENT_MINOR_VERSION				"0"
-#define LIBOLLAMA_C_LIENT_MICRO_VERSION				"1"
-#define LIBOLLAMA_C_LIENT_VERSION					PROGRAM_MAJOR_VERSION"."PROGRAM_MINOR_VERSION"."PROGRAM_MICRO_VERSION
-#define LIBOLLAMA_C_LIENT_DESCRIPTION				"C library for interacting with Ollama server"
+#define DBG										printf("\nWTFFF?!?!\n");
 
-#define DBG											printf("\nWTFFF?!?!\n");
+#define OCL_OLLAMA_SERVER_ADDR					"127.0.0.1"
+#define OCL_OLLAMA_SERVER_PORT					"443"
 
-#define OLLAMA_SERVER_ADDR							"127.0.0.1"
-#define OLLAMA_SERVER_PORT							"443"
+#define	OCL_RESPONSE_SPEED						"15000"
 
-#define	RESPONSE_SPEED								"15000"
+#define OCL_SOCKET_CONNECT_TIMEOUT_S			"5"
+#define OCL_SOCKET_SEND_TIMEOUT_S				"5"
+#define OCL_SOCKET_RECV_TIMEOUT_S				"10"
 
-#define SOCKET_CONNECT_TIMEOUT_S					"5"
-#define SOCKET_SEND_TIMEOUT_MS						"5000"
-#define SOCKET_RECV_TIMEOUT_MS						"120000"
-
-#define MAX_HISTORY_CONTEXT							"3"
-#define TEMP										"0.5"
-#define MAX_TOKENS									"2048"
-#define NUM_CTX										"2048"
+#define OCL_MAX_HISTORY_CONTEXT					"3"
+#define OCL_TEMP								"0.5"
+#define OCL_MAX_TOKENS							"2048"
+#define OCL_NUM_CTX								"2048"
 
 typedef enum{
 	FALSE=0,
 	TRUE
 }Bool;
 
-enum errors{
+enum ocl_errors{
 	OCL_ERR_INIT_ERROR=-50,
 	OCL_ERR_MALLOC_ERROR,
 	OCL_ERR_REALLOC_ERROR,

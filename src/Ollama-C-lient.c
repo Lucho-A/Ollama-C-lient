@@ -9,6 +9,8 @@
  ============================================================================
  */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <signal.h>
@@ -261,6 +263,7 @@ static void signal_handler(int signalType){
 		break;
 	case SIGHUP:
 		close_program(ocl);
+		break;
 	default:
 		break;
 	}
