@@ -23,11 +23,18 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 - libreadline.so.8
 - libc.so.6
 
+```
+sudo apt-get install libssl-dev libcrypt-dev libreadline-dev
+```
 ### Install:
 
 ```
 git clone https://github.com/lucho-a/Ollama-C-lient.git
+```
+```
 cd Ollama-C-lient/src/
+```
+```
 gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto -lreadline
 ```
 
@@ -46,7 +53,7 @@ The options supported are:
 |--setting-file | string:NULL | File with the program settings: server info., timeouts, fonts, etc.
 |--roles-file | string:NULL | File with the different roles/instructions for the model.
 |--context-file | string:NULL | File where the interactions (except the queries ended with ';') will be stored.
-|--show-response-info | N/A:FALSE | Option for showing the responses' information, as tokens count, durations, etc.
+|--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, durations, etc.
 
 Note: all options are optional (really?!).
 
@@ -57,7 +64,8 @@ On the other hand, some commands can be prompting:
 | flush;   | N/A     | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
 | models;  | N/A     | shows available models.
 | model;   | string* | change the model.
-| role;    | string* | role name included into the file ('--roles-file').
+| roles;   | N/A     | show available roles;
+| role;    | string* | change the system role (included into the file '--roles-file').
 
 * If 'string' is empty, the model|role will change to the default one.
 

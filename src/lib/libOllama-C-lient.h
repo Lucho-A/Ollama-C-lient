@@ -12,8 +12,10 @@
 #ifndef HEADERS_LIBOLLAMA_C_LIENT_H_
 #define HEADERS_LIBOLLAMA_C_LIENT_H_
 
-#define RETURN_ERROR 							-1
-#define RETURN_OK 								0
+#include <stdbool.h>
+
+#define OCL_RETURN_ERROR 							-1
+#define OCL_RETURN_OK 								0
 
 #define OCL_NAME 								"libOCl"
 #define OCL_MAJOR_VERSION						"0"
@@ -22,7 +24,7 @@
 #define OCL_VERSION								PROGRAM_MAJOR_VERSION"."PROGRAM_MINOR_VERSION"."PROGRAM_MICRO_VERSION
 #define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
-#define OCL_DBG										printf("\nWTFFF?!?!\n");
+#define OCL_DBG									printf("\nWTFFF?!?!\n");
 
 #define OCL_OLLAMA_SERVER_ADDR					"127.0.0.1"
 #define OCL_OLLAMA_SERVER_PORT					"443"
@@ -37,11 +39,6 @@
 #define OCL_TEMP								"0.5"
 #define OCL_MAX_TOKENS							"2048"
 #define OCL_NUM_CTX								"2048"
-
-typedef enum{
-	FALSE=0,
-	TRUE
-}Bool;
 
 enum ocl_errors{
 	OCL_ERR_INIT_ERROR=-50,
@@ -92,7 +89,7 @@ enum ocl_errors{
 
 typedef struct _ocl OCl;
 
-extern Bool ocl_canceled;
+extern bool ocl_canceled;
 
 int OCl_init();
 int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *, char *,
@@ -100,7 +97,7 @@ int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, cha
 int OCl_free(OCl *);
 
 int OCl_flush_context();
-int OCl_load_model(OCl *, Bool load);
+int OCl_load_model(OCl *, bool load);
 int OCl_send_chat(OCl *, char *);
 int OCl_check_service_status(OCl *);
 int OCl_import_context(OCl *);
