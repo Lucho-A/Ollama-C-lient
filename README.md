@@ -26,7 +26,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 ```
 sudo apt-get install libssl-dev libcrypt-dev libreadline-dev
 ```
-### Install:
+### Program compilation:
 
 ```
 git clone https://github.com/lucho-a/Ollama-C-lient.git
@@ -79,7 +79,7 @@ On the other hand, some commands can be prompting:
 - **'--setting-file'** allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/setting-file). The parameters set up in this file, override any parameter passed with any other option.
 - the font format in 'settings' file must be ANSI.
 - if not setting file is specified, uncolored is set by default.
-- if **'--roles-file'** is specified, with 'role;' + the name of the role into the specified file, role description is loaded and included as futures system role. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/roles-file)
+- if **'--roles-file'** is specified, prompting 'role;' + the name of the role into the specified file (v.gr.: role;newRole), will include the (new) role description as system role in the following chats. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/roles-file)
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
 - In case that you want to **input a new line** without submitting, just use 'alt+enter'. Same key combination for **exiting** when empty prompt.
 
