@@ -409,6 +409,9 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_SOCKET_CREATION_ERROR:
 		snprintf(error_hndl, 1024,"Error creating socket: %s", strerror(errno));
 		break;
+	case OCL_ERR_SOCKET_CONNECTION_ERROR:
+		snprintf(error_hndl, 1024,"Error connecting socket: %s", strerror(errno));
+		break;
 	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Socket connection time out. ");
 		break;
@@ -684,20 +687,24 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 	int socketFlags=fcntl(socketConn, F_GETFL, 0);
 	fcntl(socketConn, F_SETFL, socketFlags | O_NONBLOCK);
 	struct timeval tvConnectionTo;
-	connect(socketConn, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+	int retVal=connect(socketConn, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+	if(retVal<0 && errno!=EINPROGRESS) return OCL_ERR_SOCKET_CONNECTION_ERROR;
 	fd_set rFdset, wFdset;
 	FD_ZERO(&rFdset);
 	FD_SET(socketConn, &rFdset);
 	wFdset=rFdset;
 	tvConnectionTo.tv_sec=socketConnectTimeout;
 	tvConnectionTo.tv_usec=0;
-	if(select(socketConn+1,&rFdset,&wFdset,NULL,&tvConnectionTo)<=0) return OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
+	if((retVal=select(socketConn+1,&rFdset,&wFdset,NULL,&tvConnectionTo))<=0){
+		if(retVal==0) return OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
+		return retVal;
+	}
 	return socketConn;
 }
 
 static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
-	if(socketConn<0) return socketConn;
+	if(socketConn<=0) return socketConn;
 	if(sslCtx==NULL) return OCL_ERR_SSLCTX_NULL_ERROR;
 	SSL *sslConn=NULL;
 	if((sslConn=SSL_new(sslCtx))==NULL){
@@ -715,16 +722,18 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 		return OCL_ERR_SSL_CONNECT_ERROR;
 	}
 	fd_set rFdset, wFdset;
-	int bytesSent=0;
-	int totalBytesSent=0;
+	int bytesSent=0, totalBytesSent=0;
 	struct timeval tvSendTo;
 	tvSendTo.tv_sec=ocl->socketSendTimeout;
 	tvSendTo.tv_usec=0;
+	int retVal=0;
 	while(totalBytesSent<strlen(payload)){
-		int sk = SSL_get_fd(sslConn);
 		FD_ZERO(&wFdset);
-		FD_SET(sk, &wFdset);
-		if(select(sk+1,NULL,&wFdset,NULL,&tvSendTo)<=0) return OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR;
+		FD_SET(socketConn, &wFdset);
+		if((retVal=select(socketConn+1,NULL,&wFdset,NULL,&tvSendTo))<=0){
+			if(retVal==0) return OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR;
+			return OCL_ERR_SENDING_PACKETS_ERROR;
+		}
 		bytesSent=SSL_write(sslConn, payload + totalBytesSent, strlen(payload) - totalBytesSent);
 		int sslError=SSL_get_error(sslConn, bytesSent);
 		switch(sslError){
@@ -751,10 +760,13 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 	tvRecvTo.tv_sec=ocl->socketRecvTimeout;
 	tvRecvTo.tv_usec=0;
 	do{
-		int sk = SSL_get_fd(sslConn);
 		FD_ZERO(&rFdset);
-		FD_SET(sk, &rFdset);
-		if(select(sk+1,&rFdset,NULL,NULL,&tvRecvTo)<=0) return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
+		FD_SET(socketConn, &rFdset);
+		if((retVal=select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo))<=0){
+			if(retVal==0) return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
+			printf("\n%s\n",strerror(errno));
+			return OCL_ERR_RECEIVING_PACKETS_ERROR;
+		}
 		char buffer[BUFFER_SIZE_16K]="";
 		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
 		int sslError=SSL_get_error(sslConn, bytesReceived);

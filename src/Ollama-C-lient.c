@@ -258,12 +258,12 @@ static void signal_handler(int signalType){
 	case SIGSEGV:
 	case SIGINT:
 	case SIGTSTP:
-	case SIGPIPE:
 		ocl_canceled=true;
 		break;
 	case SIGHUP:
 		close_program(ocl);
 		break;
+	case SIGPIPE:
 	default:
 		break;
 	}
