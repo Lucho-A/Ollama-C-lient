@@ -103,8 +103,6 @@ modelNameAlreadyPulled
 5
 [MAX_TOKENS_CTX]
 4096
-[MAX_TOKENS]
-4096
 [SYSTEM_ROLE]
 You are the assistance and
 bla,

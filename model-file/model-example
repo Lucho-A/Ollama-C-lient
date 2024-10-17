@@ -7,7 +7,5 @@ modelNameAlreadyPulled
 #3
 #[MAX_TOKENS_CTX]
 #2048
-#[MAX_TOKENS]
-#2048
 #[SYSTEM_ROLE]
 #
