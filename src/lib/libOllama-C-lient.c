@@ -706,7 +706,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 		return OCL_ERR_SSL_CONNECT_ERROR;
 	}
 	fd_set rFdset, wFdset;
-	size_t bytesSent=0, totalBytesSent=0;
+	size_t totalBytesSent=0;
 	struct timeval tvSendTo;
 	tvSendTo.tv_sec=ocl->socketSendTimeout;
 	tvSendTo.tv_usec=0;
@@ -718,20 +718,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(retVal==0) return OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR;
 			return OCL_ERR_SENDING_PACKETS_ERROR;
 		}
-		bytesSent=SSL_write(sslConn, payload + totalBytesSent, strlen(payload) - totalBytesSent);
-		int sslError=SSL_get_error(sslConn, bytesSent);
-		switch(sslError){
-		case SSL_ERROR_NONE:
-			totalBytesSent+=bytesSent;
-			continue;
-		case SSL_ERROR_WANT_READ:
-		case SSL_ERROR_WANT_X509_LOOKUP:
-			continue;
-		default:
-			close(socketConn);
-			clean_ssl(sslConn);
-			return OCL_ERR_SENDING_PACKETS_ERROR;
-		}
+		totalBytesSent+=SSL_write(sslConn, payload + totalBytesSent, strlen(payload) - totalBytesSent);
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
 	*fullResponse=malloc(1);
@@ -752,18 +739,6 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 		}
 		char buffer[BUFFER_SIZE_16K]="";
 		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
-		int sslError=SSL_get_error(sslConn, bytesReceived);
-		switch(sslError){
-		case SSL_ERROR_NONE:
-			break;
-		case SSL_ERROR_WANT_READ:
-		case SSL_ERROR_WANT_X509_LOOKUP:
-			continue;
-		default:
-			close(socketConn);
-			clean_ssl(sslConn);
-			return OCL_ERR_RECEIVING_PACKETS_ERROR;
-		}
 		if(bytesReceived==0) break;
 		if(bytesReceived>0){
 			totalBytesReceived+=bytesReceived;
