@@ -33,7 +33,6 @@ char model[512]="";
 char temp[512]="";
 char maxMsgCtx[512]="";
 char maxTokensCtx[512]="";
-char maxTokens[512]="";
 char *systemRole=NULL;
 char *contextFile=NULL;
 char *serverAddr=NULL;
@@ -174,11 +173,6 @@ static int load_modelfile(char *modelfile){
 		if((strstr(line,"[MAX_TOKENS_CTX]"))==line){
 			chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) maxTokensCtx[i]=line[i];
-			continue;
-		}
-		if((strstr(line,"[MAX_TOKENS]"))==line){
-			chars=getline(&line, &len, f);
-			for(int i=0;i<chars-1;i++) maxTokens[i]=line[i];
 			continue;
 		}
 		if((strstr(line,"[SYSTEM_ROLE]"))==line){
@@ -333,7 +327,7 @@ int main(int argc, char *argv[]) {
 			print_error("Loading setting file error. ",OCL_error_handling(retVal),true);
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo,
-			responseSpeed, responseFont, model, systemRole, maxMsgCtx, temp, maxTokens,maxTokensCtx,
+			responseSpeed, responseFont, model, systemRole, maxMsgCtx, temp,maxTokensCtx,
 			contextFile))!=OCL_RETURN_OK) print_error("OCl getting instance error. ",OCL_error_handling(retVal),true);
 	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK)
 		print_error("Importing context error. ",OCL_error_handling(retVal),true);
@@ -373,7 +367,7 @@ int main(int argc, char *argv[]) {
 			}
 			for(int i=0;i<cantModels;i++){
 				printf("%s\n  - ", responseFont);
-				for(int j=1;j<strlen(models[i])-1;j++) printf("%c", models[i][j]);
+				for(size_t j=1;j<strlen(models[i])-1;j++) printf("%c", models[i][j]);
 				free(models[i]);
 			}
 			free(models);
@@ -416,7 +410,7 @@ int main(int argc, char *argv[]) {
 			while((chars=getline(&line, &len, f))!=-1){
 				if(line[0]=='['){
 					printf("%s\n  - ", responseFont);
-					for(int i=1;i<strlen(line)-2;i++) printf("%c", line[i]);
+					for(size_t i=1;i<strlen(line)-2;i++) printf("%c", line[i]);
 				}
 			}
 			printf("\n");
