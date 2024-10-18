@@ -222,6 +222,7 @@ int OCl_init(){
 	SSL_CTX_set_verify(oclSslCtx, SSL_VERIFY_PEER, NULL);
 	SSL_CTX_set_default_verify_paths(oclSslCtx);
 	oclCanceled=false;
+	oclSslError=0;
 	return OCL_RETURN_OK;
 }
 
@@ -741,7 +742,7 @@ static int send_message(OCl *ocl,char *payload, char **fullResponse, char **cont
 			if(retVal<0) return OCL_ERR_RECEIVING_PACKETS_ERROR;
 			oclSslError=SSL_get_error(sslConn, retVal);
 			switch(oclSslError){
-			case 5:
+			case 5: //SSL_ERROR_SYSCALL?? PROXY/VPN issues??
 				continue;
 			default:
 				close(socketConn);
