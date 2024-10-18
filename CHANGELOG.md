@@ -1,6 +1,5 @@
-### ollama-c-lient-v0.0.1 - Under dev./testing
+### ollama-c-lient-v0.0.1 - 2024/10/17
 
-Updated:
 Criticality: N/A
 
 BUG_FIXED:

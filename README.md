@@ -122,5 +122,5 @@ $ Ollama-C-lient --roles-file ~/ollama/roles --context-file ~/ollama/context
 
 #### Bugs known/unknown
 
-In line with a Top Down approach (and the Beta stage), several bugs can be found.
+In line with a Top Down approach (and beta stage), bugs can be found and the scoping and approach can change at any time.
 
