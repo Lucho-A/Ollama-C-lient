@@ -1,4 +1,4 @@
-### ollama-c-lient-v0.0.1 - 2024/10/17
+### ollama-c-lient-v0.0.1 - Under Dev./Testing
 
 Criticality: N/A
 
