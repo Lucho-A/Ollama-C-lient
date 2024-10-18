@@ -252,7 +252,7 @@ static void signal_handler(int signalType){
 	case SIGSEGV:
 	case SIGINT:
 	case SIGTSTP:
-		ocl_canceled=true;
+		oclCanceled=true;
 		break;
 	case SIGHUP:
 		close_program(ocl);
@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
 	rl_getc_function=readline_input;
 	char *messagePrompted=NULL;
 	do{
-		exitProgram=ocl_canceled=false;
+		exitProgram=oclCanceled=false;
 		free(messagePrompted);
 		printf("%s\n",promptFont);
 		messagePrompted=readline_get(PROMPT_DEFAULT, false);
@@ -351,7 +351,7 @@ int main(int argc, char *argv[]) {
 			printf("\n⎋");
 			break;
 		}
-		if(ocl_canceled || strcmp(messagePrompted,"")==0) continue;
+		if(oclCanceled || strcmp(messagePrompted,"")==0) continue;
 		printf("↵\n");
 		if(strcmp(messagePrompted,"flush;")==0){
 			OCl_flush_context();
@@ -464,7 +464,7 @@ int main(int argc, char *argv[]) {
 				print_error(OCL_get_response_error(ocl),"",false);
 				break;
 			default:
-				if(ocl_canceled){
+				if(oclCanceled){
 					printf("\n");
 					break;
 				}
@@ -472,7 +472,7 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 		}else{
-			if(showResponseInfo && !ocl_canceled) print_response_info();
+			if(showResponseInfo && !oclCanceled) print_response_info();
 		}
 		add_history(messagePrompted);
 		printf("\n");
