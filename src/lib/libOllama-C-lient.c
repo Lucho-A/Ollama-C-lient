@@ -39,7 +39,7 @@ typedef struct Message{
 
 Message *rootContextMessages=NULL;
 int contContextMessages=0;
-SSL_CTX *sslCtx=NULL;
+SSL_CTX *oclSslCtx=NULL;
 bool ocl_canceled=false;
 
 typedef struct _ocl{
@@ -217,9 +217,9 @@ static int OCl_set_error(OCl *ocl, char *err){
 
 int OCl_init(){
 	SSL_library_init();
-	if((sslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return OCL_ERR_SSL_CONTEXT_ERROR;
-	SSL_CTX_set_verify(sslCtx, SSL_VERIFY_PEER, NULL);
-	SSL_CTX_set_default_verify_paths(sslCtx);
+	if((oclSslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return OCL_ERR_SSL_CONTEXT_ERROR;
+	SSL_CTX_set_verify(oclSslCtx, SSL_VERIFY_PEER, NULL);
+	SSL_CTX_set_default_verify_paths(oclSslCtx);
 	ocl_canceled=false;
 	return OCL_RETURN_OK;
 }
@@ -689,9 +689,9 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 static int send_message(OCl *ocl,char *payload, char **fullResponse, char **content, bool streamed){
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<=0) return socketConn;
-	if(sslCtx==NULL) return OCL_ERR_SSLCTX_NULL_ERROR;
+	if(oclSslCtx==NULL) return OCL_ERR_SSLCTX_NULL_ERROR;
 	SSL *sslConn=NULL;
-	if((sslConn=SSL_new(sslCtx))==NULL){
+	if((sslConn=SSL_new(oclSslCtx))==NULL){
 		clean_ssl(sslConn);
 		return OCL_ERR_SSL_CONTEXT_ERROR;
 	}
