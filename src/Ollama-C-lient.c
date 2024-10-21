@@ -222,6 +222,7 @@ static int readline_input(FILE *stream){
 	if(c==9) rl_insert_text("\t");
 	if(c==-1 || c==4){
 		rl_delete_text(0,strlen(rl_line_buffer));
+		rl_redisplay();
 		return 13;
 	}
 	prevInput=c;
