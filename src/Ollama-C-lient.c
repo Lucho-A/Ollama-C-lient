@@ -191,6 +191,7 @@ static int load_modelfile(char *modelfile){
 }
 
 static int close_program(OCl *ocl){
+	oclCanceled=true;
 	int retVal=0;
 	if(strcmp(OCl_get_model(ocl),"")!=0){
 		if((retVal=OCl_load_model(ocl,false))!=OCL_RETURN_OK){
