@@ -15,6 +15,9 @@
 #include <readline/history.h>
 #include <signal.h>
 #include <errno.h>
+#include <pthread.h>
+#include <unistd.h>
+
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
@@ -23,12 +26,13 @@
 #define PROMPT_DEFAULT					"-> "
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
-bool exitProgram=false, showResponseInfo=false;
-int prevInput=0;
+#define	RESPONSE_SPEED					15000
+
 OCl *ocl=NULL;
 
+bool exitProgram=false, showResponseInfo=false, showThoughts=false, stdinPresent=false;
+int prevInput=0;
 char systemFont[16]="", promptFont[16]="", errorFont[16]="", showResponseInfoFont[16]="";
-
 char model[512]="";
 char temp[512]="";
 char maxMsgCtx[512]="";
@@ -37,33 +41,34 @@ char *systemRole=NULL;
 char *contextFile=NULL;
 char *serverAddr=NULL;
 char *serverPort=NULL;
-char responseSpeed[512]="";
+long int responseSpeed=RESPONSE_SPEED;
 char socketConnTo[512]="";
 char socketSendTo[512]="";
 char socketRecvTo[512]="";
 char responseFont[16]="";
 
 static void print_error(char *msg, char *error, bool exitProgram){
-	printf("\n%sERROR: %s %s",errorFont, msg,error);
+	char errMsg[1024]="";
+	snprintf(errMsg,1024,"%sERROR: %s %s\n",errorFont, msg,error);
+	for(size_t i=0;i<strlen(errMsg);i++){
+		printf("%c",errMsg[i]);
+		fflush(stdout);
+		usleep(responseSpeed);
+	}
 	if(exitProgram){
-		printf("\e[0m\n\n");
+		printf("\e[0m\n");
 		exit(EXIT_FAILURE);
 	}
 }
 
 static void print_system_msg(char *msg){
-	printf("%s%s",systemFont, msg);
-}
-
-static void print_response_info(){
-	printf("%s\n\n", showResponseInfoFont);
-	printf("- load_duration (time spent loading the model): %f\n",OCL_get_response_load_duration(ocl));
-	printf("- prompt_eval_duration (time spent evaluating the prompt): %f\n",OCL_get_response_prompt_eval_duration(ocl));
-	printf("- eval_duration (time spent generating the response): %f\n",OCL_get_response_eval_duration(ocl));
-	printf("- total_duration (time spent generating the response): %f\n",OCL_get_response_total_duration(ocl));
-	printf("- prompt_eval_count (number of tokens in the prompt): %d\n",OCL_get_response_prompt_eval_count(ocl));
-	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_response_eval_count(ocl));
-	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
+	char sysMsg[1024]="";
+	snprintf(sysMsg,1024,"%s%s\n",systemFont,msg);
+	for(size_t i=0;i<strlen(sysMsg);i++){
+		printf("%c",sysMsg[i]);
+		fflush(stdout);
+		usleep(responseSpeed);
+	}
 }
 
 static int load_settingfile(char *settingfile){
@@ -89,7 +94,9 @@ static int load_settingfile(char *settingfile){
 		}
 		if((strstr(line,"[RESPONSE_SPEED_MS]"))==line){
 			chars=getline(&line, &len, f);
-			for(int i=0;i<chars-1;i++) responseSpeed[i]=line[i];
+			char *tail=NULL;
+			responseSpeed=strtol(line, &tail, 10);
+			if(responseSpeed<0||(tail[0]!=0 && tail[0]!='\n')) return OCL_ERR_RESPONSE_SPEED_NOT_VALID;
 			continue;
 		}
 		if((strstr(line,"[SOCKET_CONNECT_TO_S]"))==line){
@@ -192,13 +199,6 @@ static int load_modelfile(char *modelfile){
 
 static int close_program(OCl *ocl){
 	oclCanceled=true;
-	int retVal=0;
-	if(strcmp(OCl_get_model(ocl),"")!=0){
-		if((retVal=OCl_load_model(ocl,false))!=OCL_RETURN_OK){
-			print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),false);
-			printf("\n");
-		}
-	}
 	OCl_free(ocl);
 	if(serverAddr!=NULL) free(serverAddr);
 	if(serverPort!=NULL) free(serverPort);
@@ -265,13 +265,122 @@ static void signal_handler(int signalType){
 	}
 }
 
+static void print_response_info(){
+	printf("%s\n\n", showResponseInfoFont);
+	printf("- load_duration (time spent loading the model): %f\n",OCL_get_response_load_duration(ocl));
+	printf("- prompt_eval_duration (time spent evaluating the prompt): %f\n",OCL_get_response_prompt_eval_duration(ocl));
+	printf("- eval_duration (time spent generating the response): %f\n",OCL_get_response_eval_duration(ocl));
+	printf("- total_duration (time spent generating the response): %f\n",OCL_get_response_total_duration(ocl));
+	printf("- prompt_eval_count (number of tokens in the prompt): %d\n",OCL_get_response_prompt_eval_count(ocl));
+	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_response_eval_count(ocl));
+	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
+}
+
+void *start_sending_message(void *arg){
+	char *messagePrompted=arg;
+	int retVal=OCl_send_chat(ocl,messagePrompted);
+	if(retVal!=OCL_RETURN_OK){
+		switch(retVal){
+		case OCL_ERR_RESPONSE_MESSAGE_ERROR:
+			print_error(OCL_get_response_error(ocl),"",false);
+			break;
+		default:
+			if(oclCanceled){
+				printf("\n");
+				break;
+			}
+			oclCanceled=true;
+			print_error(OCL_error_handling(retVal),"",false);
+			break;
+		}
+		oclCanceled=true;
+	}
+	pthread_exit(NULL);
+}
+
+static void print_response(){
+	char *temp=NULL, *thinking=NULL, *stopThinking=NULL;
+	size_t i=0;
+	bool isThinking=false;
+	temp=OCL_get_response(ocl);
+	printf("%s",responseFont);
+	while((!OCl_get_content_finished(ocl) || i!=strlen(temp)) && !oclCanceled){
+		if(i>=strlen(temp)) continue;
+		thinking=strstr(temp, "\\u003cthink\\u003e");
+		stopThinking=strstr(temp, "\\u003c/think\\u003e");
+		if(&(temp[i])==thinking){
+			printf("\x1b[3m(Thinking...)\x1b[23m\n");
+			i+=17;
+			isThinking=true;
+			if(showThoughts) isThinking=false;
+		}
+		if(&(temp[i])==stopThinking){
+			printf("\n\x1b[3m(Stop thinking...)\x1b[23m");
+			i+=18;
+			isThinking=false;
+		}
+		usleep(responseSpeed);
+		if(temp[i]=='\\' && !isThinking){
+			switch(temp[i+1]){
+			case 'n':
+				printf("\n");
+				break;
+			case 'r':
+				printf("\r");
+				break;
+			case 't':
+				printf("\t");
+				break;
+			case '\\':
+				printf("\\");
+				break;
+			case '"':
+				printf("\"");
+				break;
+			case 'u':
+				char buffer[5]="";
+				snprintf(buffer,5,"%c%c%c%c",temp[i+2],temp[i+3],temp[i+4],temp[i+5]);
+				if(!isThinking) printf("%c",(int)strtol(buffer,NULL,16));
+				i+=4;
+				break;
+			default:
+				break;
+			}
+			i+=2;
+			continue;
+		}
+		if(!isThinking) printf("%c",temp[i]);
+		fflush(stdout);
+		i++;
+	}
+	if(i>0 && showResponseInfo && !oclCanceled) print_response_info();
+	printf("\n");
+}
+
+bool check_model_loaded(){
+	int retVal=0;
+	if(!OCl_check_model_loaded(ocl)){
+		print_system_msg("\nLoading model..");
+		if((retVal=OCl_load_model(ocl, true))!=OCL_RETURN_OK){
+			printf("\n");
+			print_error(OCL_error_handling(retVal),"",false);
+			return false;
+		}
+	}
+	return true;
+}
+
 int main(int argc, char *argv[]) {
 	signal(SIGINT, signal_handler);
 	signal(SIGPIPE, signal_handler);
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
 	signal(SIGSEGV, signal_handler);
-	char *modelFile=NULL, *settingFile=NULL, *rolesFile=NULL;
+	char *modelFile=NULL, *settingFile=NULL, *rolesFile=NULL, buffer[1024]="", input[1024*32]="";
+	if(!isatty(fileno(stdin))){
+		while(fgets(buffer, sizeof(buffer), stdin)) strcat(input,buffer);
+		stdinPresent=true;
+	}
 	int retVal=0;
 	if((retVal=OCl_init())!=OCL_RETURN_OK) print_error("OCl init error. ",OCL_error_handling(retVal),true);
 	for(int i=1;i<argc;i++){
@@ -317,9 +426,13 @@ int main(int argc, char *argv[]) {
 			showResponseInfo=true;
 			continue;
 		}
+		if(strcmp(argv[i],"--show-thoughts")==0){
+			showThoughts=true;
+			continue;
+		}
+		printf("\n");
 		print_error(argv[i],": argument not recognized",true);
 	}
-	printf("\n");
 	if(modelFile!=NULL){
 		if((retVal=load_modelfile(modelFile))!=OCL_RETURN_OK)
 			print_error("Loading model file error. ",OCL_error_handling(retVal),true);
@@ -329,32 +442,28 @@ int main(int argc, char *argv[]) {
 			print_error("Loading setting file error. ",OCL_error_handling(retVal),true);
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo,
-			responseSpeed, responseFont, model, systemRole, maxMsgCtx, temp,maxTokensCtx,
+			model, systemRole, maxMsgCtx, temp,maxTokensCtx,
 			contextFile))!=OCL_RETURN_OK) print_error("OCl getting instance error. ",OCL_error_handling(retVal),true);
 	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK)
 		print_error("Importing context error. ",OCL_error_handling(retVal),true);
-	if((retVal=OCl_check_service_status(ocl))!=OCL_RETURN_OK)
-		print_error("Service not available. ",OCL_error_handling(retVal),true);
-	print_system_msg("Server status: Ollama is running\n");
-	if(strcmp(OCl_get_model(ocl),"")!=0){
-		if((retVal=OCl_load_model(ocl,true))!=OCL_RETURN_OK){
-			print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),false);
-			OCl_set_model(ocl, "");
-		}
-	}
 	rl_getc_function=readline_input;
+	check_model_loaded();
 	char *messagePrompted=NULL;
 	do{
 		exitProgram=oclCanceled=false;
 		free(messagePrompted);
 		printf("%s\n",promptFont);
-		messagePrompted=readline_get(PROMPT_DEFAULT, false);
+		if(strcmp(input,"")==0){
+			messagePrompted=readline_get(PROMPT_DEFAULT, false);
+		}else{
+			messagePrompted=input;
+		}
 		if(exitProgram){
 			printf("\n⎋");
 			break;
 		}
 		if(oclCanceled || strcmp(messagePrompted,"")==0) continue;
-		printf("↵\n");
+		if(!stdinPresent) printf("↵\n");
 		if(strcmp(messagePrompted,"flush;")==0){
 			OCl_flush_context();
 			continue;
@@ -363,13 +472,17 @@ int main(int argc, char *argv[]) {
 			char **models=NULL;
 			int cantModels=OCl_get_models(ocl, &models);
 			if(cantModels<0) {
-				print_error(OCL_get_response_error(ocl),OCL_error_handling(cantModels),false);
 				printf("\n");
+				print_error(OCL_error_handling(cantModels),"",false);
 				continue;
 			}
 			for(int i=0;i<cantModels;i++){
-				printf("%s\n  - ", responseFont);
-				for(size_t j=1;j<strlen(models[i])-1;j++) printf("%c", models[i][j]);
+				printf("%s\n  - ", systemFont);
+				for(size_t j=1;j<strlen(models[i])-1;j++){
+					printf("%c", models[i][j]);
+					fflush(stdout);
+					usleep(responseSpeed);
+				}
 				free(models[i]);
 			}
 			free(models);
@@ -377,28 +490,17 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strncmp(messagePrompted,"model;", strlen("model;"))==0){
-			if(strcmp(OCl_get_model(ocl),"")!=0){
-				if((retVal=OCl_load_model(ocl,false))!=OCL_RETURN_OK){
-					print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),false);
-					printf("\n");
-				}
-			}
 			if(strcmp(messagePrompted+strlen("model;"),"")==0){
 				OCl_set_model(ocl,model);
 			}else{
 				OCl_set_model(ocl,messagePrompted+strlen("model;"));
 			}
-			if((retVal=OCl_load_model(ocl,true))!=OCL_RETURN_OK){
-				print_error(OCL_get_response_error(ocl),OCL_error_handling(retVal),false);
-				printf("\n");
-				OCl_set_model(ocl, "");
-				continue;
-			}
 			continue;
 		}
 		if(strncmp(messagePrompted,"roles;", strlen("roles;"))==0){
 			if(rolesFile==NULL){
-				print_error("No role file provided\n", "", false);
+				printf("\n");
+				print_error("No role file provided", "", false);
 				continue;
 			}
 			FILE *f=fopen(rolesFile,"r");
@@ -411,8 +513,12 @@ int main(int argc, char *argv[]) {
 			char *line=NULL;
 			while((chars=getline(&line, &len, f))!=-1){
 				if(line[0]=='['){
-					printf("%s\n  - ", responseFont);
-					for(size_t i=1;i<strlen(line)-2;i++) printf("%c", line[i]);
+					printf("%s\n  - ", systemFont);
+					for(size_t i=1;i<strlen(line)-2;i++){
+						printf("%c", line[i]);
+						fflush(stdout);
+						usleep(responseSpeed);
+					}
 				}
 			}
 			printf("\n");
@@ -424,7 +530,8 @@ int main(int argc, char *argv[]) {
 				continue;
 			}
 			if(rolesFile==NULL){
-				print_error("No role file provided\n", "", false);
+				printf("\n");
+				print_error("No role file provided", "", false);
 				continue;
 			}
 			FILE *f=fopen(rolesFile,"r");
@@ -454,32 +561,22 @@ int main(int argc, char *argv[]) {
 				}
 				if(found) break;
 			}
-			(found)?(OCl_set_role(ocl, newSystemRole)):(print_error("Role not found\n", "", false));
+			(found)?(OCl_set_role(ocl, newSystemRole)):(print_error("Role not found", "", false));
 			fclose(f);
 			free(newSystemRole);
 			continue;
 		}
-		printf("\n");
-		if((retVal=OCl_send_chat(ocl,messagePrompted))!=OCL_RETURN_OK){
-			switch(retVal){
-			case OCL_ERR_RESPONSE_MESSAGE_ERROR:
-				print_error(OCL_get_response_error(ocl),"",false);
-				break;
-			default:
-				if(oclCanceled){
-					printf("\n");
-					break;
-				}
-				print_error("",OCL_error_handling(retVal),false);
-				break;
-			}
-		}else{
-			if(showResponseInfo && !oclCanceled) print_response_info();
+		if(check_model_loaded()){
+			pthread_t tSendingMessage;
+			pthread_create(&tSendingMessage, NULL, start_sending_message, messagePrompted);
+			printf("\n");
+			if(!stdinPresent) print_response();
+			add_history(messagePrompted);
+			pthread_join(tSendingMessage,NULL);
+			if(stdinPresent) printf("%s",OCL_get_response(ocl));
 		}
-		add_history(messagePrompted);
-		printf("\n");
-	}while(true);
-	free(messagePrompted);
+	}while(true && !stdinPresent);
+	if(!stdinPresent) free(messagePrompted);
 	close_program(ocl);
 }
 

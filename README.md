@@ -6,14 +6,17 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 
 ### Version:
 
-- 0.0.1 (beta)
+- 0.0.1-beta (experimental)
 
 ### Features/Assumptions/Scope/Whatever
 
-- if specified, the program load a model when starts, and keeping it in server memory until exit or model changing
-- it supports window context
-- at the moment, the output is only streamed
+- it supports window/memory context
+- it supports 'pipe' redirection
+- it supports history of queries during the session
+- it supports changing system-roles and models
+- at the moment, the output is only streamed (except when piped)
 - allows to show the response's info
+- allows to hide/show the model's 'thoughts' (like DeepSeek-R1 and latest models)
 - supports only SSL/TLS (sorry, security by design, baby)
 
 ### Dependencies:
@@ -54,6 +57,7 @@ The options supported are:
 |--roles-file | string:NULL | File with the different roles/instructions for the model.
 |--context-file | string:NULL | File where the interactions (except the queries ended with ';') will be stored.
 |--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, durations, etc.
+|--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in models like 'deepseek-r1'
 
 Note: all options are optional (really?!).
 
@@ -82,6 +86,7 @@ On the other hand, some commands can be prompting:
 - if **'--roles-file'** is specified, prompting 'role;' + the name of the role (specified into the file. V.gr.: role;newRole), will include the (new) role description as system role in the following chats. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/roles-file)
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
 - In case that you want to **input a new line** without submitting, just use 'alt+enter'. Same key combination for **exiting** when empty prompt.
+- In case that pipes are used, like: 'df | ollama-c-lient >> file.txt', the output is always uncolored, no-streamed, and in RAW format.
 - Crl-C cancel the responses.
 
 ### Examples:
@@ -116,11 +121,11 @@ $ ollama-c-lient --server-addr 192.168.2.10
 $ ollama-c-lient --server-addr 192.168.2.10 --setting-file ~/ollama/settingFile
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
-$ ollama-c-lient --model-file ~/ollama/any3modelModelFile
+$ ollama-c-lient --model-file ~/ollama/any3modelModelFile --show-thoughts
 $ Ollama-C-lient --roles-file ~/ollama/roles --context-file ~/ollama/context
 ```
 
 #### Bugs known/unknown
 
-In line with a Top Down approach (and beta stage), bugs can be found and the scoping and approach can change at any time.
+In line with a Top Down approach (and the beta & experimental stage), bugs will/can be found and the scoping and approach can change at any time.
 

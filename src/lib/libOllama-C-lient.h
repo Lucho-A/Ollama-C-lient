@@ -29,8 +29,6 @@
 #define OCL_OLLAMA_SERVER_ADDR					"127.0.0.1"
 #define OCL_OLLAMA_SERVER_PORT					"443"
 
-#define	OCL_RESPONSE_SPEED						"15000"
-
 #define OCL_SOCKET_CONNECT_TIMEOUT_S			"5"
 #define OCL_SOCKET_SEND_TIMEOUT_S				"5"
 #define OCL_SOCKET_RECV_TIMEOUT_S				"15"
@@ -89,20 +87,25 @@ typedef struct _ocl OCl;
 
 extern int oclSslError;
 extern bool oclCanceled;
+extern bool oclSendingChatThreadingFinished;
 
 int OCl_init();
-int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *, char *,char *,char *, char *, char *, char *);
+int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *,char *,char *, char *, char *, char *);
 int OCl_free(OCl *);
 
 int OCl_flush_context();
 int OCl_load_model(OCl *, bool load);
 int OCl_send_chat(OCl *, char *);
 int OCl_check_service_status(OCl *);
+bool OCl_check_model_loaded(OCl *);
 int OCl_import_context(OCl *);
 char * OCL_error_handling(int);
 
 int OCl_get_models(OCl *, char ***);
 char * OCl_get_model(OCl *);
+bool OCl_get_content_finished(OCl *);
+char * OCL_get_response(OCl *);
+char * OCL_get_full_response(OCl *);
 double OCL_get_response_load_duration(OCl *);
 double OCL_get_response_prompt_eval_duration(OCl *);
 double OCL_get_response_eval_duration(OCl *);

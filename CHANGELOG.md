@@ -1,4 +1,4 @@
-### ollama-c-lient-v0.0.1 - Under Dev./Testing
+### ollama-c-lient-v0.0.1-beta (experimental) - Under Dev./Testing
 
 Criticality: N/A
 
