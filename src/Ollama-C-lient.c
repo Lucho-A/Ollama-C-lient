@@ -204,8 +204,9 @@ static int close_program(OCl *ocl){
 	if(serverPort!=NULL) free(serverPort);
 	if(systemRole!=NULL) free(systemRole);
 	rl_clear_history();
-	printf("%s\n\n","\e[0m");
-	exit(EXIT_SUCCESS);
+	//printf("%s\n\n","\e[0m");
+	//exit(EXIT_SUCCESS);
+	return OCL_RETURN_OK;
 }
 
 static int readline_input(FILE *stream){
@@ -447,7 +448,15 @@ int main(int argc, char *argv[]) {
 	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK)
 		print_error("Importing context error. ",OCL_error_handling(retVal),true);
 	rl_getc_function=readline_input;
-	check_model_loaded();
+	if(!check_model_loaded()) print_error("Error loading the model", "", false);
+	if(stdinPresent){
+		pthread_t tSendingMessage;
+		pthread_create(&tSendingMessage, NULL, start_sending_message, input);
+		pthread_join(tSendingMessage,NULL);
+		printf("%s\n",OCL_get_response(ocl));
+		close_program(ocl);
+		exit(EXIT_SUCCESS);
+	}
 	char *messagePrompted=NULL;
 	do{
 		exitProgram=oclCanceled=false;
@@ -469,8 +478,8 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(messagePrompted,"models;")==0){
-			char **models=NULL;
-			int cantModels=OCl_get_models(ocl, &models);
+			char models[512][512]={""};
+			int cantModels=OCl_get_models(ocl, models);
 			if(cantModels<0) {
 				printf("\n");
 				print_error(OCL_error_handling(cantModels),"",false);
@@ -478,14 +487,12 @@ int main(int argc, char *argv[]) {
 			}
 			for(int i=0;i<cantModels;i++){
 				printf("%s\n  - ", systemFont);
-				for(size_t j=1;j<strlen(models[i])-1;j++){
+				for(size_t j=0;j<strlen(models[i]);j++){
 					printf("%c", models[i][j]);
 					fflush(stdout);
 					usleep(responseSpeed);
 				}
-				free(models[i]);
 			}
-			free(models);
 			printf("\n");
 			continue;
 		}
@@ -573,10 +580,16 @@ int main(int argc, char *argv[]) {
 			if(!stdinPresent) print_response();
 			add_history(messagePrompted);
 			pthread_join(tSendingMessage,NULL);
-			if(stdinPresent) printf("%s",OCL_get_response(ocl));
+			if(stdinPresent){
+				printf("%s\n",OCL_get_response(ocl));
+				close_program(ocl);
+				exit(EXIT_SUCCESS);
+			}
 		}
 	}while(true && !stdinPresent);
 	if(!stdinPresent) free(messagePrompted);
 	close_program(ocl);
+	printf("%s\n\n","\e[0m");
+	exit(EXIT_SUCCESS);
 }
 

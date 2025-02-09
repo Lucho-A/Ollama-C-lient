@@ -101,7 +101,7 @@ bool OCl_check_model_loaded(OCl *);
 int OCl_import_context(OCl *);
 char * OCL_error_handling(int);
 
-int OCl_get_models(OCl *, char ***);
+int OCl_get_models(OCl *, char(*)[512]);
 char * OCl_get_model(OCl *);
 bool OCl_get_content_finished(OCl *);
 char * OCL_get_response(OCl *);
