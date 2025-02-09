@@ -39,8 +39,8 @@ char maxMsgCtx[512]="";
 char maxTokensCtx[512]="";
 char *systemRole=NULL;
 char *contextFile=NULL;
-char *serverAddr=NULL;
-char *serverPort=NULL;
+char serverAddr[16]="";
+char serverPort[6]="";
 long int responseSpeed=RESPONSE_SPEED;
 char socketConnTo[512]="";
 char socketSendTo[512]="";
@@ -80,16 +80,14 @@ static int load_settingfile(char *settingfile){
 	while((chars=getline(&line, &len, f))!=-1){
 		if((strstr(line,"[SERVER_ADDR]"))==line){
 			chars=getline(&line, &len, f);
-			serverAddr=malloc(chars+1);
-			memset(serverAddr,0,chars+1);
-			for(int i=0;i<chars-1;i++) serverAddr[i]=line[i];
+			line[strlen(line)-1]=0;
+			snprintf(serverAddr,16,"%s",line);
 			continue;
 		}
 		if((strstr(line,"[SERVER_PORT]"))==line){
 			chars=getline(&line, &len, f);
-			serverPort=malloc(chars+1);
-			memset(serverPort,0,chars+1);
-			for(int i=0;i<chars-1;i++) serverPort[i]=line[i];
+			line[strlen(line)-1]=0;
+			snprintf(serverPort,6,"%s",line);
 			continue;
 		}
 		if((strstr(line,"[RESPONSE_SPEED_MS]"))==line){
@@ -200,12 +198,8 @@ static int load_modelfile(char *modelfile){
 static int close_program(OCl *ocl){
 	oclCanceled=true;
 	OCl_free(ocl);
-	if(serverAddr!=NULL) free(serverAddr);
-	if(serverPort!=NULL) free(serverPort);
 	if(systemRole!=NULL) free(systemRole);
 	rl_clear_history();
-	//printf("%s\n\n","\e[0m");
-	//exit(EXIT_SUCCESS);
 	return OCL_RETURN_OK;
 }
 
@@ -360,9 +354,13 @@ static void print_response(){
 
 bool check_model_loaded(){
 	int retVal=0;
-	if(!OCl_check_model_loaded(ocl)){
+	if((retVal=OCl_check_model_loaded(ocl))<=0){
+		if(retVal<=0){
+			print_error(OCL_error_handling(retVal),"",false);
+			return false;
+		}
 		print_system_msg("\nLoading model..");
-		if((retVal=OCl_load_model(ocl, true))!=OCL_RETURN_OK){
+		if((retVal=OCl_load_model(ocl, true))<=0){
 			printf("\n");
 			print_error(OCL_error_handling(retVal),"",false);
 			return false;
@@ -390,12 +388,12 @@ int main(int argc, char *argv[]) {
 			exit(EXIT_SUCCESS);
 		}
 		if(strcmp(argv[i],"--server-addr")==0){
-			serverAddr=argv[i+1];
+			snprintf(serverAddr,16,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--server-port")==0){
-			serverPort=argv[i+1];
+			snprintf(serverPort,16,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
@@ -462,11 +460,7 @@ int main(int argc, char *argv[]) {
 		exitProgram=oclCanceled=false;
 		free(messagePrompted);
 		printf("%s\n",promptFont);
-		if(strcmp(input,"")==0){
-			messagePrompted=readline_get(PROMPT_DEFAULT, false);
-		}else{
-			messagePrompted=input;
-		}
+		messagePrompted=readline_get(PROMPT_DEFAULT, false);
 		if(exitProgram){
 			printf("\n⎋");
 			break;

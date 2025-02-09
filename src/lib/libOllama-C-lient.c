@@ -95,7 +95,7 @@ static int OCl_set_server_port(OCl *ocl, char *serverPort){
 	if(serverPort!=NULL && strcmp(serverPort,"")!=0){
 		char *tail=NULL;
 		ocl->srvPort=strtol(serverPort, &tail, 10);
-		if(ocl->srvPort<1||ocl->srvPort>65535||tail[0]!=0) return OCL_ERR_PORT;
+		if(ocl->srvPort<1||ocl->srvPort>65535|| tail[0]!=0) return OCL_ERR_PORT;
 	}
 	return OCL_RETURN_OK;
 }
@@ -202,6 +202,7 @@ static int OCl_set_error(OCl *ocl, char *err){
 
 int OCl_init(){
 	SSL_library_init();
+	ERR_load_crypto_strings();
 	if((oclSslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return OCL_ERR_SSL_CONTEXT_ERROR;
 	SSL_CTX_set_verify(oclSslCtx, SSL_VERIFY_PEER, NULL);
 	SSL_CTX_set_default_verify_paths(oclSslCtx);
@@ -641,7 +642,7 @@ static int send_message(OCl *ocl,char *payload){
 		FD_ZERO(&rFdset);
 		FD_SET(socketConn, &rFdset);
 		if((retVal=select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo))<=0){
-			if(retVal<0) return OCL_ERR_RECEIVING_PACKETS_ERROR;
+			if(retVal==0) return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
 			oclSslError=SSL_get_error(sslConn, retVal);
 			switch(oclSslError){
 			case 5: //SSL_ERROR_SYSCALL?? PROXY/VPN issues??
@@ -649,11 +650,15 @@ static int send_message(OCl *ocl,char *payload){
 			default:
 				close(socketConn);
 				clean_ssl(sslConn);
-				return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
+				return OCL_ERR_RECEIVING_PACKETS_ERROR;
 			}
 		}
 		char buffer[BUFFER_SIZE_16K]="";
 		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
+		if(bytesReceived<0){
+			oclSslError=SSL_get_error(sslConn, bytesReceived);
+			return OCL_ERR_RECEIVING_PACKETS_ERROR;
+		}
 		if(bytesReceived==0) break;
 		if(bytesReceived>0){
 			totalBytesReceived+=bytesReceived;
@@ -753,7 +758,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 	free(body);
 	int retVal=send_message(ocl, msg);
 	free(msg);
-	if(retVal<0){
+	if(retVal<=0){
 		free(messageParsed);
 		ocl->ocl_resp->contentFinished=true;
 		return retVal;
@@ -817,7 +822,7 @@ int OCl_check_service_status(OCl *ocl){
 	return OCL_RETURN_OK;
 }
 
-bool OCl_check_model_loaded(OCl *ocl){
+int OCl_check_model_loaded(OCl *ocl){
 	char msg[2048]="";
 	snprintf(msg,2048,
 			"GET /api/ps HTTP/1.1\r\n"
