@@ -496,8 +496,8 @@ char * OCL_error_handling(int error){
 static bool get_string_from_token(char *text, char *token, char *result, char endChar){
 	char *content=strstr(text,token);
 	if(content!=NULL){
-		size_t i=0, cont=0, len=strlen(token);
-		for(i=len+1;(content[i-1]=='\\' || content[i]!=endChar);i++, cont++)
+		size_t i=0, len=strlen(token);
+		for(i=len+1;(content[i-1]=='\\' || content[i]!=endChar);i++)
 			result[i-len-1]=content[i];
 		result[i-len-1]=0;
 		return true;
@@ -660,8 +660,7 @@ static int send_message(OCl *ocl,char *payload){
 		if(bytesReceived>0){
 			totalBytesReceived+=bytesReceived;
 			char *token="\"content\":", content[128]="";
-			get_string_from_token(buffer, token, content, '"');
-			strcat(ocl->ocl_resp->content,content);
+			if(get_string_from_token(buffer, token, content, '"')) strcat(ocl->ocl_resp->content,content);
 			strcat(ocl->ocl_resp->fullResponse,buffer);
 			if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
 			if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
