@@ -399,17 +399,14 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_SSL_CONNECT_ERROR:
 		snprintf(error_hndl, 1024,"SSL Connection error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
-	case OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR:
+	case OCL_ERR_SEND_TIMEOUT_ERROR:
 		snprintf(error_hndl, 1024,"Sending packet time out ");
 		break;
 	case OCL_ERR_SENDING_PACKETS_ERROR:
 		snprintf(error_hndl, 1024,"Sending packet error. SSL Error: %s", ERR_error_string(oclSslError, NULL));
 		break;
-	case OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR:
-		snprintf(error_hndl, 1024,"Receiving packet time out: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
-		break;
 	case OCL_ERR_RECV_TIMEOUT_ERROR:
-		snprintf(error_hndl, 1024,"Time out value not valid ");
+		snprintf(error_hndl, 1024,"Receiving packet time out: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_RECEIVING_PACKETS_ERROR:
 		snprintf(error_hndl, 1024,"Receiving packet error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
@@ -626,7 +623,7 @@ static int send_message(OCl *ocl,char *payload){
 		if((retVal=select(socketConn+1,NULL,&wFdset,NULL,&tvSendTo))<=0){
 			oclSslError=SSL_get_error(sslConn, retVal);
 			if(retVal<0) return OCL_ERR_SENDING_PACKETS_ERROR;
-			return OCL_ERR_SOCKET_SEND_TIMEOUT_ERROR;
+			return OCL_ERR_SEND_TIMEOUT_ERROR;
 		}
 		totalBytesSent+=SSL_write(sslConn, payload + totalBytesSent, strlen(payload) - totalBytesSent);
 	}
@@ -642,7 +639,6 @@ static int send_message(OCl *ocl,char *payload){
 		FD_ZERO(&rFdset);
 		FD_SET(socketConn, &rFdset);
 		if((retVal=select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo))<=0){
-			if(retVal==0) return OCL_ERR_SOCKET_RECV_TIMEOUT_ERROR;
 			oclSslError=SSL_get_error(sslConn, retVal);
 			switch(oclSslError){
 			case 5: //SSL_ERROR_SYSCALL?? PROXY/VPN issues??
@@ -650,6 +646,7 @@ static int send_message(OCl *ocl,char *payload){
 			default:
 				close(socketConn);
 				clean_ssl(sslConn);
+				if(retVal==0) return OCL_ERR_RECV_TIMEOUT_ERROR;
 				return OCL_ERR_RECEIVING_PACKETS_ERROR;
 			}
 		}
@@ -758,11 +755,12 @@ int OCl_send_chat(OCl *ocl, char *message){
 	free(body);
 	int retVal=send_message(ocl, msg);
 	free(msg);
-	if(retVal<=0){
+	if(retVal<0){
 		free(messageParsed);
 		ocl->ocl_resp->contentFinished=true;
 		return retVal;
 	}
+	if(retVal==0) return OCL_ERR_RECV_TIMEOUT_ERROR;
 	if(strstr(ocl->ocl_resp->fullResponse,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(ocl->ocl_resp->fullResponse,"{\"error"));
 		free(messageParsed);
