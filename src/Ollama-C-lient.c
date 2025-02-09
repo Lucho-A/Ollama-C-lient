@@ -466,7 +466,7 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 		if(oclCanceled || strcmp(messagePrompted,"")==0) continue;
-		if(!stdinPresent) printf("↵\n");
+		printf("↵\n");
 		if(strcmp(messagePrompted,"flush;")==0){
 			OCl_flush_context();
 			continue;
@@ -571,17 +571,12 @@ int main(int argc, char *argv[]) {
 			pthread_t tSendingMessage;
 			pthread_create(&tSendingMessage, NULL, start_sending_message, messagePrompted);
 			printf("\n");
-			if(!stdinPresent) print_response();
+			print_response();
 			add_history(messagePrompted);
 			pthread_join(tSendingMessage,NULL);
-			if(stdinPresent){
-				printf("%s\n",OCL_get_response(ocl));
-				close_program(ocl);
-				exit(EXIT_SUCCESS);
-			}
 		}
-	}while(true && !stdinPresent);
-	if(!stdinPresent) free(messagePrompted);
+	}while(true);
+	free(messagePrompted);
 	close_program(ocl);
 	printf("%s\n\n","\e[0m");
 	exit(EXIT_SUCCESS);
