@@ -659,14 +659,8 @@ static int send_message(OCl *ocl,char *payload){
 		if(bytesReceived==0) break;
 		if(bytesReceived>0){
 			totalBytesReceived+=bytesReceived;
-			char *token="\"content\":";
-			char content[128]="";
+			char *token="\"content\":", content[128]="";
 			get_string_from_token(buffer, token, content, '"');
-			if(strlen(content)>20){
-				printf("\n%s\n", content);
-				fflush(stdout);
-				exit(0);
-			}
 			strcat(ocl->ocl_resp->content,content);
 			strcat(ocl->ocl_resp->fullResponse,buffer);
 			if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
