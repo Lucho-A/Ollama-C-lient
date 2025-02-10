@@ -13,7 +13,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 - it supports window/memory context
 - it supports 'pipe' redirection
 - it supports history of queries during the session
-- it supports changing system-roles and models
+- it supports changing system-roles, models, and adding pre-defined instructions to prompt
 - at the moment, the output is only streamed (except when piped)
 - allows to show the response's info
 - allows to hide/show the model's 'thoughts' (like DeepSeek-R1 and latest models)
@@ -54,7 +54,8 @@ The options supported are:
 |--server-port | int:443 _[1-65535_] | Listening port. Must be SSL/TLS.
 |--model-file | string:NULL | File with the default model and parameters regarding to context, tokens, etc.
 |--setting-file | string:NULL | File with the program settings: server info., timeouts, fonts, etc.
-|--roles-file | string:NULL | File with the different roles/instructions for the model.
+|--roles-file | string:NULL | File with the different roles for the model.
+|--instructions-file | string:NULL | File with the different instructions for the model.
 |--context-file | string:NULL | File where the interactions (except the queries ended with ';') will be stored.
 |--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, durations, etc.
 |--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in models like 'deepseek-r1'
@@ -70,6 +71,8 @@ On the other hand, some commands can be prompting:
 | model;   | string* | change the model.
 | roles;   | N/A     | show available roles;
 | role;    | string* | change the system role (included into the file '--roles-file').
+| instructions;   | N/A     | show available instructions;
+| instruction;    | string* | add the instructions entered (included into the file '--instructions-file') to prompt history.
 
 * If 'string' is empty, the model|role will change to the default one.
 
@@ -79,11 +82,13 @@ On the other hand, some commands can be prompting:
 - The sent messages & the responses are written into the context file if '--context-file' is specified.
 - If **'--context-file'** is specified, the last '[MAX_MSG_CTX]' (parameter in modelfile) messages/responses are read when the program starts as context.
 - So, if '[MAX_MSG_CTX]' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions.
+- If '[MAX_MSG_CTX]' = 0, the interactions won't be recorded into context file.
 - The template of modelfile that must be used with '--model-file': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/model-file).
 - **'--setting-file'** allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/setting-file). The parameters set up in this file, override any parameter passed with any other option.
 - the font format in 'settings' file must be ANSI.
 - if not setting file is specified, uncolored is set by default.
 - if **'--roles-file'** is specified, prompting 'role;' + the name of the role (specified into the file. V.gr.: role;newRole), will include the (new) role description as system role in the following chats. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/roles-file)
+- if **'--instructions-file'** is specified, prompting 'instruction;' + the name of the instruction (specified into the file. V.gr.: instruction;newInstruction), will include the (new) instruction description into the prompt history so you can selected uping/dowing the arrow keys. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/instruction-file)
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
 - In case that you want to **input a new line** without submitting, just use 'alt+enter'. Same key combination for **exiting** when empty prompt.
 - In case that pipes are used, like: 'df | ollama-c-lient >> file.txt', the output is always uncolored, no-streamed, and in RAW format.
@@ -94,7 +99,7 @@ On the other hand, some commands can be prompting:
 #### Suggested:
 
 ```
-$ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --roles-file ~/ollama/rolesFile --context-file ~/ollama/contextFile
+$ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --roles-file ~/ollama/rolesFile --instructions-file ~/ollama/instructionsFile --context-file ~/ollama/contextFile
 ```
 
 ... with a 'model-file' like:
@@ -102,6 +107,8 @@ $ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/setti
 ```
 [MODEL]
 modelNameAlreadyPulled
+[KEEP_ALIVE]
+30
 [TEMP]
 0.5
 [MAX_MSG_CTX]
@@ -113,16 +120,18 @@ You are the assistance and
 bla,
 bla, bla...
 ```
+###### Note: since the incorporation of reasoning models, is not recommended incorporating a 'system-role'. Instead, just leave it blank and incorporate the instructions as part of the 'user-role' (see 'instructions;' and 'instruction;').
 
 #### Others
 
 ```
 $ ollama-c-lient --server-addr 192.168.2.10
-$ ollama-c-lient --server-addr 192.168.2.10 --setting-file ~/ollama/settingFile
+$ ollama-c-lient --server-addr 192.168.2.10 --setting-file ~/ollama/settingFile --instructions-file ~/ollama/instructionsFile
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
 $ ollama-c-lient --model-file ~/ollama/any3modelModelFile --show-thoughts
-$ Ollama-C-lient --roles-file ~/ollama/roles --context-file ~/ollama/context
+$ ollama-c-lient --roles-file ~/ollama/roles --context-file ~/ollama/context
+$ (echo 'What can you tell me about my storage: ' && df) | ollama-c-lient --server-addr 192.168.5.123 --model-file ~/agents/modelFile --setting-file ~/agents/settingFile --context-file ~/agents/dfAgentContextFile >> log-file.log
 ```
 
 #### Bugs known/unknown
