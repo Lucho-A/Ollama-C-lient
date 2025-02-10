@@ -33,6 +33,7 @@
 #define OCL_SOCKET_SEND_TIMEOUT_S				"5"
 #define OCL_SOCKET_RECV_TIMEOUT_S				"15"
 
+#define OCL_KEEPALIVE							"5"
 #define OCL_TEMP								"0.5"
 #define OCL_MAX_HISTORY_CTX						"3"
 #define OCL_MAX_TOKENS_CTX						"2048"
@@ -62,6 +63,7 @@ enum ocl_errors{
 	OCL_ERR_CONTEXT_FILE_NOT_FOUND,
 	OCL_ERR_CERT_FILE_NOT_FOUND,
 	OCL_ERR_OPENING_FILE_ERROR,
+	OCL_CONTEXT_FILE_CORRUPTED,
 	OCL_ERR_OPENING_ROLE_FILE_ERROR,
 	OCL_ERR_NO_HISTORY_CONTEXT_ERROR,
 	OCL_ERR_UNEXPECTED_JSON_FORMAT_ERROR,
@@ -73,6 +75,7 @@ enum ocl_errors{
 	OCL_ERR_UNLOADING_MODEL,
 	OCL_ERR_SERVER_ADDR,
 	OCL_ERR_PORT,
+	OCL_ERR_KEEP_ALIVE,
 	OCL_ERR_TEMP,
 	OCL_ERR_MAX_HISTORY_CTX,
 	OCL_ERR_MAX_TOKENS_CTX,
@@ -89,7 +92,7 @@ extern bool oclCanceled;
 extern bool oclSendingChatThreadingFinished;
 
 int OCl_init();
-int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *,char *,char *, char *, char *, char *);
+int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *,char *,char *, char *, char *, char *);
 int OCl_free(OCl *);
 
 int OCl_flush_context();

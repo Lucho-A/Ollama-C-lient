@@ -1,6 +1,8 @@
 # Model file template. All options has default values (the commented ones), except [MODEL].
 [MODEL]
 modelNameAlreadyPulled
+#[KEEP_ALIVE]
+#5
 #[TEMP]
 #0.5
 #[MAX_MSG_CTX]

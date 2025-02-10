@@ -51,6 +51,7 @@ typedef struct _ocl{
 	int socketRecvTimeout;
 	char *responseFont;
 	char *model;
+	int keepalive;
 	char *systemRole;
 	double temp;
 	int maxHistoryCtx;
@@ -109,6 +110,15 @@ int OCl_set_model(OCl *ocl, char *model){
 		for(size_t i=0;i<strlen(model);i++){
 			if(model[i]!=' ') ocl->model[cont++]=model[i];
 		}
+	}
+	return OCL_RETURN_OK;
+}
+
+static int OCl_set_keepalive(OCl *ocl, char *keepalive){
+	if(keepalive!=NULL && strcmp(keepalive,"")!=0){
+		char *tail=NULL;
+		ocl->keepalive=strtol(keepalive,&tail,10);
+		if(ocl->keepalive<1 || tail[0]!=0) return OCL_ERR_KEEP_ALIVE;
 	}
 	return OCL_RETURN_OK;
 }
@@ -191,7 +201,6 @@ static int OCl_set_context_file(OCl *ocl, char *contextFile){
 	return OCL_RETURN_OK;
 }
 
-
 static int OCl_set_error(OCl *ocl, char *err){
 	if(ocl->ocl_resp->error!=NULL) free(ocl->ocl_resp->error);
 	ocl->ocl_resp->error=malloc(strlen(err)+1);
@@ -244,7 +253,7 @@ int OCl_free(OCl *ocl){
 }
 
 int OCl_get_instance(OCl **ocl, char *serverAddr, char *serverPort, char *socketConnTo, char *socketSendTo
-		,char *socketRecvTo, char *model, char *systemRole
+		,char *socketRecvTo, char *model, char *keepAlive, char *systemRole
 		,char *maxContextMsg, char *temp, char *maxTokensCtx, char *contextFile){
 	*ocl=malloc(sizeof(OCl));
 	int retVal=0;
@@ -260,6 +269,8 @@ int OCl_get_instance(OCl **ocl, char *serverAddr, char *serverPort, char *socket
 	if((retVal=OCl_set_recv_timeout(*ocl, socketRecvTo))!=OCL_RETURN_OK) return retVal;
 	(*ocl)->model=NULL;
 	OCl_set_model(*ocl, model);
+	OCl_set_keepalive(*ocl, OCL_KEEPALIVE);
+	if((retVal=OCl_set_keepalive(*ocl, keepAlive))!=OCL_RETURN_OK) return retVal;
 	(*ocl)->systemRole=NULL;
 	OCl_set_role(*ocl, systemRole);
 	OCl_set_max_history_ctx(*ocl, OCL_MAX_HISTORY_CTX);
@@ -343,10 +354,11 @@ int OCl_import_context(OCl *ocl){
 		rewind(f);
 		int contRows=0;
 		while((chars=getline(&line, &len, f))!=-1){
+			if(strstr(line,"\t")==NULL) return OCL_CONTEXT_FILE_CORRUPTED;
 			if(contRows>=initPos){
 				userMessage=malloc(chars+1);
 				memset(userMessage,0,chars+1);
-				for(i=0;line[i]!='\t';i++) userMessage[i]=line[i];
+				for(i=0;line[i]!='\t' && i<strlen(line) ;i++) userMessage[i]=line[i];
 				int index=0;
 				assistantMessage=malloc(chars+1);
 				memset(assistantMessage,0,chars+1);
@@ -429,6 +441,9 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_CONTEXT_FILE_NOT_FOUND:
 		snprintf(error_hndl, 1024,"Context file not found ");
 		break;
+	case OCL_CONTEXT_FILE_CORRUPTED:
+		snprintf(error_hndl, 1024,"Context file corrupted ");
+		break;
 	case OCL_ERR_CERT_FILE_NOT_FOUND:
 		snprintf(error_hndl, 1024,"Cert. file not found ");
 		break;
@@ -465,6 +480,9 @@ char * OCL_error_handling(int error){
 	case OCL_ERR_PORT:
 		snprintf(error_hndl, 1024,"Port not valid ");
 		break;
+	case OCL_ERR_KEEP_ALIVE:
+		snprintf(error_hndl, 1024,"Keepalive value not valid. Check modfile");
+		break;
 	case OCL_ERR_TEMP:
 		snprintf(error_hndl, 1024,"Temperature value not valid. Check modfile");
 		break;
@@ -487,7 +505,7 @@ char * OCL_error_handling(int error){
 		snprintf(error_hndl, 1024,"Response Speed value not valid");
 		break;
 	default:
-		snprintf(error_hndl, 1024,"Error not handled");
+		snprintf(error_hndl, 1024,"Error not handled. Errno: %s", strerror(errno));
 		break;
 	}
 	return error_hndl;
@@ -660,8 +678,9 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 			totalBytesReceived+=bytesReceived;
 			char *token="\"content\":", content[128]="";
 			if(get_string_from_token(buffer, token, content, '"')){
-				callback(content);
-				strcat(ocl->ocl_resp->content,content);
+				if(callback!=NULL) callback(content);
+				for(size_t i=0;i<=strlen(content);i++) ocl->ocl_resp->content[strlen(ocl->ocl_resp->content)]=content[i];
+				//strcat(ocl->ocl_resp->content,content);
 			}
 			strcat(ocl->ocl_resp->fullResponse,buffer);
 			if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
@@ -831,7 +850,7 @@ int OCl_load_model(OCl *ocl, bool load){
 	if(load){
 		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": -1}",ocl->model);
 	}else{
-		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": 0}",ocl->model);
+		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": %d}",ocl->model, ocl->keepalive);
 	}
 	char msg[2048]="";
 	snprintf(msg,2048,

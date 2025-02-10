@@ -35,6 +35,7 @@ int prevInput=0;
 char systemFont[16]="", promptFont[16]="", errorFont[16]="", showResponseInfoFont[16]="";
 char model[512]="";
 char temp[512]="";
+char keepalive[512]="";
 char maxMsgCtx[512]="";
 char maxTokensCtx[512]="";
 char *systemRole=NULL;
@@ -47,7 +48,7 @@ char socketSendTo[512]="";
 char socketRecvTo[512]="";
 char responseFont[16]="";
 
-static void print_error(char *msg, char *error, bool exitProgram){
+static void print_error_msg(char *msg, char *error, bool exitProgram){
 	char errMsg[1024]="";
 	snprintf(errMsg,1024,"%sERROR: %s %s\n",errorFont, msg,error);
 	for(size_t i=0;i<strlen(errMsg);i++){
@@ -76,7 +77,7 @@ static int load_settingfile(char *settingfile){
 	size_t len=0;
 	char *line=NULL;
 	FILE *f=fopen(settingfile,"r");
-	if(f==NULL) print_error("Setting file Not Found.","",true);
+	if(f==NULL) print_error_msg("Setting file Not Found.","",true);
 	while((chars=getline(&line, &len, f))!=-1){
 		if((strstr(line,"[SERVER_ADDR]"))==line){
 			chars=getline(&line, &len, f);
@@ -158,7 +159,7 @@ static int load_modelfile(char *modelfile){
 	size_t len=0;
 	char *line=NULL;
 	FILE *f=fopen(modelfile,"r");
-	if(f==NULL) print_error("Model file not found.","",true);
+	if(f==NULL) print_error_msg("Model file not found.","",true);
 	while((chars=getline(&line, &len, f))!=-1){
 		if((strstr(line,"[MODEL]"))==line){
 			chars=getline(&line, &len, f);
@@ -168,6 +169,11 @@ static int load_modelfile(char *modelfile){
 		if((strstr(line,"[TEMP]"))==line){
 			chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) temp[i]=line[i];
+			continue;
+		}
+		if((strstr(line,"[KEEP_ALIVE]"))==line){
+			chars=getline(&line, &len, f);
+			for(int i=0;i<chars-1;i++) keepalive[i]=line[i];
 			continue;
 		}
 		if((strstr(line,"[MAX_MSG_CTX]"))==line){
@@ -274,6 +280,7 @@ static void print_response_info(){
 bool isThinking=false;
 
 static void print_response(char *token){
+	if(stdinPresent) return;
 	printf("%s",responseFont);
 	if(strstr(token, "\\u003cthink\\u003e")!=NULL){
 		isThinking=true;
@@ -329,7 +336,7 @@ void *start_sending_message(void *arg){
 	if(retVal!=OCL_RETURN_OK){
 		switch(retVal){
 		case OCL_ERR_RESPONSE_MESSAGE_ERROR:
-			print_error(OCL_get_response_error(ocl),"",false);
+			print_error_msg(OCL_get_response_error(ocl),"",false);
 			break;
 		default:
 			if(oclCanceled){
@@ -337,7 +344,7 @@ void *start_sending_message(void *arg){
 				break;
 			}
 			oclCanceled=true;
-			print_error(OCL_error_handling(retVal),"",false);
+			print_error_msg(OCL_error_handling(retVal),"",false);
 			break;
 		}
 		oclCanceled=true;
@@ -348,14 +355,14 @@ void *start_sending_message(void *arg){
 bool check_model_loaded(){
 	int retVal=0;
 	if((retVal=OCl_check_model_loaded(ocl))<=0){
-		if(retVal<=0){
-			print_error(OCL_error_handling(retVal),"",false);
+		if(retVal<0){
+			print_error_msg(OCL_error_handling(retVal),"",false);
 			return false;
 		}
 		print_system_msg("\nLoading model..");
-		if((retVal=OCl_load_model(ocl, true))<=0){
+		if((retVal=OCl_load_model(ocl, true))<0){
 			printf("\n");
-			print_error(OCL_error_handling(retVal),"",false);
+			print_error_msg(OCL_error_handling(retVal),"",false);
 			return false;
 		}
 	}
@@ -368,13 +375,13 @@ int main(int argc, char *argv[]) {
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
 	signal(SIGSEGV, signal_handler);
-	char *modelFile=NULL, *settingFile=NULL, *rolesFile=NULL, buffer[1024]="", input[1024*32]="";
+	char *rolesFile=NULL, *instructionsFile=NULL, buffer[1024]="", input[1024*32]="";
 	if(!isatty(fileno(stdin))){
 		while(fgets(buffer, sizeof(buffer), stdin)) strcat(input,buffer);
 		stdinPresent=true;
 	}
 	int retVal=0;
-	if((retVal=OCl_init())!=OCL_RETURN_OK) print_error("OCl init error. ",OCL_error_handling(retVal),true);
+	if((retVal=OCl_init())!=OCL_RETURN_OK) print_error_msg("OCl init error. ",OCL_error_handling(retVal),true);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0 || strcmp(argv[i],"--help")==0){
 			BANNER;
@@ -386,30 +393,36 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--server-port")==0){
-			snprintf(serverPort,16,"%s",argv[i+1]);
+			snprintf(serverPort,6,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--model-file")==0){
-			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error("Model file not found.","",true);
-			modelFile=argv[i+1];
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Model file not found.","",true);
+			if((retVal=load_modelfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading model file error. ",OCL_error_handling(retVal),true);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--setting-file")==0){
-			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error("Setting file not found.","",true);
-			settingFile=argv[i+1];
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Setting file not found.","",true);
+			if((retVal=load_settingfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading setting file error. ",OCL_error_handling(retVal),true);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--roles-file")==0){
-			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error("Roles file not found.","",true);
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Roles file not found.","",true);
 			rolesFile=argv[i+1];
 			i++;
 			continue;
 		}
+		if(strcmp(argv[i],"--instructions-file")==0){
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Instructions file not found.","",true);
+			instructionsFile=argv[i+1];
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--context-file")==0){
-			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error("Context file not found.","",true);
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Context file not found.","",true);
 			contextFile=argv[i+1];
 			i++;
 			continue;
@@ -423,23 +436,12 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		printf("\n");
-		print_error(argv[i],": argument not recognized",true);
+		print_error_msg(argv[i],": argument not recognized",true);
 	}
-	if(modelFile!=NULL){
-		if((retVal=load_modelfile(modelFile))!=OCL_RETURN_OK)
-			print_error("Loading model file error. ",OCL_error_handling(retVal),true);
-	}
-	if(settingFile!=NULL){
-		if((retVal=load_settingfile(settingFile))!=OCL_RETURN_OK)
-			print_error("Loading setting file error. ",OCL_error_handling(retVal),true);
-	}
-	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo,
-			model, systemRole, maxMsgCtx, temp,maxTokensCtx,
-			contextFile))!=OCL_RETURN_OK) print_error("OCl getting instance error. ",OCL_error_handling(retVal),true);
-	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK)
-		print_error("Importing context error. ",OCL_error_handling(retVal),true);
+	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo, model, keepalive,systemRole,
+			maxMsgCtx, temp, maxTokensCtx, contextFile))!=OCL_RETURN_OK) print_error_msg("OCl getting instance error. ",OCL_error_handling(retVal),true);
+	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK) print_error_msg("Importing context error. ",OCL_error_handling(retVal),true);
 	rl_getc_function=readline_input;
-	if(!check_model_loaded()) print_error("Error loading the model", "", false);
 	if(stdinPresent){
 		pthread_t tSendingMessage;
 		pthread_create(&tSendingMessage, NULL, start_sending_message, input);
@@ -469,7 +471,7 @@ int main(int argc, char *argv[]) {
 			int cantModels=OCl_get_models(ocl, models);
 			if(cantModels<0) {
 				printf("\n");
-				print_error(OCL_error_handling(cantModels),"",false);
+				print_error_msg(OCL_error_handling(cantModels),"",false);
 				continue;
 			}
 			for(int i=0;i<cantModels;i++){
@@ -492,16 +494,11 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strncmp(messagePrompted,"roles;", strlen("roles;"))==0){
-			if(rolesFile==NULL){
-				printf("\n");
-				print_error("No role file provided", "", false);
+			if(validate_file(rolesFile)!=OCL_RETURN_OK){
+				print_error_msg("Roles file not found.","",false);
 				continue;
 			}
 			FILE *f=fopen(rolesFile,"r");
-			if(f==NULL){
-				print_error(OCL_error_handling(OCL_ERR_OPENING_ROLE_FILE_ERROR),"", false);
-				continue;
-			}
 			ssize_t chars=0;
 			size_t len=0;
 			char *line=NULL;
@@ -523,16 +520,11 @@ int main(int argc, char *argv[]) {
 				OCl_set_role(ocl, systemRole);
 				continue;
 			}
-			if(rolesFile==NULL){
-				printf("\n");
-				print_error("No role file provided", "", false);
+			if(validate_file(rolesFile)!=OCL_RETURN_OK){
+				print_error_msg("Roles file not found.","",false);
 				continue;
 			}
 			FILE *f=fopen(rolesFile,"r");
-			if(f==NULL){
-				print_error(OCL_error_handling(OCL_ERR_OPENING_ROLE_FILE_ERROR),"", false);
-				continue;
-			}
 			ssize_t chars=0;
 			size_t len=0;
 			char *line=NULL;
@@ -555,9 +547,60 @@ int main(int argc, char *argv[]) {
 				}
 				if(found) break;
 			}
-			(found)?(OCl_set_role(ocl, newSystemRole)):(print_error("Role not found", "", false));
+			(found)?(OCl_set_role(ocl, newSystemRole)):(print_error_msg("Role not found", "", false));
 			fclose(f);
 			free(newSystemRole);
+			continue;
+		}
+		if(strncmp(messagePrompted,"instructions;", strlen("instructions;"))==0){
+			if(validate_file(instructionsFile)!=OCL_RETURN_OK){
+				print_error_msg("Instructions file not found.","",false);
+				continue;
+			}
+			FILE *f=fopen(instructionsFile,"r");
+			size_t len=0;
+			char *line=NULL;
+			while((getline(&line, &len, f))!=-1){
+				if(line[0]=='['){
+					printf("%s\n  - ", systemFont);
+					for(size_t i=1;i<strlen(line)-2;i++){
+						printf("%c", line[i]);
+						fflush(stdout);
+						usleep(responseSpeed);
+					}
+				}
+			}
+			printf("\n");
+			continue;
+		}
+		if(strncmp(messagePrompted,"instruction;", strlen("instruction;"))==0){
+			if(strcmp(messagePrompted+strlen("instruction;"),"")==0) continue;
+			if(validate_file(instructionsFile)!=OCL_RETURN_OK){
+				print_error_msg("Instructions file not found.","",false);
+				continue;
+			}
+			FILE *f=fopen(instructionsFile,"r");
+			ssize_t chars=0;
+			size_t len=0;
+			char *line=NULL;
+			bool found=false;
+			char instruction[255]="";
+			int contSpaces=0;
+			for(int i=strlen("instruction;");messagePrompted[i]==' ';i++) contSpaces++;
+			snprintf(instruction, 255,"[%s]", messagePrompted+strlen("instruction;")+contSpaces);
+			while((chars=getline(&line, &len, f))!=-1){
+				if(strncmp(line, instruction, strlen(instruction))==0){
+					found=true;
+					char buffer[8196]="";
+					while((chars=getline(&line, &len, f))!=-1){
+						if(line[0]=='[') break;
+						strcat(buffer, line);
+					}
+					add_history(buffer);
+				}
+				if(found) break;
+			}
+			fclose(f);
 			continue;
 		}
 		if(check_model_loaded()){
