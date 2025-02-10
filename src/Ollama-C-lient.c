@@ -271,52 +271,26 @@ static void print_response_info(){
 	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
 }
 
-void *start_sending_message(void *arg){
-	char *messagePrompted=arg;
-	int retVal=OCl_send_chat(ocl,messagePrompted);
-	if(retVal!=OCL_RETURN_OK){
-		switch(retVal){
-		case OCL_ERR_RESPONSE_MESSAGE_ERROR:
-			print_error(OCL_get_response_error(ocl),"",false);
-			break;
-		default:
-			if(oclCanceled){
-				printf("\n");
-				break;
-			}
-			oclCanceled=true;
-			print_error(OCL_error_handling(retVal),"",false);
-			break;
-		}
-		oclCanceled=true;
-	}
-	pthread_exit(NULL);
-}
+bool isThinking=false;
 
-static void print_response(){
-	char *temp=NULL, *thinking=NULL, *stopThinking=NULL;
-	size_t i=0;
-	bool isThinking=false;
-	temp=OCL_get_response(ocl);
+static void print_response(char *token){
 	printf("%s",responseFont);
-	while((!OCl_get_content_finished(ocl) || i!=strlen(temp)) && !oclCanceled){
-		if(i>=strlen(temp)) continue;
-		thinking=strstr(temp, "\\u003cthink\\u003e");
-		stopThinking=strstr(temp, "\\u003c/think\\u003e");
-		if(&(temp[i])==thinking){
-			printf("\x1b[3m(Thinking...)\x1b[23m\n");
-			i+=17;
-			isThinking=true;
-			if(showThoughts) isThinking=false;
-		}
-		if(&(temp[i])==stopThinking){
-			printf("\n\x1b[3m(Stop thinking...)\x1b[23m");
-			i+=18;
-			isThinking=false;
-		}
+	if(strstr(token, "\\u003cthink\\u003e")!=NULL){
+		isThinking=true;
+		printf("\x1b[3m(Thinking...)\x1b[23m\n");
+		if(showThoughts) isThinking=false;
+		return;
+	}
+	if(strstr(token, "\\u003c/think\\u003e")!=NULL){
+		isThinking=false;
+		printf("\x1b[3m(Stop thinking...)\x1b[23m");
+		return;
+	}
+	if(isThinking) return;
+	for(size_t i=0;i<strlen(token);i++){
 		usleep(responseSpeed);
-		if(temp[i]=='\\' && !isThinking){
-			switch(temp[i+1]){
+		if(token[i]=='\\'){
+			switch(token[i+1]){
 			case 'n':
 				printf("\n");
 				break;
@@ -334,22 +308,41 @@ static void print_response(){
 				break;
 			case 'u':
 				char buffer[5]="";
-				snprintf(buffer,5,"%c%c%c%c",temp[i+2],temp[i+3],temp[i+4],temp[i+5]);
-				if(!isThinking) printf("%c",(int)strtol(buffer,NULL,16));
+				snprintf(buffer,5,"%c%c%c%c",token[i+2],token[i+3],token[i+4],token[i+5]);
+				printf("%c",(int)strtol(buffer,NULL,16));
 				i+=4;
 				break;
 			default:
 				break;
 			}
-			i+=2;
+			i++;
 			continue;
 		}
-		if(!isThinking) printf("%c",temp[i]);
+		printf("%c",token[i]);
 		fflush(stdout);
-		i++;
 	}
-	if(i>0 && showResponseInfo && !oclCanceled) print_response_info();
-	printf("\n");
+}
+
+void *start_sending_message(void *arg){
+	char *messagePrompted=arg;
+	int retVal=OCl_send_chat(ocl,messagePrompted, print_response);
+	if(retVal!=OCL_RETURN_OK){
+		switch(retVal){
+		case OCL_ERR_RESPONSE_MESSAGE_ERROR:
+			print_error(OCL_get_response_error(ocl),"",false);
+			break;
+		default:
+			if(oclCanceled){
+				printf("\n");
+				break;
+			}
+			oclCanceled=true;
+			print_error(OCL_error_handling(retVal),"",false);
+			break;
+		}
+		oclCanceled=true;
+	}
+	pthread_exit(NULL);
 }
 
 bool check_model_loaded(){
@@ -569,11 +562,12 @@ int main(int argc, char *argv[]) {
 		}
 		if(check_model_loaded()){
 			pthread_t tSendingMessage;
-			pthread_create(&tSendingMessage, NULL, start_sending_message, messagePrompted);
 			printf("\n");
-			print_response();
+			pthread_create(&tSendingMessage, NULL, start_sending_message, messagePrompted);
 			add_history(messagePrompted);
 			pthread_join(tSendingMessage,NULL);
+			if(showResponseInfo && !oclCanceled) print_response_info();
+			printf("\n");
 		}
 	}while(true);
 	free(messagePrompted);

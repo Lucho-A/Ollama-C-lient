@@ -94,7 +94,7 @@ int OCl_free(OCl *);
 
 int OCl_flush_context();
 int OCl_load_model(OCl *, bool load);
-int OCl_send_chat(OCl *, char *);
+int OCl_send_chat(OCl *, char *, void (*)(char *));
 int OCl_check_service_status(OCl *);
 int OCl_check_model_loaded(OCl *);
 int OCl_import_context(OCl *);

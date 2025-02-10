@@ -497,8 +497,7 @@ static bool get_string_from_token(char *text, char *token, char *result, char en
 	char *content=strstr(text,token);
 	if(content!=NULL){
 		size_t i=0, len=strlen(token);
-		for(i=len+1;(content[i-1]=='\\' || content[i]!=endChar);i++)
-			result[i-len-1]=content[i];
+		for(i=len+1;(content[i-1]=='\\' || content[i]!=endChar);i++) result[i-len-1]=content[i];
 		result[i-len-1]=0;
 		return true;
 	}
@@ -590,7 +589,7 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 	return socketConn;
 }
 
-static int send_message(OCl *ocl,char *payload){
+static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 	oclSslError=0;
 	ocl->ocl_resp->contentFinished=false;
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
@@ -660,7 +659,10 @@ static int send_message(OCl *ocl,char *payload){
 		if(bytesReceived>0){
 			totalBytesReceived+=bytesReceived;
 			char *token="\"content\":", content[128]="";
-			if(get_string_from_token(buffer, token, content, '"')) strcat(ocl->ocl_resp->content,content);
+			if(get_string_from_token(buffer, token, content, '"')){
+				callback(content);
+				strcat(ocl->ocl_resp->content,content);
+			}
 			strcat(ocl->ocl_resp->fullResponse,buffer);
 			if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
 			if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
@@ -672,7 +674,7 @@ static int send_message(OCl *ocl,char *payload){
 	return totalBytesReceived;
 }
 
-int OCl_send_chat(OCl *ocl, char *message){
+int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 	char *messageParsed=NULL;
 	parse_input(&messageParsed, message);
 	char *context=malloc(1), *buf=NULL;
@@ -746,7 +748,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 			"Content-Length: %d\r\n\r\n"
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	free(body);
-	int retVal=send_message(ocl, msg);
+	int retVal=send_message(ocl, msg, callback);
 	free(msg);
 	if(retVal<0){
 		free(messageParsed);
@@ -794,7 +796,7 @@ int OCl_send_chat(OCl *ocl, char *message){
 		ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 		if(message[strlen(message)-1]!=';'){
 			create_new_context_message(messageParsed, ocl->ocl_resp->content, true, ocl->maxHistoryCtx);
-			OCl_save_message(ocl, messageParsed, ocl->ocl_resp->content);
+			if(ocl->maxHistoryCtx>0) OCl_save_message(ocl, messageParsed, ocl->ocl_resp->content);
 		}
 	}
 	free(messageParsed);
@@ -808,7 +810,7 @@ int OCl_check_service_status(OCl *ocl){
 			"GET / HTTP/1.1\r\n"
 			"Host: %s\r\n\r\n",ocl->srvAddr);
 	int retVal=0;
-	if((retVal=send_message(ocl, msg))<=0) return retVal;
+	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
 	if(strstr(ocl->ocl_resp->fullResponse,"Ollama")==NULL) return OCL_ERR_SERVICE_UNAVAILABLE;
 	return OCL_RETURN_OK;
 }
@@ -819,7 +821,7 @@ int OCl_check_model_loaded(OCl *ocl){
 			"GET /api/ps HTTP/1.1\r\n"
 			"Host: %s\r\n\r\n",ocl->srvAddr);
 	int retVal=0;
-	if((retVal=send_message(ocl, msg))<=0) return retVal;
+	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
 	if(strstr(ocl->ocl_resp->fullResponse,ocl->model)==NULL) return false;
 	return true;
 }
@@ -839,7 +841,7 @@ int OCl_load_model(OCl *ocl, bool load){
 			"Content-Length: %d\r\n\r\n"
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	int retVal=0;
-	if((retVal=send_message(ocl, msg))<=0) return retVal;
+	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
 	if(strstr(ocl->ocl_resp->fullResponse,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(ocl->ocl_resp->fullResponse,"{\"error"));
 		if(load) return OCL_ERR_LOADING_MODEL;
@@ -860,7 +862,7 @@ int OCl_get_models(OCl *ocl, char(*models)[512]){
 			"Content-Length: %d\r\n\r\n"
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	int retVal=0;
-	if((retVal=send_message(ocl, msg))<=0) return retVal;
+	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
 	if(strstr(ocl->ocl_resp->fullResponse,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(ocl->ocl_resp->fullResponse,"{\"error"));
 		return OCL_ERR_GETTING_MODELS;
