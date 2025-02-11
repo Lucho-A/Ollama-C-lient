@@ -82,14 +82,14 @@ enum ocl_errors{
 	OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID,
 	OCL_ERR_SOCKET_SEND_TIMEOUT_NOT_VALID,
 	OCL_ERR_SOCKET_RECV_TIMEOUT_NOT_VALID,
-	OCL_ERR_RESPONSE_SPEED_NOT_VALID
+	OCL_ERR_RESPONSE_SPEED_NOT_VALID,
+	OCL_ERR_ERROR_MSG_FOUND
 };
 
 typedef struct _ocl OCl;
 
 extern int oclSslError;
 extern bool oclCanceled;
-extern bool oclSendingChatThreadingFinished;
 
 int OCl_init();
 int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *,char *,char *, char *, char *, char *);
@@ -101,13 +101,10 @@ int OCl_send_chat(OCl *, char *, void (*)(char *));
 int OCl_check_service_status(OCl *);
 int OCl_check_model_loaded(OCl *);
 int OCl_import_context(OCl *);
-char * OCL_error_handling(int);
+char * OCL_error_handling(OCl *, int);
 
 int OCl_get_models(OCl *, char(*)[512]);
-char * OCl_get_model(OCl *);
-bool OCl_get_content_finished(OCl *);
 char * OCL_get_response(OCl *);
-char * OCL_get_full_response(OCl *);
 double OCL_get_response_load_duration(OCl *);
 double OCL_get_response_prompt_eval_duration(OCl *);
 double OCL_get_response_eval_duration(OCl *);
@@ -115,7 +112,6 @@ double OCL_get_response_total_duration(OCl *);
 int OCL_get_response_prompt_eval_count(OCl *);
 int OCL_get_response_eval_count(OCl *);
 double OCL_get_response_tokens_per_sec(OCl *);
-char * OCL_get_response_error(OCl *);
 
 int OCl_set_model(OCl *, char *);
 int OCl_set_role(OCl *, char *);

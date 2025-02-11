@@ -334,20 +334,9 @@ void *start_sending_message(void *arg){
 	char *messagePrompted=arg;
 	int retVal=OCl_send_chat(ocl,messagePrompted, print_response);
 	if(retVal!=OCL_RETURN_OK){
-		switch(retVal){
-		case OCL_ERR_RESPONSE_MESSAGE_ERROR:
-			print_error_msg(OCL_get_response_error(ocl),"",false);
-			break;
-		default:
-			if(oclCanceled){
-				printf("\n");
-				break;
-			}
-			oclCanceled=true;
-			print_error_msg(OCL_error_handling(retVal),"",false);
-			break;
-		}
+		if(oclCanceled) printf("\n");
 		oclCanceled=true;
+		print_error_msg(OCL_error_handling(ocl, retVal),"",false);
 	}
 	pthread_exit(NULL);
 }
@@ -356,13 +345,13 @@ bool check_model_loaded(){
 	int retVal=0;
 	if((retVal=OCl_check_model_loaded(ocl))<=0){
 		if(retVal<0){
-			print_error_msg(OCL_error_handling(retVal),OCL_get_response_error(ocl),false);
+			print_error_msg(OCL_error_handling(ocl, retVal),"",false);
 			return false;
 		}
 		print_system_msg("\nLoading model..");
 		if((retVal=OCl_load_model(ocl, true))<0){
 			printf("\n");
-			print_error_msg(OCL_error_handling(retVal),OCL_get_response_error(ocl),false);
+			print_error_msg(OCL_error_handling(ocl,retVal),"",false);
 			return false;
 		}
 	}
@@ -381,7 +370,7 @@ int main(int argc, char *argv[]) {
 		stdinPresent=true;
 	}
 	int retVal=0;
-	if((retVal=OCl_init())!=OCL_RETURN_OK) print_error_msg("OCl init error. ",OCL_error_handling(retVal),true);
+	if((retVal=OCl_init())!=OCL_RETURN_OK) print_error_msg("OCl init error. ","",true);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0 || strcmp(argv[i],"--help")==0){
 			BANNER;
@@ -399,13 +388,13 @@ int main(int argc, char *argv[]) {
 		}
 		if(strcmp(argv[i],"--model-file")==0){
 			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Model file not found.","",true);
-			if((retVal=load_modelfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading model file error. ",OCL_error_handling(retVal),true);
+			if((retVal=load_modelfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading model file error. ","",true);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--setting-file")==0){
 			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Setting file not found.","",true);
-			if((retVal=load_settingfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading setting file error. ",OCL_error_handling(retVal),true);
+			if((retVal=load_settingfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading setting file error. ","",true);
 			i++;
 			continue;
 		}
@@ -439,8 +428,8 @@ int main(int argc, char *argv[]) {
 		print_error_msg(argv[i],": argument not recognized",true);
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo, model, keepalive,systemRole,
-			maxMsgCtx, temp, maxTokensCtx, contextFile))!=OCL_RETURN_OK) print_error_msg("OCl getting instance error. ",OCL_error_handling(retVal),true);
-	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK) print_error_msg("Importing context error. ",OCL_error_handling(retVal),true);
+			maxMsgCtx, temp, maxTokensCtx, contextFile))!=OCL_RETURN_OK) print_error_msg("OCl getting instance error. ",OCL_error_handling(ocl,retVal),true);
+	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK) print_error_msg("Importing context error. ",OCL_error_handling(ocl,retVal),true);
 	rl_getc_function=readline_input;
 	if(stdinPresent){
 		pthread_t tSendingMessage;
@@ -471,7 +460,7 @@ int main(int argc, char *argv[]) {
 			int cantModels=OCl_get_models(ocl, models);
 			if(cantModels<0) {
 				printf("\n");
-				print_error_msg(OCL_error_handling(cantModels),OCL_get_response_error(ocl),false);
+				print_error_msg(OCL_error_handling(ocl,cantModels),"",false);
 				continue;
 			}
 			for(int i=0;i<cantModels;i++){

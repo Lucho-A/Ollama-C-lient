@@ -21,13 +21,10 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#define BUFFER_SIZE_1K				(1024)
+#define BUFFER_SIZE_2K				(1024*2)
 #define BUFFER_SIZE_16K				(1024*16)
 #define BUFFER_SIZE_128K			(1024*128)
-
-typedef struct Response{
-	char *fullResponse;
-	char *content;
-}Response;
 
 typedef struct Message{
 	char *userMessage;
@@ -49,7 +46,6 @@ typedef struct _ocl{
 	int socketConnectTimeout;
 	int socketSendTimeout;
 	int socketRecvTimeout;
-	char *responseFont;
 	char *model;
 	int keepalive;
 	char *systemRole;
@@ -61,9 +57,9 @@ typedef struct _ocl{
 }OCl;
 
 struct _ocl_response{
-	char fullResponse[BUFFER_SIZE_128K];
 	char content[BUFFER_SIZE_128K];
-	char *error;
+	char response[BUFFER_SIZE_128K];
+	char error[BUFFER_SIZE_1K];
 	double loadDuration;
 	double promptEvalDuration;
 	double evalDuration;
@@ -75,7 +71,6 @@ struct _ocl_response{
 
 char * OCl_get_model(OCl *ocl){ return ocl->model;}
 char * OCL_get_response(OCl *ocl){ return ocl->ocl_resp->content;}
-char * OCL_get_full_response(OCl *ocl){ return ocl->ocl_resp->fullResponse;}
 double OCL_get_response_load_duration(OCl *ocl){ return ocl->ocl_resp->loadDuration;}
 double OCL_get_response_prompt_eval_duration(OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
 double OCL_get_response_eval_duration(OCl *ocl){ return ocl->ocl_resp->evalDuration;}
@@ -83,7 +78,6 @@ double OCL_get_response_total_duration(OCl *ocl){ return ocl->ocl_resp->totalDur
 int OCL_get_response_prompt_eval_count(OCl *ocl){ return ocl->ocl_resp->promptEvalCount;}
 int OCL_get_response_eval_count(OCl *ocl){ return ocl->ocl_resp->evalCount;}
 double OCL_get_response_tokens_per_sec(OCl *ocl){ return ocl->ocl_resp->tokensPerSec;}
-char * OCL_get_response_error(OCl *ocl){return ocl->ocl_resp->error;}
 
 int OCl_set_server_addr(OCl *ocl, char *serverAddr){
 	if(serverAddr!=NULL && strcmp(serverAddr,"")!=0) ocl->srvAddr=serverAddr;
@@ -199,14 +193,6 @@ static int OCl_set_context_file(OCl *ocl, char *contextFile){
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_error(OCl *ocl, char *err){
-	if(ocl->ocl_resp->error!=NULL) free(ocl->ocl_resp->error);
-	ocl->ocl_resp->error=malloc(strlen(err)+1);
-	memset(ocl->ocl_resp->error,0,strlen(err));
-	snprintf(ocl->ocl_resp->error,strlen(err)+1,"%s",err);
-	return OCL_RETURN_OK;
-}
-
 int OCl_init(){
 	SSL_library_init();
 	ERR_load_crypto_strings();
@@ -239,10 +225,6 @@ int OCl_free(OCl *ocl){
 		if(ocl->systemRole!=NULL){
 			free(ocl->systemRole);
 			ocl->systemRole=NULL;
-		}
-		if(ocl->ocl_resp!=NULL){
-			free(ocl->ocl_resp->error);
-			free(ocl->ocl_resp);
 		}
 		free(ocl);
 	}
@@ -281,8 +263,8 @@ int OCl_get_instance(OCl **ocl, char *serverAddr, char *serverPort, char *socket
 	if((retVal=OCl_set_context_file(*ocl,contextFile))!=OCL_RETURN_OK) return retVal;
 	(*ocl)->ocl_resp=malloc(sizeof(struct _ocl_response));
 	memset((*ocl)->ocl_resp->content,0,BUFFER_SIZE_128K);
-	memset((*ocl)->ocl_resp->fullResponse,0,BUFFER_SIZE_128K);
-	(*ocl)->ocl_resp->error=NULL;
+	memset((*ocl)->ocl_resp->response,0,BUFFER_SIZE_128K);
+	memset((*ocl)->ocl_resp->error,0,BUFFER_SIZE_1K);
 	(*ocl)->ocl_resp->loadDuration=0.0;
 	(*ocl)->ocl_resp->promptEvalDuration=0.0;
 	(*ocl)->ocl_resp->evalDuration=0.0;
@@ -373,137 +355,140 @@ int OCl_import_context(OCl *ocl){
 	return OCL_RETURN_OK;
 }
 
-char * OCL_error_handling(int error){
-	static char error_hndl[1024]="";
+char * OCL_error_handling(OCl *ocl, int error){
+	static char error_hndl[BUFFER_SIZE_2K]="";
 	switch(error){
 	case OCL_ERR_MALLOC_ERROR:
-		snprintf(error_hndl, 1024,"Malloc() error: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Malloc() error: %s", strerror(errno));
 		break;
 	case OCL_ERR_REALLOC_ERROR:
-		snprintf(error_hndl, 1024,"Realloc() error: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Realloc() error: %s", strerror(errno));
 		break;
 	case OCL_ERR_GETTING_HOST_INFO_ERROR:
-		snprintf(error_hndl, 1024,"Error getting host info: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error getting host info: %s", strerror(errno));
 		break;
 	case OCL_ERR_SOCKET_CREATION_ERROR:
-		snprintf(error_hndl, 1024,"Error creating socket: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error creating socket: %s", strerror(errno));
 		break;
 	case OCL_ERR_SOCKET_CONNECTION_ERROR:
-		snprintf(error_hndl, 1024,"Error connecting socket: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error connecting socket: %s", strerror(errno));
 		break;
 	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR:
-		snprintf(error_hndl, 1024,"Socket connection time out. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Socket connection time out. ");
 		break;
 	case OCL_ERR_SSLCTX_NULL_ERROR:
-		snprintf(error_hndl, 1024,"SSL context null: %s (Did you call OCL_init()?). SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"SSL context null: %s (Did you call OCL_init()?). SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_SSL_CONTEXT_ERROR:
-		snprintf(error_hndl, 1024,"Error creating SSL context: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error creating SSL context: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_SSL_CERT_NOT_FOUND:
-		snprintf(error_hndl, 1024,"SSL cert. not found: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"SSL cert. not found: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_SSL_FD_ERROR:
-		snprintf(error_hndl, 1024,"SSL fd error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"SSL fd error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_SSL_CONNECT_ERROR:
-		snprintf(error_hndl, 1024,"SSL Connection error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"SSL Connection error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_SEND_TIMEOUT_ERROR:
-		snprintf(error_hndl, 1024,"Sending packet time out ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Sending packet time out ");
 		break;
 	case OCL_ERR_SENDING_PACKETS_ERROR:
-		snprintf(error_hndl, 1024,"Sending packet error. SSL Error: %s", ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Sending packet error. SSL Error: %s", ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_RECV_TIMEOUT_ERROR:
-		snprintf(error_hndl, 1024,"Receiving packet time out: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Receiving packet time out: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_RECEIVING_PACKETS_ERROR:
-		snprintf(error_hndl, 1024,"Receiving packet error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Receiving packet error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_RESPONSE_MESSAGE_ERROR:
-		snprintf(error_hndl, 1024,"Error message into JSON. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error message into JSON. ");
 		break;
 	case OCL_ERR_PARTIAL_RESPONSE_RECV:
-		snprintf(error_hndl, 1024,"Partial response received. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Partial response received. ");
 		break;
 	case OCL_ERR_ZEROBYTESSENT_ERROR:
-		snprintf(error_hndl, 1024,"Zero bytes sent. Try again...");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Zero bytes sent. Try again...");
 		break;
 	case OCL_ERR_ZEROBYTESRECV_ERROR:
-		snprintf(error_hndl, 1024,"Zero bytes received. Try again...");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Zero bytes received. Try again...");
 		break;
 	case OCL_ERR_MODEL_FILE_NOT_FOUND:
-		snprintf(error_hndl, 1024,"Model file not found ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Model file not found ");
 		break;
 	case OCL_ERR_CONTEXT_FILE_NOT_FOUND:
-		snprintf(error_hndl, 1024,"Context file not found ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Context file not found ");
 		break;
 	case OCL_CONTEXT_FILE_CORRUPTED:
-		snprintf(error_hndl, 1024,"Context file corrupted ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Context file corrupted ");
 		break;
 	case OCL_ERR_CERT_FILE_NOT_FOUND:
-		snprintf(error_hndl, 1024,"Cert. file not found ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Cert. file not found ");
 		break;
 	case OCL_ERR_OPENING_FILE_ERROR:
-		snprintf(error_hndl, 1024,"Error opening file: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error opening file: %s", strerror(errno));
 		break;
 	case OCL_ERR_OPENING_ROLE_FILE_ERROR:
-		snprintf(error_hndl, 1024,"Error opening 'Role' file: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error opening 'Role' file: %s", strerror(errno));
 		break;
 	case OCL_ERR_NO_HISTORY_CONTEXT_ERROR:
-		snprintf(error_hndl, 1024,"No message to save ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"No message to save ");
 		break;
 	case OCL_ERR_UNEXPECTED_JSON_FORMAT_ERROR:
-		snprintf(error_hndl, 1024,"Unexpected JSON format error. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Unexpected JSON format error. ");
 		break;
 	case OCL_ERR_CONTEXT_MSGS_ERROR:
-		snprintf(error_hndl, 1024,"'Max. Context Message' value out-of-boundaries. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"'Max. Context Message' value out-of-boundaries. ");
 		break;
 	case OCL_ERR_SERVICE_UNAVAILABLE:
-		snprintf(error_hndl, 1024,"Service unavailable ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Service unavailable ");
 		break;
 	case OCL_ERR_GETTING_MODELS:
-		snprintf(error_hndl, 1024,"Error getting models ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error getting models ");
 		break;
 	case OCL_ERR_LOADING_MODEL:
-		snprintf(error_hndl, 1024,"Error loading model ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error loading model. %s", ocl->ocl_resp->error);
 		break;
 	case OCL_ERR_UNLOADING_MODEL:
-		snprintf(error_hndl, 1024,"Error unloading model ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error unloading model ");
 		break;
 	case OCL_ERR_SERVER_ADDR:
-		snprintf(error_hndl, 1024,"Server address not valid ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Server address not valid ");
 		break;
 	case OCL_ERR_PORT:
-		snprintf(error_hndl, 1024,"Port not valid ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Port not valid ");
 		break;
 	case OCL_ERR_KEEP_ALIVE:
-		snprintf(error_hndl, 1024,"Keepalive value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Keepalive value not valid. Check modfile");
 		break;
 	case OCL_ERR_TEMP:
-		snprintf(error_hndl, 1024,"Temperature value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Temperature value not valid. Check modfile");
 		break;
 	case OCL_ERR_MAX_HISTORY_CTX:
-		snprintf(error_hndl, 1024,"Max. message context value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Max. message context value not valid. Check modfile");
 		break;
 	case OCL_ERR_MAX_TOKENS_CTX:
-		snprintf(error_hndl, 1024,"Max. tokens context value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Max. tokens context value not valid. Check modfile");
 		break;
 	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID:
-		snprintf(error_hndl, 1024,"Connection Timeout value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Connection Timeout value not valid");
 		break;
 	case OCL_ERR_SOCKET_SEND_TIMEOUT_NOT_VALID:
-		snprintf(error_hndl, 1024,"Send Timeout value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Send Timeout value not valid");
 		break;
 	case OCL_ERR_SOCKET_RECV_TIMEOUT_NOT_VALID:
-		snprintf(error_hndl, 1024,"Recv. Timeout value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Recv. Timeout value not valid");
 		break;
 	case OCL_ERR_RESPONSE_SPEED_NOT_VALID:
-		snprintf(error_hndl, 1024,"Response Speed value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Response Speed value not valid");
+		break;
+	case OCL_ERR_ERROR_MSG_FOUND:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"%s", ocl->ocl_resp->error);
 		break;
 	default:
-		snprintf(error_hndl, 1024,"Error not handled. Errno: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"Error not handled. Errno: %s", strerror(errno));
 		break;
 	}
 	return error_hndl;
@@ -645,10 +630,9 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 	struct timeval tvRecvTo;
 	tvRecvTo.tv_sec=ocl->socketRecvTimeout;
 	tvRecvTo.tv_usec=0;
-	ocl->ocl_resp->content[0]=0;
 	memset(ocl->ocl_resp->content,0,BUFFER_SIZE_128K);
-	ocl->ocl_resp->fullResponse[0]=0;
-	memset(ocl->ocl_resp->fullResponse,0,BUFFER_SIZE_128K);
+	memset(ocl->ocl_resp->response,0,BUFFER_SIZE_128K);
+	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
 	do{
 		retVal=-1;
 		FD_ZERO(&rFdset);
@@ -681,10 +665,21 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 			}
 			if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
 			if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL
-					|| strstr(buffer,"{\"models\":[{\"")!=NULL
-					|| strstr(buffer,"{\"error\":\"")!=NULL){
-				strcat(ocl->ocl_resp->fullResponse,buffer);
+					|| strstr(buffer,"{\"models\":[{\"")!=NULL){
+				strcat(ocl->ocl_resp->response,buffer);
 				break;
+			}
+			char *err=NULL;
+			if((err=strstr(buffer,"{\"error\":\""))!=NULL){
+				strcat(ocl->ocl_resp->error,err);
+				close(socketConn);
+				clean_ssl(sslConn);
+				return OCL_ERR_ERROR_MSG_FOUND;
+			}
+			if(strstr(buffer,"HTTP/1.1 503 Service Unavailable")!=NULL){
+				close(socketConn);
+				clean_ssl(sslConn);
+				return OCL_ERR_SERVICE_UNAVAILABLE;
 			}
 		}
 		if(!SSL_pending(sslConn)) break;
@@ -773,40 +768,18 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 		return retVal;
 	}
 	if(retVal==0) return OCL_ERR_RECV_TIMEOUT_ERROR;
-	if(strstr(ocl->ocl_resp->fullResponse,"{\"error")!=NULL){
-		OCl_set_error(ocl, strstr(ocl->ocl_resp->fullResponse,"{\"error"));
-		free(messageParsed);
-		return OCL_ERR_RESPONSE_MESSAGE_ERROR;
-	}
-	if(strstr(ocl->ocl_resp->fullResponse," 503 ")!=NULL){
-		free(messageParsed);
-		return OCL_ERR_SERVICE_UNAVAILABLE;
-	}
-	if(strstr(ocl->ocl_resp->fullResponse,"\"done\":true")==NULL
-			|| strstr(ocl->ocl_resp->fullResponse,"\"done\": true")!=NULL){
+	if((strstr(ocl->ocl_resp->response,"\"done\":true")==NULL || strstr(ocl->ocl_resp->response,"\"done\": true")!=NULL) && !oclCanceled){
 		free(messageParsed);
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
 	}
 	if(!oclCanceled && retVal>0){
 		char result[128]="";
-		if(get_string_from_token(ocl->ocl_resp->fullResponse, "\"load_duration\":", result, ',')){
-			ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
-		}
-		if(get_string_from_token(ocl->ocl_resp->fullResponse, "\"prompt_eval_duration\":", result, ',')){
-			ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
-		}
-		if(get_string_from_token(ocl->ocl_resp->fullResponse, "\"eval_duration\":", result, '}')){
-			ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
-		}
-		if(get_string_from_token(ocl->ocl_resp->fullResponse, "\"total_duration\":", result, ',')){
-			ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
-		}
-		if(get_string_from_token(ocl->ocl_resp->fullResponse, "\"prompt_eval_count\":", result, ',')){
-			ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
-		}
-		if(get_string_from_token(ocl->ocl_resp->fullResponse, "\"eval_count\":", result, ',')){
-			ocl->ocl_resp->evalCount=strtol(result,NULL,10);
-		}
+		if(get_string_from_token(ocl->ocl_resp->response, "\"load_duration\":", result, ',')) ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
+		if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_duration\":", result, ',')) ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
+		if(get_string_from_token(ocl->ocl_resp->response, "\"eval_duration\":", result, '}')) ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
+		if(get_string_from_token(ocl->ocl_resp->response, "\"total_duration\":", result, ',')) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
+		if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_count\":", result, ',')) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
+		if(get_string_from_token(ocl->ocl_resp->response, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
 		ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 		if(message[strlen(message)-1]!=';'){
 			create_new_context_message(messageParsed, ocl->ocl_resp->content, true, ocl->maxHistoryCtx);
@@ -824,7 +797,6 @@ int OCl_check_service_status(OCl *ocl){
 			"Host: %s\r\n\r\n",ocl->srvAddr);
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
-	if(strstr(ocl->ocl_resp->fullResponse,"Ollama")==NULL) return OCL_ERR_SERVICE_UNAVAILABLE;
 	return OCL_RETURN_OK;
 }
 
@@ -835,16 +807,16 @@ int OCl_check_model_loaded(OCl *ocl){
 			"Host: %s\r\n\r\n",ocl->srvAddr);
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
-	if(strstr(ocl->ocl_resp->fullResponse,ocl->model)==NULL) return false;
+	if(strstr(ocl->ocl_resp->response,ocl->model)==NULL) return false;
 	return true;
 }
 
 int OCl_load_model(OCl *ocl, bool load){
-	char body[1024]="";
+	char body[BUFFER_SIZE_1K]="";
 	if(load){
-		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": %d}",ocl->model,ocl->keepalive);
+		snprintf(body,BUFFER_SIZE_1K,"{\"model\": \"%s\", \"keep_alive\": %d}",ocl->model,ocl->keepalive);
 	}else{
-		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": 0}",ocl->model);
+		snprintf(body,BUFFER_SIZE_1K,"{\"model\": \"%s\", \"keep_alive\": 0}",ocl->model);
 	}
 	char msg[2048]="";
 	snprintf(msg,2048,
@@ -855,19 +827,13 @@ int OCl_load_model(OCl *ocl, bool load){
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
-	if(strstr(ocl->ocl_resp->fullResponse,"{\"error")!=NULL){
-		OCl_set_error(ocl, strstr(ocl->ocl_resp->fullResponse,"{\"error"));
-		if(load) return OCL_ERR_LOADING_MODEL;
-		return OCL_ERR_UNLOADING_MODEL;
-	}
-	if(strstr(ocl->ocl_resp->fullResponse,"200 OK")!=NULL) return OCL_RETURN_OK;
-	if(strstr(ocl->ocl_resp->fullResponse," 503 ")!=NULL) return OCL_ERR_SERVICE_UNAVAILABLE;
+	if(strstr(ocl->ocl_resp->response,"200 OK")!=NULL) return OCL_RETURN_OK;
 	if(load) return OCL_ERR_LOADING_MODEL;
 	return OCL_ERR_UNLOADING_MODEL;
 }
 
 int OCl_get_models(OCl *ocl, char(*models)[512]){
-	char body[1024]="", msg[2048]="";
+	char body[BUFFER_SIZE_1K]="", msg[2048]="";
 	snprintf(msg,2048,
 			"GET /api/tags HTTP/1.1\r\n"
 			"Host: %s\r\n"
@@ -876,12 +842,7 @@ int OCl_get_models(OCl *ocl, char(*models)[512]){
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	int retVal=0;
 	if((retVal=send_message(ocl, msg, NULL))<=0) return retVal;
-	if(strstr(ocl->ocl_resp->fullResponse,"{\"error")!=NULL){
-		OCl_set_error(ocl, strstr(ocl->ocl_resp->fullResponse,"{\"error"));
-		return OCL_ERR_GETTING_MODELS;
-	}
-	if(strstr(ocl->ocl_resp->fullResponse," 503 ")!=NULL) return OCL_ERR_SERVICE_UNAVAILABLE;
-	char *model=strstr(ocl->ocl_resp->fullResponse,"\"model\":\"");
+	char *model=strstr(ocl->ocl_resp->response,"\"model\":\"");
 	int contModel=0;
 	while(model!=NULL){
 		size_t i=0, cont=0, len=strlen("\"model\":\"");

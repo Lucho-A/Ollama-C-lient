@@ -8,6 +8,8 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 
 - 0.0.1-beta (experimental)
 
+#### Note: since Im moving on agents developing and OS integration, the View layer (Ollama-C-lient.c) will be deprecated soon.
+
 ### Features/Assumptions/Scope/Whatever
 
 - it supports window/memory context
@@ -57,7 +59,7 @@ The options supported are:
 |--roles-file | string:NULL | File with the different roles for the model.
 |--instructions-file | string:NULL | File with the different instructions for the model.
 |--context-file | string:NULL | File where the interactions (except the queries ended with ';') will be stored.
-|--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, durations, etc.
+|--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, duration, etc.
 |--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in models like 'deepseek-r1'
 
 Note: all options are optional (really?!).
@@ -88,7 +90,7 @@ On the other hand, some commands can be prompting:
 - the font format in 'settings' file must be ANSI.
 - if not setting file is specified, uncolored is set by default.
 - if **'--roles-file'** is specified, prompting 'role;' + the name of the role (specified into the file. V.gr.: role;newRole), will include the (new) role description as system role in the following chats. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-templates)
-- if **'--instructions-file'** is specified, prompting 'instruction;' + the name of the instruction (specified into the file. V.gr.: instruction;newInstruction), will include the (new) instruction description into the prompt history so you can selected uping/dowing the arrow keys. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-templates)
+- if **'--instructions-file'** is specified, prompting 'instruction;' + the name of the instruction (specified into the file. V.gr.: instruction;newInstruction), will include the (new) instruction description into the prompt history so you can selected upping/downing the arrow keys. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-templates)
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
 - In case that you want to **input a new line** without submitting, just use 'alt+enter'. Same key combination for **exiting** when empty prompt.
 - In case that pipes are used, like: 'df | ollama-c-lient >> file.txt', the output is always uncolored, no-streamed, and in RAW format.
