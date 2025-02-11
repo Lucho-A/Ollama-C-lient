@@ -71,11 +71,9 @@ struct _ocl_response{
 	int promptEvalCount;
 	int evalCount;
 	double tokensPerSec;
-	bool contentFinished;
 };
 
 char * OCl_get_model(OCl *ocl){ return ocl->model;}
-bool OCl_get_content_finished(OCl *ocl){ return ocl->ocl_resp->contentFinished;}
 char * OCL_get_response(OCl *ocl){ return ocl->ocl_resp->content;}
 char * OCL_get_full_response(OCl *ocl){ return ocl->ocl_resp->fullResponse;}
 double OCL_get_response_load_duration(OCl *ocl){ return ocl->ocl_resp->loadDuration;}
@@ -348,7 +346,7 @@ int OCl_import_context(OCl *ocl){
 		size_t len=0, i=0;
 		int rows=0, initPos=0;
 		ssize_t chars=0;
-		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;;
+		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
 		while((getline(&line, &len, f))!=-1) rows++;
 		if(rows>ocl->maxHistoryCtx) initPos=rows-ocl->maxHistoryCtx;
 		rewind(f);
@@ -609,7 +607,6 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 
 static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 	oclSslError=0;
-	ocl->ocl_resp->contentFinished=false;
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<=0) return socketConn;
 	if(oclSslCtx==NULL) return OCL_ERR_SSLCTX_NULL_ERROR;
@@ -651,6 +648,7 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 	ocl->ocl_resp->content[0]=0;
 	memset(ocl->ocl_resp->content,0,BUFFER_SIZE_128K);
 	ocl->ocl_resp->fullResponse[0]=0;
+	memset(ocl->ocl_resp->fullResponse,0,BUFFER_SIZE_128K);
 	do{
 		retVal=-1;
 		FD_ZERO(&rFdset);
@@ -679,12 +677,15 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 			char *token="\"content\":", content[128]="";
 			if(get_string_from_token(buffer, token, content, '"')){
 				if(callback!=NULL) callback(content);
-				for(size_t i=0;i<=strlen(content);i++) ocl->ocl_resp->content[strlen(ocl->ocl_resp->content)]=content[i];
-				//strcat(ocl->ocl_resp->content,content);
+				strcat(ocl->ocl_resp->content,content);
 			}
-			strcat(ocl->ocl_resp->fullResponse,buffer);
 			if(strstr(buffer,"\"done\":false")!=NULL || strstr(buffer,"\"done\": false")!=NULL) continue;
-			if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) break;
+			if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL
+					|| strstr(buffer,"{\"models\":[{\"")!=NULL
+					|| strstr(buffer,"{\"error\":\"")!=NULL){
+				strcat(ocl->ocl_resp->fullResponse,buffer);
+				break;
+			}
 		}
 		if(!SSL_pending(sslConn)) break;
 	}while(true && !oclCanceled);
@@ -708,7 +709,6 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 			if(buf==NULL){
 				free(messageParsed);
 				free(context);
-				ocl->ocl_resp->contentFinished=true;
 				return OCL_ERR_MALLOC_ERROR;
 			}
 			memset(buf,0,len);
@@ -718,7 +718,6 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 				free(messageParsed);
 				free(context);
 				free(buf);
-				ocl->ocl_resp->contentFinished=true;
 				return OCL_ERR_REALLOC_ERROR;
 			}
 			strcat(context,buf);
@@ -771,25 +770,21 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 	free(msg);
 	if(retVal<0){
 		free(messageParsed);
-		ocl->ocl_resp->contentFinished=true;
 		return retVal;
 	}
 	if(retVal==0) return OCL_ERR_RECV_TIMEOUT_ERROR;
 	if(strstr(ocl->ocl_resp->fullResponse,"{\"error")!=NULL){
 		OCl_set_error(ocl, strstr(ocl->ocl_resp->fullResponse,"{\"error"));
 		free(messageParsed);
-		ocl->ocl_resp->contentFinished=true;
 		return OCL_ERR_RESPONSE_MESSAGE_ERROR;
 	}
 	if(strstr(ocl->ocl_resp->fullResponse," 503 ")!=NULL){
 		free(messageParsed);
-		ocl->ocl_resp->contentFinished=true;
 		return OCL_ERR_SERVICE_UNAVAILABLE;
 	}
 	if(strstr(ocl->ocl_resp->fullResponse,"\"done\":true")==NULL
 			|| strstr(ocl->ocl_resp->fullResponse,"\"done\": true")!=NULL){
 		free(messageParsed);
-		ocl->ocl_resp->contentFinished=true;
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
 	}
 	if(!oclCanceled && retVal>0){
@@ -819,7 +814,6 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 		}
 	}
 	free(messageParsed);
-	ocl->ocl_resp->contentFinished=true;
 	return OCL_RETURN_OK;
 }
 
@@ -848,9 +842,9 @@ int OCl_check_model_loaded(OCl *ocl){
 int OCl_load_model(OCl *ocl, bool load){
 	char body[1024]="";
 	if(load){
-		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": -1}",ocl->model);
+		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": %d}",ocl->model,ocl->keepalive);
 	}else{
-		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": %d}",ocl->model, ocl->keepalive);
+		snprintf(body,1024,"{\"model\": \"%s\", \"keep_alive\": 0}",ocl->model);
 	}
 	char msg[2048]="";
 	snprintf(msg,2048,

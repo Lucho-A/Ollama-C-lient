@@ -356,13 +356,13 @@ bool check_model_loaded(){
 	int retVal=0;
 	if((retVal=OCl_check_model_loaded(ocl))<=0){
 		if(retVal<0){
-			print_error_msg(OCL_error_handling(retVal),"",false);
+			print_error_msg(OCL_error_handling(retVal),OCL_get_response_error(ocl),false);
 			return false;
 		}
 		print_system_msg("\nLoading model..");
 		if((retVal=OCl_load_model(ocl, true))<0){
 			printf("\n");
-			print_error_msg(OCL_error_handling(retVal),"",false);
+			print_error_msg(OCL_error_handling(retVal),OCL_get_response_error(ocl),false);
 			return false;
 		}
 	}
@@ -471,7 +471,7 @@ int main(int argc, char *argv[]) {
 			int cantModels=OCl_get_models(ocl, models);
 			if(cantModels<0) {
 				printf("\n");
-				print_error_msg(OCL_error_handling(cantModels),"",false);
+				print_error_msg(OCL_error_handling(cantModels),OCL_get_response_error(ocl),false);
 				continue;
 			}
 			for(int i=0;i<cantModels;i++){
