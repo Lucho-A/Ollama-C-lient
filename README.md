@@ -83,12 +83,12 @@ On the other hand, some commands can be prompting:
 - If **'--context-file'** is specified, the last '[MAX_MSG_CTX]' (parameter in modelfile) messages/responses are read when the program starts as context.
 - So, if '[MAX_MSG_CTX]' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions.
 - If '[MAX_MSG_CTX]' = 0, the interactions won't be recorded into context file.
-- The template of modelfile that must be used with '--model-file': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-example).
-- **'--setting-file'** allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-example). The parameters set up in this file, override any parameter passed with any other option.
+- The template of modelfile that must be used with '--model-file': [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-templates).
+- **'--setting-file'** allows set different parameters. An example of file that should be used: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-templates). The parameters set up in this file, override any parameter passed with any other option.
 - the font format in 'settings' file must be ANSI.
 - if not setting file is specified, uncolored is set by default.
-- if **'--roles-file'** is specified, prompting 'role;' + the name of the role (specified into the file. V.gr.: role;newRole), will include the (new) role description as system role in the following chats. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-example)
-- if **'--instructions-file'** is specified, prompting 'instruction;' + the name of the instruction (specified into the file. V.gr.: instruction;newInstruction), will include the (new) instruction description into the prompt history so you can selected uping/dowing the arrow keys. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-example)
+- if **'--roles-file'** is specified, prompting 'role;' + the name of the role (specified into the file. V.gr.: role;newRole), will include the (new) role description as system role in the following chats. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-templates)
+- if **'--instructions-file'** is specified, prompting 'instruction;' + the name of the instruction (specified into the file. V.gr.: instruction;newInstruction), will include the (new) instruction description into the prompt history so you can selected uping/dowing the arrow keys. Example of file: [here](https://github.com/Lucho-A/Ollama-C-lient/tree/master/files-templates)
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ([MAX_MSG_CTX]), won't be written to the context file, and won't be part of subsequent context messages.
 - In case that you want to **input a new line** without submitting, just use 'alt+enter'. Same key combination for **exiting** when empty prompt.
 - In case that pipes are used, like: 'df | ollama-c-lient >> file.txt', the output is always uncolored, no-streamed, and in RAW format.
