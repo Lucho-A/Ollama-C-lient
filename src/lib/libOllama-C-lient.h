@@ -103,7 +103,7 @@ int OCl_load_model(OCl *, bool load);
 int OCl_send_chat(OCl *, const char *, void (*)(const char *));
 int OCl_check_service_status(OCl *);
 int OCl_check_model_loaded(OCl *);
-int OCl_import_fixed_context(const char *);
+int OCl_import_static_context(const char *);
 int OCl_import_context(const OCl *);
 char * OCL_error_handling(OCl *, int);
 

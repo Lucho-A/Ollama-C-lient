@@ -40,7 +40,7 @@ char maxMsgCtx[512]="";
 char maxTokensCtx[512]="";
 char *systemRole=NULL;
 char *contextFile=NULL;
-char *fixedContextFile=NULL;
+char *staticContextFile=NULL;
 char serverAddr[16]="";
 char serverPort[6]="";
 long int responseSpeed=RESPONSE_SPEED;
@@ -421,9 +421,9 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
-		if(strcmp(argv[i],"--fixed-context-file")==0){
-			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Fixe context file not found.","",true);
-			fixedContextFile=argv[i+1];
+		if(strcmp(argv[i],"--static-context-file")==0){
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Static context file not found.","",true);
+			staticContextFile=argv[i+1];
 			i++;
 			continue;
 		}
@@ -440,7 +440,7 @@ int main(int argc, char *argv[]) {
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo, model, keepalive,systemRole,
 			maxMsgCtx, temp, maxTokensCtx, contextFile))!=OCL_RETURN_OK) print_error_msg("OCl getting instance error. ",OCL_error_handling(ocl,retVal),true);
-	if((retVal=OCl_import_fixed_context(fixedContextFile))!=OCL_RETURN_OK) print_error_msg("Importing fixed context error. ",OCL_error_handling(ocl,retVal),true);
+	if((retVal=OCl_import_static_context(staticContextFile))!=OCL_RETURN_OK) print_error_msg("Importing static context error. ",OCL_error_handling(ocl,retVal),true);
 	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK) print_error_msg("Importing context error. ",OCL_error_handling(ocl,retVal),true);
 	rl_getc_function=readline_input;
 	if(stdinPresent){

@@ -33,7 +33,7 @@ typedef struct Message{
 }Message;
 
 Message *rootContextMessages=NULL;
-Message *rootFixedContextMessages=NULL;
+Message *rootStaticContextMessages=NULL;
 int contContextMessages=0;
 SSL_CTX *oclSslCtx=NULL;
 int oclSslError=0;
@@ -68,7 +68,6 @@ struct _ocl_response{
 	double tokensPerSec;
 };
 
-char * OCl_get_model(OCl *ocl){ return ocl->model;}
 char * OCL_get_response(OCl *ocl){ return ocl->ocl_resp->content;}
 double OCL_get_response_load_duration(const OCl *ocl){ return ocl->ocl_resp->loadDuration;}
 double OCL_get_response_prompt_eval_duration(const OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
@@ -255,18 +254,18 @@ static void clean_ssl(SSL *ssl){
 	SSL_free(ssl);
 }
 
-static void create_new_fixed_context_message(char *userMessage, char *assistantMessage){
+static void create_new_static_context_message(char *userMessage, char *assistantMessage){
 	Message *newMessage=malloc(sizeof(Message));
 	newMessage->userMessage=malloc(strlen(userMessage)+1);
 	snprintf(newMessage->userMessage,strlen(userMessage)+1,"%s",userMessage);
 	newMessage->assistantMessage=malloc(strlen(assistantMessage)+1);
 	snprintf(newMessage->assistantMessage,strlen(assistantMessage)+1,"%s",assistantMessage);
-	Message *temp=rootFixedContextMessages;
+	Message *temp=rootStaticContextMessages;
 	if(temp!=NULL){
 		while(temp->nextMessage!=NULL) temp=temp->nextMessage;
 		temp->nextMessage=newMessage;
 	}else{
-		rootFixedContextMessages=newMessage;
+		rootStaticContextMessages=newMessage;
 	}
 	newMessage->nextMessage=NULL;
 }
@@ -307,7 +306,7 @@ int OCl_save_message(const OCl *ocl, char *userMessage, char *assistantMessage){
 	return OCL_RETURN_OK;
 }
 
-int OCl_import_fixed_context(const char *filename){
+int OCl_import_static_context(const char *filename){
 	FILE *f=fopen(filename,"r");
 	if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
 	size_t len=0, i=0;
@@ -326,7 +325,7 @@ int OCl_import_fixed_context(const char *filename){
 		assistantMessage=malloc(chars+1);
 		memset(assistantMessage,0,chars+1);
 		for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
-		create_new_fixed_context_message(userMessage, assistantMessage);
+		create_new_static_context_message(userMessage, assistantMessage);
 		free(userMessage);
 		free(assistantMessage);
 	}
@@ -673,6 +672,19 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			totalBytesReceived+=bytesReceived;
 			char token[128]="";
 			if(get_string_from_token(buffer, "\"content\":", token, '"')){
+				char const *b=strstr(token,"\\\"},");
+				if(b){
+					int idx=0;
+					for(size_t i=0;i<strlen(token);i++,idx++){
+						if(b==&token[i]){
+							token[idx]='\\';
+							token[idx+1]=0;
+							i+=3;
+						}else{
+							token[idx]=token[i];
+						}
+					}
+				}
 				if(callback!=NULL) callback(token);
 				strcat(ocl->ocl_resp->content,token);
 			}
@@ -708,7 +720,7 @@ int OCl_send_chat(OCl *ocl, const char *message, void (*callback)(const char *))
 	char *context=malloc(1), *buf=NULL;
 	context[0]=0;
 	char const *contextTemplate="{\"role\":\"user\",\"content\":\"%s\"},{\"role\":\"assistant\",\"content\":\"%s\"},";
-	Message *temp=rootFixedContextMessages;
+	Message *temp=rootStaticContextMessages;
 	ssize_t len=0;
 	while(temp!=NULL){
 		len=strlen(contextTemplate)+strlen(temp->userMessage)+strlen(temp->assistantMessage);
