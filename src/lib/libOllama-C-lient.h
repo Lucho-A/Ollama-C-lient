@@ -94,28 +94,30 @@ extern int oclSslError;
 extern bool oclCanceled;
 
 int OCl_init();
-int OCl_get_instance(OCl **, char *, char *, char *, char *, char *, char *, char *,char *,char *, char *, char *, char *);
+int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *, const char *, const char *
+		,const char *,const char *, const char *, const char *, const char *);
 int OCl_free(OCl *);
 
 int OCl_flush_context();
 int OCl_load_model(OCl *, bool load);
-int OCl_send_chat(OCl *, char *, void (*)(char *));
+int OCl_send_chat(OCl *, const char *, void (*)(const char *));
 int OCl_check_service_status(OCl *);
 int OCl_check_model_loaded(OCl *);
-int OCl_import_context(OCl *);
+int OCl_import_fixed_context(const char *);
+int OCl_import_context(const OCl *);
 char * OCL_error_handling(OCl *, int);
 
 int OCl_get_models(OCl *, char(*)[512]);
 char * OCL_get_response(OCl *);
-double OCL_get_response_load_duration(OCl *);
-double OCL_get_response_prompt_eval_duration(OCl *);
-double OCL_get_response_eval_duration(OCl *);
-double OCL_get_response_total_duration(OCl *);
-int OCL_get_response_prompt_eval_count(OCl *);
-int OCL_get_response_eval_count(OCl *);
-double OCL_get_response_tokens_per_sec(OCl *);
+double OCL_get_response_load_duration(const OCl *);
+double OCL_get_response_prompt_eval_duration(const OCl *);
+double OCL_get_response_eval_duration(const OCl *);
+double OCL_get_response_total_duration(const OCl *);
+int OCL_get_response_prompt_eval_count(const OCl *);
+int OCL_get_response_eval_count(const OCl *);
+double OCL_get_response_tokens_per_sec(const OCl *);
 
-int OCl_set_model(OCl *, char *);
-int OCl_set_role(OCl *, char *);
+int OCl_set_model(OCl *, const char *);
+int OCl_set_role(OCl *, const char *);
 
 #endif /* HEADERS_LIBOLLAMA_C_LIENT_H_ */

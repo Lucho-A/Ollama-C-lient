@@ -40,6 +40,7 @@ char maxMsgCtx[512]="";
 char maxTokensCtx[512]="";
 char *systemRole=NULL;
 char *contextFile=NULL;
+char *fixedContextFile=NULL;
 char serverAddr[16]="";
 char serverPort[6]="";
 long int responseSpeed=RESPONSE_SPEED;
@@ -72,77 +73,80 @@ static void print_system_msg(char *msg){
 	}
 }
 
-static int load_settingfile(char *settingfile){
-	ssize_t chars=0;
+static int load_settingfile(char const *settingfile){
 	size_t len=0;
 	char *line=NULL;
 	FILE *f=fopen(settingfile,"r");
 	if(f==NULL) print_error_msg("Setting file Not Found.","",true);
-	while((chars=getline(&line, &len, f))!=-1){
+	while((getline(&line, &len, f))!=-1){
 		if((strstr(line,"[SERVER_ADDR]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			line[strlen(line)-1]=0;
 			snprintf(serverAddr,16,"%s",line);
 			continue;
 		}
 		if((strstr(line,"[SERVER_PORT]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			line[strlen(line)-1]=0;
 			snprintf(serverPort,6,"%s",line);
 			continue;
 		}
 		if((strstr(line,"[RESPONSE_SPEED_MS]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			char *tail=NULL;
 			responseSpeed=strtol(line, &tail, 10);
-			if(responseSpeed<0||(tail[0]!=0 && tail[0]!='\n')) return OCL_ERR_RESPONSE_SPEED_NOT_VALID;
+			if(responseSpeed<0||(tail[0]!=0 && tail[0]!='\n')){
+				free(line);
+				fclose(f);
+				return OCL_ERR_RESPONSE_SPEED_NOT_VALID;
+			}
 			continue;
 		}
 		if((strstr(line,"[SOCKET_CONNECT_TO_S]"))==line){
-			chars=getline(&line, &len, f);
+			int chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) socketConnTo[i]=line[i];
 			continue;
 		}
 		if((strstr(line,"[SOCKET_SEND_TO_S]"))==line){
-			chars=getline(&line, &len, f);
+			int chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) socketSendTo[i]=line[i];
 			continue;
 		}
 		if((strstr(line,"[SOCKET_RECV_TO_S]"))==line){
-			chars=getline(&line, &len, f);
+			int chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) socketRecvTo[i]=line[i];
 			continue;
 		}
 		if((strstr(line,"[SYSTEM_FONT]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			int f1,f2,color;
 			sscanf(line, "%d;%d;%d", &f1, &f2, &color);
 			snprintf(systemFont,16,"\e[%d;%d;%dm",f1, f2, color);
 			continue;
 		}
 		if((strstr(line,"[PROMPT_FONT]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			int f1,f2,color;
 			sscanf(line, "%d;%d;%d", &f1, &f2, &color);
 			snprintf(promptFont,16,"\e[%d;%d;%dm",f1, f2, color);
 			continue;
 		}
 		if((strstr(line,"[RESPONSE_FONT]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			int f1,f2,color;
 			sscanf(line, "%d;%d;%d", &f1, &f2, &color);
 			snprintf(responseFont,16,"\e[%d;%d;%dm",f1, f2, color);
 			continue;
 		}
 		if((strstr(line,"[ERROR_FONT]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			int f1,f2,color;
 			sscanf(line, "%d;%d;%d", &f1, &f2, &color);
 			snprintf(errorFont,16,"\e[%d;%d;%dm",f1, f2, color);
 			continue;
 		}
 		if((strstr(line,"[INFO_RESPONSE_FONT]"))==line){
-			chars=getline(&line, &len, f);
+			getline(&line, &len, f);
 			int f1,f2,color;
 			sscanf(line, "%d;%d;%d", &f1, &f2, &color);
 			snprintf(showResponseInfoFont,16,"\e[%d;%d;%dm",f1, f2, color);
@@ -154,13 +158,13 @@ static int load_settingfile(char *settingfile){
 	return OCL_RETURN_OK;
 }
 
-static int load_modelfile(char *modelfile){
+static int load_modelfile(char const *modelfile){
 	ssize_t chars=0;
 	size_t len=0;
 	char *line=NULL;
 	FILE *f=fopen(modelfile,"r");
 	if(f==NULL) print_error_msg("Model file not found.","",true);
-	while((chars=getline(&line, &len, f))!=-1){
+	while((getline(&line, &len, f))!=-1){
 		if((strstr(line,"[MODEL]"))==line){
 			chars=getline(&line, &len, f);
 			for(int i=0;i<chars-1;i++) model[i]=line[i];
@@ -201,7 +205,7 @@ static int load_modelfile(char *modelfile){
 	return OCL_RETURN_OK;
 }
 
-static int close_program(OCl *ocl){
+static int close_program(){
 	oclCanceled=true;
 	OCl_free(ocl);
 	if(systemRole!=NULL) free(systemRole);
@@ -239,10 +243,10 @@ static char *readline_get(const char *prompt, bool addHistory){
 	}
 	lineRead=readline(prompt);
 	if(lineRead && *lineRead && addHistory) add_history(lineRead);
-	return(lineRead);
+	return lineRead;
 }
 
-static int validate_file(char *file){
+static int validate_file(char const *file){
 	if(file==NULL) return OCL_RETURN_ERROR;
 	FILE *f=fopen(file,"r");
 	if(f==NULL) return OCL_RETURN_ERROR;
@@ -279,7 +283,7 @@ static void print_response_info(){
 
 bool isThinking=false;
 
-static void print_response(char *token){
+static void print_response(char const *token){
 	if(stdinPresent) return;
 	printf("%s",responseFont);
 	if(strstr(token, "\\u003cthink\\u003e")!=NULL){
@@ -331,7 +335,7 @@ static void print_response(char *token){
 }
 
 void *start_sending_message(void *arg){
-	char *messagePrompted=arg;
+	char const *messagePrompted=arg;
 	int retVal=OCl_send_chat(ocl,messagePrompted, print_response);
 	if(retVal!=OCL_RETURN_OK){
 		if(oclCanceled) printf("\n");
@@ -364,16 +368,17 @@ int main(int argc, char *argv[]) {
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
 	signal(SIGSEGV, signal_handler);
-	char *rolesFile=NULL, *instructionsFile=NULL, buffer[1024]="", input[1024*32]="";
+	const char *rolesFile=NULL, *instructionsFile=NULL;
+	char buffer[1024]="", input[1024*32]="";
 	if(!isatty(fileno(stdin))){
 		while(fgets(buffer, sizeof(buffer), stdin)) strcat(input,buffer);
 		stdinPresent=true;
 	}
 	int retVal=0;
-	if((retVal=OCl_init())!=OCL_RETURN_OK) print_error_msg("OCl init error. ","",true);
+	if((OCl_init())!=OCL_RETURN_OK) print_error_msg("OCl init error. ","",true);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0 || strcmp(argv[i],"--help")==0){
-			BANNER;
+			BANNER
 			exit(EXIT_SUCCESS);
 		}
 		if(strcmp(argv[i],"--server-addr")==0){
@@ -388,13 +393,13 @@ int main(int argc, char *argv[]) {
 		}
 		if(strcmp(argv[i],"--model-file")==0){
 			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Model file not found.","",true);
-			if((retVal=load_modelfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading model file error. ","",true);
+			if((load_modelfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading model file error. ","",true);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--setting-file")==0){
 			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Setting file not found.","",true);
-			if((retVal=load_settingfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading setting file error. ","",true);
+			if((load_settingfile(argv[i+1]))!=OCL_RETURN_OK) print_error_msg("Loading setting file error. ","",true);
 			i++;
 			continue;
 		}
@@ -416,6 +421,12 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
+		if(strcmp(argv[i],"--fixed-context-file")==0){
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("Fixe context file not found.","",true);
+			fixedContextFile=argv[i+1];
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--show-response-info")==0){
 			showResponseInfo=true;
 			continue;
@@ -429,6 +440,7 @@ int main(int argc, char *argv[]) {
 	}
 	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo, model, keepalive,systemRole,
 			maxMsgCtx, temp, maxTokensCtx, contextFile))!=OCL_RETURN_OK) print_error_msg("OCl getting instance error. ",OCL_error_handling(ocl,retVal),true);
+	if((retVal=OCl_import_fixed_context(fixedContextFile))!=OCL_RETURN_OK) print_error_msg("Importing fixed context error. ",OCL_error_handling(ocl,retVal),true);
 	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK) print_error_msg("Importing context error. ",OCL_error_handling(ocl,retVal),true);
 	rl_getc_function=readline_input;
 	if(stdinPresent){
@@ -488,10 +500,9 @@ int main(int argc, char *argv[]) {
 				continue;
 			}
 			FILE *f=fopen(rolesFile,"r");
-			ssize_t chars=0;
 			size_t len=0;
 			char *line=NULL;
-			while((chars=getline(&line, &len, f))!=-1){
+			while((getline(&line, &len, f))!=-1){
 				if(line[0]=='['){
 					printf("%s\n  - ", systemFont);
 					for(size_t i=1;i<strlen(line)-2;i++){
@@ -514,7 +525,6 @@ int main(int argc, char *argv[]) {
 				continue;
 			}
 			FILE *f=fopen(rolesFile,"r");
-			ssize_t chars=0;
 			size_t len=0;
 			char *line=NULL;
 			bool found=false;
@@ -525,9 +535,10 @@ int main(int argc, char *argv[]) {
 			char *newSystemRole=NULL;
 			newSystemRole=malloc(1);
 			newSystemRole[0]=0;
-			while((chars=getline(&line, &len, f))!=-1){
+			while((getline(&line, &len, f))!=-1){
 				if(strncmp(line, role, strlen(role))==0){
 					found=true;
+					int chars=0;
 					while((chars=getline(&line, &len, f))!=-1){
 						if(line[0]=='[') break;
 						newSystemRole=realloc(newSystemRole,strlen(newSystemRole)+chars+1);
@@ -569,7 +580,6 @@ int main(int argc, char *argv[]) {
 				continue;
 			}
 			FILE *f=fopen(instructionsFile,"r");
-			ssize_t chars=0;
 			size_t len=0;
 			char *line=NULL;
 			bool found=false;
@@ -577,11 +587,11 @@ int main(int argc, char *argv[]) {
 			int contSpaces=0;
 			for(int i=strlen("instruction;");messagePrompted[i]==' ';i++) contSpaces++;
 			snprintf(instruction, 255,"[%s]", messagePrompted+strlen("instruction;")+contSpaces);
-			while((chars=getline(&line, &len, f))!=-1){
+			while((getline(&line, &len, f))!=-1){
 				if(strncmp(line, instruction, strlen(instruction))==0){
 					found=true;
 					char buffer[8196]="";
-					while((chars=getline(&line, &len, f))!=-1){
+					while((getline(&line, &len, f))!=-1){
 						if(line[0]=='[') break;
 						strcat(buffer, line);
 					}
@@ -603,7 +613,7 @@ int main(int argc, char *argv[]) {
 		}
 	}while(true);
 	free(messagePrompted);
-	close_program(ocl);
+	close_program();
 	printf("%s\n\n","\e[0m");
 	exit(EXIT_SUCCESS);
 }

@@ -29,29 +29,29 @@
 typedef struct Message{
 	char *userMessage;
 	char *assistantMessage;
-	bool isNew;
 	struct Message *nextMessage;
 }Message;
 
 Message *rootContextMessages=NULL;
+Message *rootFixedContextMessages=NULL;
 int contContextMessages=0;
 SSL_CTX *oclSslCtx=NULL;
 int oclSslError=0;
 bool oclCanceled=false;
 
 typedef struct _ocl{
-	char *srvAddr;
+	char srvAddr[512];
 	int srvPort;
 	int socketConnectTimeout;
 	int socketSendTimeout;
 	int socketRecvTimeout;
-	char *model;
+	char model[512];
 	int keepalive;
-	char *systemRole;
+	char systemRole[2048];
 	double temp;
 	int maxHistoryCtx;
 	int maxTokensCtx;
-	char *contextFile;
+	char contextFile[512];
 	struct _ocl_response *ocl_resp;
 }OCl;
 
@@ -70,20 +70,20 @@ struct _ocl_response{
 
 char * OCl_get_model(OCl *ocl){ return ocl->model;}
 char * OCL_get_response(OCl *ocl){ return ocl->ocl_resp->content;}
-double OCL_get_response_load_duration(OCl *ocl){ return ocl->ocl_resp->loadDuration;}
-double OCL_get_response_prompt_eval_duration(OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
-double OCL_get_response_eval_duration(OCl *ocl){ return ocl->ocl_resp->evalDuration;}
-double OCL_get_response_total_duration(OCl *ocl){ return ocl->ocl_resp->totalDuration;}
-int OCL_get_response_prompt_eval_count(OCl *ocl){ return ocl->ocl_resp->promptEvalCount;}
-int OCL_get_response_eval_count(OCl *ocl){ return ocl->ocl_resp->evalCount;}
-double OCL_get_response_tokens_per_sec(OCl *ocl){ return ocl->ocl_resp->tokensPerSec;}
+double OCL_get_response_load_duration(const OCl *ocl){ return ocl->ocl_resp->loadDuration;}
+double OCL_get_response_prompt_eval_duration(const OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
+double OCL_get_response_eval_duration(const OCl *ocl){ return ocl->ocl_resp->evalDuration;}
+double OCL_get_response_total_duration(const OCl *ocl){ return ocl->ocl_resp->totalDuration;}
+int OCL_get_response_prompt_eval_count(const OCl *ocl){ return ocl->ocl_resp->promptEvalCount;}
+int OCL_get_response_eval_count(const OCl *ocl){ return ocl->ocl_resp->evalCount;}
+double OCL_get_response_tokens_per_sec(const OCl *ocl){ return ocl->ocl_resp->tokensPerSec;}
 
-int OCl_set_server_addr(OCl *ocl, char *serverAddr){
-	if(serverAddr!=NULL && strcmp(serverAddr,"")!=0) ocl->srvAddr=serverAddr;
+int OCl_set_server_addr(OCl *ocl, const char *serverAddr){
+	if(serverAddr!=NULL && strcmp(serverAddr,"")!=0) snprintf(ocl->srvAddr,512,"%s",serverAddr);
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_server_port(OCl *ocl, char *serverPort){
+static int OCl_set_server_port(OCl *ocl, const char *serverPort){
 	if(serverPort!=NULL && strcmp(serverPort,"")!=0){
 		char *tail=NULL;
 		ocl->srvPort=strtol(serverPort, &tail, 10);
@@ -92,20 +92,12 @@ static int OCl_set_server_port(OCl *ocl, char *serverPort){
 	return OCL_RETURN_OK;
 }
 
-int OCl_set_model(OCl *ocl, char *model){
-	if(ocl->model!=NULL) free(ocl->model);
-	ocl->model=malloc(strlen(model)+1);
-	memset(ocl->model,0,strlen(model)+1);
-	if(model!=NULL && strcmp(model,"")!=0){
-		int cont=0;
-		for(size_t i=0;i<strlen(model);i++){
-			if(model[i]!=' ') ocl->model[cont++]=model[i];
-		}
-	}
+int OCl_set_model(OCl *ocl, const char *model){
+	snprintf(ocl->model,512,"%s",model);
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_keepalive(OCl *ocl, char *keepalive){
+static int OCl_set_keepalive(OCl *ocl, char const *keepalive){
 	if(keepalive!=NULL && strcmp(keepalive,"")!=0){
 		char *tail=NULL;
 		ocl->keepalive=strtol(keepalive,&tail,10);
@@ -114,21 +106,12 @@ static int OCl_set_keepalive(OCl *ocl, char *keepalive){
 	return OCL_RETURN_OK;
 }
 
-int OCl_set_role(OCl *ocl, char *role){
-	if(role!=NULL && strcmp(role,"")!=0){
-		if(ocl->systemRole!=NULL) free(ocl->systemRole);
-		ocl->systemRole=malloc(strlen(role)+1);
-		memset(ocl->systemRole,0,strlen(role)+1);
-		snprintf(ocl->systemRole, strlen(role)+1,"%s", role);
-	}else{
-		ocl->systemRole=malloc(1);
-		memset(ocl->systemRole,0,1);
-		ocl->systemRole[0]=0;
-	}
+int OCl_set_role(OCl *ocl, const char *role){
+	snprintf(ocl->systemRole, 2048,"%s", role);
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_connect_timeout(OCl *ocl, char *connectto){
+static int OCl_set_connect_timeout(OCl *ocl, char const *connectto){
 	if(connectto!=NULL && strcmp(connectto,"")!=0){
 		char *tail=NULL;
 		ocl->socketConnectTimeout=strtol(connectto, &tail, 10);
@@ -137,7 +120,7 @@ static int OCl_set_connect_timeout(OCl *ocl, char *connectto){
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_send_timeout(OCl *ocl, char *sendto){
+static int OCl_set_send_timeout(OCl *ocl, char const *sendto){
 	if(sendto!=NULL && strcmp(sendto,"")!=0){
 		char *tail=NULL;
 		ocl->socketSendTimeout=strtol(sendto, &tail, 10);
@@ -146,7 +129,7 @@ static int OCl_set_send_timeout(OCl *ocl, char *sendto){
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_recv_timeout(OCl *ocl, char *recvto){
+static int OCl_set_recv_timeout(OCl *ocl, char const *recvto){
 	if(recvto!=NULL && strcmp(recvto,"")!=0){
 		char *tail=NULL;
 		ocl->socketRecvTimeout=strtol(recvto, &tail, 10);
@@ -155,7 +138,7 @@ static int OCl_set_recv_timeout(OCl *ocl, char *recvto){
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_temp(OCl *ocl, char *temp){
+static int OCl_set_temp(OCl *ocl, char const *temp){
 	if(temp!=NULL && strcmp(temp,"")!=0){
 		char *tail=NULL;
 		ocl->temp=strtod(temp,&tail);
@@ -164,7 +147,7 @@ static int OCl_set_temp(OCl *ocl, char *temp){
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_max_history_ctx(OCl *ocl, char *maxHistoryCtx){
+static int OCl_set_max_history_ctx(OCl *ocl, char const *maxHistoryCtx){
 	if(maxHistoryCtx!=NULL && strcmp(maxHistoryCtx,"")!=0){
 		char *tail=NULL;
 		ocl->maxHistoryCtx=strtol(maxHistoryCtx,&tail,10);
@@ -173,7 +156,7 @@ static int OCl_set_max_history_ctx(OCl *ocl, char *maxHistoryCtx){
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_max_tokens_ctx(OCl *ocl, char *maxTokensCtx){
+static int OCl_set_max_tokens_ctx(OCl *ocl, char const *maxTokensCtx){
 	if(maxTokensCtx!=NULL && strcmp(maxTokensCtx,"")!=0){
 		char *tail=NULL;
 		ocl->maxTokensCtx=strtol(maxTokensCtx,&tail,10);
@@ -182,12 +165,12 @@ static int OCl_set_max_tokens_ctx(OCl *ocl, char *maxTokensCtx){
 	return OCL_RETURN_OK;
 }
 
-static int OCl_set_context_file(OCl *ocl, char *contextFile){
+static int OCl_set_context_file(OCl *ocl, const char *contextFile){
 	if(contextFile!=NULL && strcmp(contextFile,"")!=0){
 		FILE *f=fopen(contextFile,"r");
 		if(f==NULL) return OCL_ERR_CONTEXT_FILE_NOT_FOUND;
 		fclose(f);
-		ocl->contextFile=contextFile;
+		snprintf(ocl->contextFile,512,"%s",contextFile);
 	}
 	return OCL_RETURN_OK;
 }
@@ -216,24 +199,15 @@ int OCl_flush_context(void){
 }
 
 int OCl_free(OCl *ocl){
-	if(ocl!=NULL){
-		if(ocl->model!=NULL){
-			free(ocl->model);
-			ocl->model=NULL;
-		}
-		if(ocl->systemRole!=NULL){
-			free(ocl->systemRole);
-			ocl->systemRole=NULL;
-		}
-		free(ocl);
-	}
+	if(ocl->ocl_resp!=NULL) free(ocl->ocl_resp);
+	if(ocl!=NULL) free(ocl);
 	OCl_flush_context();
 	return OCL_RETURN_OK;
 }
 
-int OCl_get_instance(OCl **ocl, char *serverAddr, char *serverPort, char *socketConnTo, char *socketSendTo
-		,char *socketRecvTo, char *model, char *keepAlive, char *systemRole
-		,char *maxContextMsg, char *temp, char *maxTokensCtx, char *contextFile){
+int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, const char *socketConnTo, const char *socketSendTo
+		,const char *socketRecvTo, const char *model, const char *keepAlive, const char *systemRole
+		,const char *maxContextMsg, const char *temp, const char *maxTokensCtx, const char *contextFile){
 	*ocl=malloc(sizeof(OCl));
 	int retVal=0;
 	OCl_set_server_addr(*ocl, OCL_OLLAMA_SERVER_ADDR);
@@ -281,13 +255,28 @@ static void clean_ssl(SSL *ssl){
 	SSL_free(ssl);
 }
 
-static void create_new_context_message(char *userMessage, char *assistantMessage, bool isNew, int maxHistoryContext){
+static void create_new_fixed_context_message(char *userMessage, char *assistantMessage){
 	Message *newMessage=malloc(sizeof(Message));
 	newMessage->userMessage=malloc(strlen(userMessage)+1);
 	snprintf(newMessage->userMessage,strlen(userMessage)+1,"%s",userMessage);
 	newMessage->assistantMessage=malloc(strlen(assistantMessage)+1);
 	snprintf(newMessage->assistantMessage,strlen(assistantMessage)+1,"%s",assistantMessage);
-	newMessage->isNew=isNew;
+	Message *temp=rootFixedContextMessages;
+	if(temp!=NULL){
+		while(temp->nextMessage!=NULL) temp=temp->nextMessage;
+		temp->nextMessage=newMessage;
+	}else{
+		rootFixedContextMessages=newMessage;
+	}
+	newMessage->nextMessage=NULL;
+}
+
+static void create_new_context_message(char *userMessage, char *assistantMessage, int maxHistoryContext){
+	Message *newMessage=malloc(sizeof(Message));
+	newMessage->userMessage=malloc(strlen(userMessage)+1);
+	snprintf(newMessage->userMessage,strlen(userMessage)+1,"%s",userMessage);
+	newMessage->assistantMessage=malloc(strlen(assistantMessage)+1);
+	snprintf(newMessage->assistantMessage,strlen(assistantMessage)+1,"%s",assistantMessage);
 	if(rootContextMessages!=NULL){
 		if(contContextMessages>=maxHistoryContext){
 			Message *temp=rootContextMessages->nextMessage;
@@ -310,47 +299,75 @@ static void create_new_context_message(char *userMessage, char *assistantMessage
 	contContextMessages++;
 }
 
-int OCl_save_message(OCl *ocl, char *userMessage, char *assistantMessage){
-	if(ocl->contextFile!=NULL){
-		FILE *f=fopen(ocl->contextFile,"a");
-		if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
-		fprintf(f,"%s\t%s\n",userMessage,assistantMessage);
-		fclose(f);
-	}
+int OCl_save_message(const OCl *ocl, char *userMessage, char *assistantMessage){
+	FILE *f=fopen(ocl->contextFile,"a");
+	if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
+	fprintf(f,"%s\t%s\n",userMessage,assistantMessage);
+	fclose(f);
 	return OCL_RETURN_OK;
 }
 
-int OCl_import_context(OCl *ocl){
-	if(ocl->contextFile!=NULL){
-		FILE *f=fopen(ocl->contextFile,"r");
-		if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
-		size_t len=0, i=0;
-		int rows=0, initPos=0;
-		ssize_t chars=0;
-		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
-		while((getline(&line, &len, f))!=-1) rows++;
-		if(rows>ocl->maxHistoryCtx) initPos=rows-ocl->maxHistoryCtx;
-		rewind(f);
-		int contRows=0;
-		while((chars=getline(&line, &len, f))!=-1){
-			if(strstr(line,"\t")==NULL) return OCL_ERR_CONTEXT_FILE_CORRUPTED;
-			if(contRows>=initPos){
-				userMessage=malloc(chars+1);
-				memset(userMessage,0,chars+1);
-				for(i=0;line[i]!='\t' && i<strlen(line) ;i++) userMessage[i]=line[i];
-				int index=0;
-				assistantMessage=malloc(chars+1);
-				memset(assistantMessage,0,chars+1);
-				for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
-				create_new_context_message(userMessage, assistantMessage, false, ocl->maxHistoryCtx);
-				free(userMessage);
-				free(assistantMessage);
-			}
-			contRows++;
+int OCl_import_fixed_context(const char *filename){
+	FILE *f=fopen(filename,"r");
+	if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
+	size_t len=0, i=0;
+	ssize_t chars=0;
+	char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
+	while((chars=getline(&line, &len, f))!=-1){
+		if(strstr(line,"\t")==NULL){
+			free(line);
+			fclose(f);
+			return OCL_ERR_CONTEXT_FILE_CORRUPTED;
 		}
-		free(line);
-		fclose(f);
+		userMessage=malloc(chars+1);
+		memset(userMessage,0,chars+1);
+		for(i=0;line[i]!='\t' && i<strlen(line) ;i++) userMessage[i]=line[i];
+		int index=0;
+		assistantMessage=malloc(chars+1);
+		memset(assistantMessage,0,chars+1);
+		for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
+		create_new_fixed_context_message(userMessage, assistantMessage);
+		free(userMessage);
+		free(assistantMessage);
 	}
+	free(line);
+	fclose(f);
+	return OCL_RETURN_OK;
+}
+
+int OCl_import_context(const OCl *ocl){
+	FILE *f=fopen(ocl->contextFile,"r");
+	if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
+	size_t len=0, i=0;
+	int rows=0, initPos=0;
+	ssize_t chars=0;
+	char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
+	while((getline(&line, &len, f))!=-1) rows++;
+	if(rows>ocl->maxHistoryCtx) initPos=rows-ocl->maxHistoryCtx;
+	rewind(f);
+	int contRows=0;
+	while((chars=getline(&line, &len, f))!=-1){
+		if(strstr(line,"\t")==NULL){
+			free(line);
+			fclose(f);
+			return OCL_ERR_CONTEXT_FILE_CORRUPTED;
+		}
+		if(contRows>=initPos){
+			userMessage=malloc(chars+1);
+			memset(userMessage,0,chars+1);
+			for(i=0;line[i]!='\t' && i<strlen(line) ;i++) userMessage[i]=line[i];
+			int index=0;
+			assistantMessage=malloc(chars+1);
+			memset(assistantMessage,0,chars+1);
+			for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
+			create_new_context_message(userMessage, assistantMessage,ocl->maxHistoryCtx);
+			free(userMessage);
+			free(assistantMessage);
+		}
+		contRows++;
+	}
+	free(line);
+	fclose(f);
 	return OCL_RETURN_OK;
 }
 
@@ -490,8 +507,8 @@ char * OCL_error_handling(OCl *ocl, int error){
 	return error_hndl;
 }
 
-static bool get_string_from_token(char *text, char *token, char *result, char endChar){
-	char *content=strstr(text,token);
+static bool get_string_from_token(char const *text, char const *token, char *result, char endChar){
+	char const *content=strstr(text,token);
 	if(content!=NULL){
 		size_t i=0, len=strlen(token);
 		for(i=len+1;(content[i-1]=='\\' || content[i]!=endChar);i++) result[i-len-1]=content[i];
@@ -501,7 +518,8 @@ static bool get_string_from_token(char *text, char *token, char *result, char en
 	return false;
 }
 
-static int parse_input(char **stringTo, char *stringFrom){
+static int parse_input(char **stringTo, char const *stringFrom){
+	if(stringFrom==NULL) return OCL_RETURN_OK;
 	int cont=0, contEsc=0;
 	for(size_t i=0;i<strlen(stringFrom);i++){
 		switch(stringFrom[i]){
@@ -550,15 +568,15 @@ static int parse_input(char **stringTo, char *stringFrom){
 }
 
 
-static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeout){
+static int create_connection(const char *srvAddr, int srvPort, int socketConnectTimeout){
 	static char ollamaServerIp[INET_ADDRSTRLEN]="";
 	struct addrinfo hints, *res;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family=AF_INET;
 	hints.ai_socktype=SOCK_STREAM;
 	if(getaddrinfo(srvAddr, NULL, &hints, &res)!=0) return OCL_ERR_GETTING_HOST_INFO_ERROR;
-	struct sockaddr_in *ipv4=(struct sockaddr_in *)res->ai_addr;
-	void *addr=&(ipv4->sin_addr);
+	struct sockaddr_in const *ipv4=(struct sockaddr_in *)res->ai_addr;
+	void const *addr=&(ipv4->sin_addr);
 	inet_ntop(res->ai_family, addr, ollamaServerIp, sizeof(ollamaServerIp));
 	freeaddrinfo(res);
 	int socketConn=0;
@@ -586,7 +604,7 @@ static int create_connection(char *srvAddr, int srvPort, int socketConnectTimeou
 	return socketConn;
 }
 
-static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
+static int send_message(OCl *ocl, char const *payload, void (*callback)(const char *)){
 	oclSslError=0;
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<=0) return socketConn;
@@ -630,7 +648,6 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 	memset(ocl->ocl_resp->response,0,BUFFER_SIZE_128K);
 	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
 	do{
-		retVal=-1;
 		FD_ZERO(&rFdset);
 		FD_SET(socketConn, &rFdset);
 		if((retVal=select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo))<=0){
@@ -665,7 +682,7 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 				strcat(ocl->ocl_resp->response,buffer);
 				break;
 			}
-			char *err=NULL;
+			const char *err=NULL;
 			if((err=strstr(buffer,"{\"error\":\""))!=NULL){
 				strcat(ocl->ocl_resp->error,err);
 				close(socketConn);
@@ -685,15 +702,32 @@ static int send_message(OCl *ocl,char *payload, void (*callback)(char *)){
 	return totalBytesReceived;
 }
 
-int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
+int OCl_send_chat(OCl *ocl, const char *message, void (*callback)(const char *)){
 	char *messageParsed=NULL;
 	parse_input(&messageParsed, message);
 	char *context=malloc(1), *buf=NULL;
 	context[0]=0;
+	char const *contextTemplate="{\"role\":\"user\",\"content\":\"%s\"},{\"role\":\"assistant\",\"content\":\"%s\"},";
+	Message *temp=rootFixedContextMessages;
+	ssize_t len=0;
+	while(temp!=NULL){
+		len=strlen(contextTemplate)+strlen(temp->userMessage)+strlen(temp->assistantMessage);
+		buf=malloc(len);
+		if(buf==NULL){
+			free(messageParsed);
+			free(context);
+			return OCL_ERR_MALLOC_ERROR;
+		}
+		memset(buf,0,len);
+		snprintf(buf,len,contextTemplate,temp->userMessage,temp->assistantMessage);
+		context=realloc(context, strlen(context)+strlen(buf)+1);
+		strcat(context,buf);
+		temp=temp->nextMessage;
+		free(buf);
+	}
+
 	if(message[strlen(message)-1]!=';'){
-		char *contextTemplate="{\"role\":\"user\",\"content\":\"%s\"},{\"role\":\"assistant\",\"content\":\"%s\"},";
-		Message *temp=rootContextMessages;
-		ssize_t len=0;
+		temp=rootContextMessages;
 		while(temp!=NULL){
 			len=strlen(contextTemplate)+strlen(temp->userMessage)+strlen(temp->assistantMessage);
 			buf=malloc(len);
@@ -705,12 +739,6 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 			memset(buf,0,len);
 			snprintf(buf,len,contextTemplate,temp->userMessage,temp->assistantMessage);
 			context=realloc(context, strlen(context)+strlen(buf)+1);
-			if(context==NULL){
-				free(messageParsed);
-				free(context);
-				free(buf);
-				return OCL_ERR_REALLOC_ERROR;
-			}
 			strcat(context,buf);
 			temp=temp->nextMessage;
 			free(buf);
@@ -718,7 +746,7 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 	}
 	char *roleParsed=NULL;
 	parse_input(&roleParsed, ocl->systemRole);
-	ssize_t len=
+	len=
 			strlen(ocl->model)
 			+sizeof(ocl->temp)
 			+sizeof(ocl->maxTokensCtx)
@@ -763,7 +791,10 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 		free(messageParsed);
 		return retVal;
 	}
-	if(retVal==0) return OCL_ERR_RECV_TIMEOUT_ERROR;
+	if(retVal==0){
+		free(messageParsed);
+		return OCL_ERR_RECV_TIMEOUT_ERROR;
+	}
 	if((strstr(ocl->ocl_resp->response,"\"done\":true")==NULL || strstr(ocl->ocl_resp->response,"\"done\": true")!=NULL) && !oclCanceled){
 		free(messageParsed);
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
@@ -778,7 +809,7 @@ int OCl_send_chat(OCl *ocl, char *message, void (*callback)(char *)){
 		if(get_string_from_token(ocl->ocl_resp->response, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
 		ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 		if(message[strlen(message)-1]!=';'){
-			create_new_context_message(messageParsed, ocl->ocl_resp->content, true, ocl->maxHistoryCtx);
+			create_new_context_message(messageParsed, ocl->ocl_resp->content, ocl->maxHistoryCtx);
 			if(ocl->maxHistoryCtx>0) OCl_save_message(ocl, messageParsed, ocl->ocl_resp->content);
 		}
 	}
@@ -841,8 +872,8 @@ int OCl_get_models(OCl *ocl, char(*models)[512]){
 	char *model=strstr(ocl->ocl_resp->response,"\"model\":\"");
 	int contModel=0;
 	while(model!=NULL){
-		size_t i=0, cont=0, len=strlen("\"model\":\"");
-		for(i=len;(model[i-1]=='\\' || model[i]!='"');i++, cont++) models[contModel][cont]=model[i];
+		size_t cont=0, len=strlen("\"model\":\"");
+		for(size_t i=len;(model[i-1]=='\\' || model[i]!='"');i++, cont++) models[contModel][cont]=model[i];
 		models[contModel][cont]=0;
 		contModel++;
 		model[0]=' ';
