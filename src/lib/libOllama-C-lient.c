@@ -307,51 +307,18 @@ int OCl_save_message(const OCl *ocl, char *userMessage, char *assistantMessage){
 }
 
 int OCl_import_static_context(const char *filename){
-	FILE *f=fopen(filename,"r");
-	if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
-	size_t len=0, i=0;
-	ssize_t chars=0;
-	char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
-	while((chars=getline(&line, &len, f))!=-1){
-		if(strstr(line,"\t")==NULL){
-			free(line);
-			fclose(f);
-			return OCL_ERR_CONTEXT_FILE_CORRUPTED;
-		}
-		userMessage=malloc(chars+1);
-		memset(userMessage,0,chars+1);
-		for(i=0;line[i]!='\t' && i<strlen(line) ;i++) userMessage[i]=line[i];
-		int index=0;
-		assistantMessage=malloc(chars+1);
-		memset(assistantMessage,0,chars+1);
-		for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
-		create_new_static_context_message(userMessage, assistantMessage);
-		free(userMessage);
-		free(assistantMessage);
-	}
-	free(line);
-	fclose(f);
-	return OCL_RETURN_OK;
-}
-
-int OCl_import_context(const OCl *ocl){
-	FILE *f=fopen(ocl->contextFile,"r");
-	if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
-	size_t len=0, i=0;
-	int rows=0, initPos=0;
-	ssize_t chars=0;
-	char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
-	while((getline(&line, &len, f))!=-1) rows++;
-	if(rows>ocl->maxHistoryCtx) initPos=rows-ocl->maxHistoryCtx;
-	rewind(f);
-	int contRows=0;
-	while((chars=getline(&line, &len, f))!=-1){
-		if(strstr(line,"\t")==NULL){
-			free(line);
-			fclose(f);
-			return OCL_ERR_CONTEXT_FILE_CORRUPTED;
-		}
-		if(contRows>=initPos){
+	if(!strcmp(filename,"\n")){
+		FILE *f=fopen(filename,"r");
+		if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
+		size_t len=0, i=0;
+		ssize_t chars=0;
+		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
+		while((chars=getline(&line, &len, f))!=-1){
+			if(strstr(line,"\t")==NULL){
+				free(line);
+				fclose(f);
+				return OCL_ERR_CONTEXT_FILE_CORRUPTED;
+			}
 			userMessage=malloc(chars+1);
 			memset(userMessage,0,chars+1);
 			for(i=0;line[i]!='\t' && i<strlen(line) ;i++) userMessage[i]=line[i];
@@ -359,14 +326,51 @@ int OCl_import_context(const OCl *ocl){
 			assistantMessage=malloc(chars+1);
 			memset(assistantMessage,0,chars+1);
 			for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
-			create_new_context_message(userMessage, assistantMessage,ocl->maxHistoryCtx);
+			create_new_static_context_message(userMessage, assistantMessage);
 			free(userMessage);
 			free(assistantMessage);
 		}
-		contRows++;
+		free(line);
+		fclose(f);
 	}
-	free(line);
-	fclose(f);
+	return OCL_RETURN_OK;
+}
+
+int OCl_import_context(const OCl *ocl){
+	if(!strcmp(ocl->contextFile,"\n")){
+		FILE *f=fopen(ocl->contextFile,"r");
+		if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
+		size_t len=0, i=0;
+		int rows=0, initPos=0;
+		ssize_t chars=0;
+		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
+		while((getline(&line, &len, f))!=-1) rows++;
+		if(rows>ocl->maxHistoryCtx) initPos=rows-ocl->maxHistoryCtx;
+		rewind(f);
+		int contRows=0;
+		while((chars=getline(&line, &len, f))!=-1){
+			if(strstr(line,"\t")==NULL){
+				free(line);
+				fclose(f);
+				return OCL_ERR_CONTEXT_FILE_CORRUPTED;
+			}
+			if(contRows>=initPos){
+				userMessage=malloc(chars+1);
+				memset(userMessage,0,chars+1);
+				for(i=0;line[i]!='\t' && i<strlen(line) ;i++) userMessage[i]=line[i];
+				int index=0;
+				assistantMessage=malloc(chars+1);
+				memset(assistantMessage,0,chars+1);
+				for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
+				create_new_context_message(userMessage, assistantMessage,ocl->maxHistoryCtx);
+				free(userMessage);
+				free(assistantMessage);
+			}
+			contRows++;
+		}
+		free(line);
+		fclose(f);
+	}
 	return OCL_RETURN_OK;
 }
 

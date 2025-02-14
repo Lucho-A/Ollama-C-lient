@@ -133,7 +133,7 @@ $ ollama-c-lient --server-addr 192.168.2.10 --setting-file ~/ollama/settingFile 
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
 $ ollama-c-lient --model-file ~/ollama/any3modelModelFile --show-thoughts
-$ ollama-c-lient --roles-file ~/ollama/roles --context-file ~/ollama/context --context-file ~/ollama/staticContextFile
+$ ollama-c-lient --roles-file ~/ollama/roles --context-file ~/ollama/context --static-context-file ~/ollama/staticContextFile
 $ (echo 'What can you tell me about my storage: ' && df) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile >> log-file.log
 ```
 
