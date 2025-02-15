@@ -30,7 +30,7 @@
 
 OCl *ocl=NULL;
 
-bool exitProgram=false, showResponseInfo=false, showThoughts=false, stdinPresent=false;
+bool exitProgram=false, showResponseInfo=false, showThoughts=false, stdinPresent=false, stdoutParsed=false;
 int prevInput=0;
 char systemFont[16]="", promptFont[16]="", errorFont[16]="", showResponseInfoFont[16]="";
 char model[512]="";
@@ -48,6 +48,7 @@ char socketConnTo[512]="";
 char socketSendTo[512]="";
 char socketRecvTo[512]="";
 char responseFont[16]="";
+bool isThinking=false;
 
 static void print_error_msg(char *msg, char *error, bool exitProgram){
 	char errMsg[1024]="";
@@ -270,6 +271,45 @@ static void signal_handler(int signalType){
 	}
 }
 
+char *parse_output(const char *in){
+	char *buff=malloc(strlen(in));
+	memset(buff,0,strlen(in));
+	int cont=0;
+	for(size_t i=0;i<strlen(in);i++,cont++){
+		if(in[i]=='\\'){
+			switch(in[i+1]){
+			case 'n':
+				buff[cont]='\n';
+				break;
+			case 'r':
+				buff[cont]='\r';
+				break;
+			case 't':
+				buff[cont]='\r';
+				break;
+			case '\\':
+				buff[cont]='\\';
+				break;
+			case '"':
+				buff[cont]='\"';
+				break;
+			case 'u':
+				char buffer[5]="";
+				snprintf(buffer,5,"%c%c%c%c",in[i+2],in[i+3],in[i+4],in[i+5]);
+				buff[cont]=(int)strtol(buffer,NULL,16);
+				i+=4;
+				break;
+			default:
+				break;
+			}
+			i++;
+			continue;
+		}
+		buff[cont]=in[i];
+	}
+	return buff;
+}
+
 static void print_response_info(){
 	printf("%s\n\n", showResponseInfoFont);
 	printf("- load_duration (time spent loading the model): %f\n",OCL_get_response_load_duration(ocl));
@@ -280,8 +320,6 @@ static void print_response_info(){
 	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_response_eval_count(ocl));
 	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
 }
-
-bool isThinking=false;
 
 static void print_response(char const *token){
 	if(stdinPresent) return;
@@ -435,6 +473,10 @@ int main(int argc, char *argv[]) {
 			showThoughts=true;
 			continue;
 		}
+		if(strcmp(argv[i],"--parsed-stdout")==0){
+			stdoutParsed=true;
+			continue;
+		}
 		printf("\n");
 		print_error_msg(argv[i],": argument not recognized",true);
 	}
@@ -447,7 +489,12 @@ int main(int argc, char *argv[]) {
 		pthread_t tSendingMessage;
 		pthread_create(&tSendingMessage, NULL, start_sending_message, input);
 		pthread_join(tSendingMessage,NULL);
-		printf("%s\n",OCL_get_response(ocl));
+		if(!stdoutParsed){
+			printf("%s\n",OCL_get_response(ocl));
+		}else{
+			char *out=parse_output(OCL_get_response(ocl));
+			printf("%s\n",out);
+		}
 		close_program(ocl);
 		exit(EXIT_SUCCESS);
 	}

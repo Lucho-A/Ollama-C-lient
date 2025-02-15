@@ -59,9 +59,10 @@ The options supported are:
 |--roles-file | string:NULL | File with the different roles for the model.
 |--instructions-file | string:NULL | File with the different instructions for the model.
 |--context-file | string:NULL | File where the interactions (except the queries ended with ';') will be stored.
-|--static-context-file | string:NULL | File where the interactions included in the file (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as 'MAX_MSG_CTX' (but count as 'MAX_TOKENS_CTX').
+|--static-context-file | string:NULL | File where the interactions included into it (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as 'MAX_MSG_CTX' (it does as 'MAX_TOKENS_CTX').
 |--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, duration, etc.
-|--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in models like 'deepseek-r1'
+|--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in reasoning models like 'deepseek-r1'
+|--parsed-stdout | N/A:false | Option for parsing the output when piped (particularly useful for speeching the response)
 
 Note: all options are optional (really?!).
 
@@ -77,7 +78,7 @@ On the other hand, some commands can be prompting:
 | instructions;   | N/A     | show available instructions;
 | instruction;    | string* | add the instructions entered (included into the file '--instructions-file') to prompt history.
 
-* If 'string' is empty, the model|role will change to the default one.
+* If 'string' is empty, the model|role will change to the default on (included into the model file, if it was specified).
 
 #### Considerations
 
@@ -101,10 +102,14 @@ On the other hand, some commands can be prompting:
 
 #### Suggested:
 
+##### - Chatting
 ```
-$ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --roles-file ~/ollama/rolesFile --instructions-file ~/ollama/instructionsFile --context-file ~/ollama/contextFile --static-context-file ~/ollama/staticContextFile
+$ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/settingFile --static-context-file ~/ollama/staticContextFile --context-file ~/ollama/contextFile
 ```
-
+##### - Scripting/Agents
+```
+$ ollama-c-lient --server-addr serverIP --server-port serverPort --model-file ~/ollama/mymodelFile --static-context-file ~/ollama/staticContextFile --parsed-stdout --context-file ~/ollama/contextFile
+```
 ... with a 'model-file' like:
 
 ```
@@ -113,11 +118,11 @@ modelNameAlreadyPulled
 [KEEP_ALIVE]
 30
 [TEMP]
-0.5
+0.6
 [MAX_MSG_CTX]
 5
 [MAX_TOKENS_CTX]
-4096
+8196
 [SYSTEM_ROLE]
 You are the assistance and
 bla,
@@ -129,12 +134,12 @@ bla, bla...
 
 ```
 $ ollama-c-lient --server-addr 192.168.2.10
-$ ollama-c-lient --server-addr 192.168.2.10 --setting-file ~/ollama/settingFile --instructions-file ~/ollama/instructionsFile
+$ ollama-c-lient --setting-file ~/ollama/settingFile --instructions-file ~/ollama/instructionsFile
 $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModelFile --context-file ~/ollama/context --show-response-info
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
 $ ollama-c-lient --model-file ~/ollama/any3modelModelFile --show-thoughts
-$ ollama-c-lient --roles-file ~/ollama/roles --context-file ~/ollama/context --static-context-file ~/ollama/staticContextFile
-$ (echo 'What can you tell me about my storage: ' && df) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile >> log-file.log
+$ ollama-c-lient --server-addr 192.168.2.10 --server-port 4433 --roles-file ~/ollama/roles --context-file ~/ollama/context --static-context-file ~/ollama/staticContextFile
+$ (echo 'What can you tell me about my storage: ' && df) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile --parsed-stdout >> log-file.log
 ```
 
 #### Bugs known/unknown
