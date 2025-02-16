@@ -30,7 +30,7 @@
 
 OCl *ocl=NULL;
 
-bool exitProgram=false, showResponseInfo=false, showThoughts=false, stdinPresent=false, stdoutParsed=false;
+bool exitProgram=false, showResponseInfo=false, showThoughts=false, stdinPresent=false, stdoutParsed=false, stdoutChunked=false;
 int prevInput=0;
 char systemFont[16]="", promptFont[16]="", errorFont[16]="", showResponseInfoFont[16]="";
 char model[512]="";
@@ -307,6 +307,7 @@ char *parse_output(const char *in){
 		}
 		buff[cont]=in[i];
 	}
+	buff[cont]=0;
 	return buff;
 }
 
@@ -321,7 +322,19 @@ static void print_response_info(){
 	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
 }
 
+char chunkings[1024]="";
+
 static void print_response(char const *token){
+	if(stdinPresent && stdoutParsed && stdoutChunked){
+		char const *parsedOut=parse_output(token);
+		strcat(chunkings,parsedOut);
+		if(strstr(parsedOut, ".")){
+			fputs(chunkings, stdout);
+			fflush(stdout);
+			memset(chunkings,0,1024);
+		}
+		return;
+	}
 	if(stdinPresent) return;
 	printf("%s",responseFont);
 	if(strstr(token, "\\u003cthink\\u003e")!=NULL){
@@ -473,8 +486,12 @@ int main(int argc, char *argv[]) {
 			showThoughts=true;
 			continue;
 		}
-		if(strcmp(argv[i],"--parsed-stdout")==0){
+		if(strcmp(argv[i],"--stdout-parsed")==0){
 			stdoutParsed=true;
+			continue;
+		}
+		if(strcmp(argv[i],"--stdout-chunked")==0){
+			stdoutChunked=true;
 			continue;
 		}
 		printf("\n");
@@ -490,10 +507,14 @@ int main(int argc, char *argv[]) {
 		pthread_create(&tSendingMessage, NULL, start_sending_message, input);
 		pthread_join(tSendingMessage,NULL);
 		if(!stdoutParsed){
-			printf("%s\n",OCL_get_response(ocl));
+			fputs(OCL_get_response(ocl), stdout);
+			fflush(stdout);
 		}else{
-			char *out=parse_output(OCL_get_response(ocl));
-			printf("%s\n",out);
+			if(!stdoutChunked){
+				char const *out=parse_output(OCL_get_response(ocl));
+				fputs(out, stdout);
+				fflush(stdout);
+			}
 		}
 		close_program(ocl);
 		exit(EXIT_SUCCESS);

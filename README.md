@@ -62,7 +62,8 @@ The options supported are:
 |--static-context-file | string:NULL | File where the interactions included into it (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as 'MAX_MSG_CTX' (it does as 'MAX_TOKENS_CTX').
 |--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, duration, etc.
 |--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in reasoning models like 'deepseek-r1'
-|--parsed-stdout | N/A:false | Option for parsing the output when piped (particularly useful for speeching the response)
+|--stdout-parsed | N/A:false | Option for parsing the output when piped (particularly useful for speeching the response)
+|--stdout-chunked | N/A:false | Option for chunked the output by sentence. Only works if '--stdout-parsed' was set.
 
 Note: all options are optional (really?!).
 
@@ -108,7 +109,7 @@ $ ollama-c-lient --model-file ~/ollama/mymodelFile --setting-file ~/ollama/setti
 ```
 ##### - Scripting/Agents
 ```
-$ ollama-c-lient --server-addr serverIP --server-port serverPort --model-file ~/ollama/mymodelFile --static-context-file ~/ollama/staticContextFile --parsed-stdout --context-file ~/ollama/contextFile
+$ ollama-c-lient --server-addr serverIP --server-port serverPort --model-file ~/ollama/mymodelFile --static-context-file ~/ollama/staticContextFile --stdout-parsed --stdout-chunked --context-file ~/ollama/contextFile
 ```
 ... with a 'model-file' like:
 
@@ -139,7 +140,8 @@ $ ollama-c-lient --server-addr 192.168.1.50 --model-file ~/ollama/any1modelModel
 $ ollama-c-lient --server-addr myownai.com --server-port 4433 --model-file ~/ollama/any2modelModelFile
 $ ollama-c-lient --model-file ~/ollama/any3modelModelFile --show-thoughts
 $ ollama-c-lient --server-addr 192.168.2.10 --server-port 4433 --roles-file ~/ollama/roles --context-file ~/ollama/context --static-context-file ~/ollama/staticContextFile
-$ (echo 'What can you tell me about my storage: ' && df) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile --parsed-stdout >> log-file.log
+$ (echo 'What can you tell me about my storage: ' && df) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile --stdout-parsed >> log-file.log
+$ (echo 'What can you tell me about current processes: ' && ps ax) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile --stdout-parsed --stdout-chunked | grep 'Ollama-C-lient'
 ```
 
 #### Bugs known/unknown
