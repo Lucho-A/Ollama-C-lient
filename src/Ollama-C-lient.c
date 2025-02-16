@@ -38,7 +38,7 @@ char temp[512]="";
 char keepalive[512]="";
 char maxMsgCtx[512]="";
 char maxTokensCtx[512]="";
-char *systemRole="";
+char *systemRole=NULL;
 char *contextFile="";
 char *staticContextFile="";
 char serverAddr[16]="";
@@ -426,7 +426,7 @@ int main(int argc, char *argv[]) {
 		stdinPresent=true;
 	}
 	int retVal=0;
-	if((OCl_init())!=OCL_RETURN_OK) print_error_msg("OCl init error. ","",true);
+	if((retVal=OCl_init())!=OCL_RETURN_OK) print_error_msg("OCl Init error. ", OCL_error_handling(ocl,retVal),true);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0 || strcmp(argv[i],"--help")==0){
 			BANNER

@@ -170,6 +170,8 @@ static int OCl_set_context_file(OCl *ocl, const char *contextFile){
 		if(f==NULL) return OCL_ERR_CONTEXT_FILE_NOT_FOUND;
 		fclose(f);
 		snprintf(ocl->contextFile,512,"%s",contextFile);
+	}else{
+		ocl->contextFile[0]=0;
 	}
 	return OCL_RETURN_OK;
 }
@@ -179,7 +181,7 @@ int OCl_init(){
 	ERR_load_crypto_strings();
 	if((oclSslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return OCL_ERR_SSL_CONTEXT_ERROR;
 	SSL_CTX_set_verify(oclSslCtx, SSL_VERIFY_PEER, NULL);
-	SSL_CTX_set_default_verify_paths(oclSslCtx);
+	if(!SSL_CTX_set_default_verify_paths(oclSslCtx)) return OCL_ERR_SSL_CERT_PATH_NOT_FOUND;
 	oclCanceled=false;
 	oclSslError=0;
 	return OCL_RETURN_OK;
@@ -404,6 +406,9 @@ char * OCL_error_handling(OCl *ocl, int error){
 	case OCL_ERR_SSL_CERT_NOT_FOUND:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: SSL cert. not found: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
+	case OCL_ERR_SSL_CERT_PATH_NOT_FOUND:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: SSL cert. path not found: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		break;
 	case OCL_ERR_SSL_FD_ERROR:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: SSL fd error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
@@ -593,15 +598,22 @@ static int create_connection(const char *srvAddr, int srvPort, int socketConnect
 	struct timeval tvConnectionTo;
 	int retVal=connect(socketConn, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
 	if(retVal<0 && errno!=EINPROGRESS) return OCL_ERR_SOCKET_CONNECTION_ERROR;
-	fd_set rFdset, wFdset;
-	FD_ZERO(&rFdset);
-	FD_SET(socketConn, &rFdset);
-	wFdset=rFdset;
+	fd_set wFdset;
+	FD_ZERO(&wFdset);
+	FD_SET(socketConn, &wFdset);
 	tvConnectionTo.tv_sec=socketConnectTimeout;
 	tvConnectionTo.tv_usec=0;
-	if((retVal=select(socketConn+1,&rFdset,&wFdset,NULL,&tvConnectionTo))<=0){
+	if((retVal=select(socketConn+1,NULL,&wFdset,NULL,&tvConnectionTo))<=0){
+		close(socketConn);
 		if(retVal==0) return OCL_ERR_SOCKET_CONNECTION_TIMEOUT_ERROR;
 		return retVal;
+	}
+	socklen_t len = sizeof(retVal);
+	getsockopt(socketConn, SOL_SOCKET, SO_ERROR, &retVal, &len);
+	if(retVal!=0){
+		close(socketConn);
+		errno=retVal;
+		return OCL_ERR_SOCKET_CONNECTION_ERROR;
 	}
 	fcntl(socketConn, F_SETFL, socketFlags & ~O_NONBLOCK);
 	return socketConn;
@@ -638,6 +650,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 		FD_SET(socketConn, &wFdset);
 		if((retVal=select(socketConn+1,NULL,&wFdset,NULL,&tvSendTo))<=0){
 			oclSslError=SSL_get_error(sslConn, retVal);
+			clean_ssl(sslConn);
 			if(retVal<0) return OCL_ERR_SENDING_PACKETS_ERROR;
 			return OCL_ERR_SEND_TIMEOUT_ERROR;
 		}
@@ -669,6 +682,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
 		if(bytesReceived<0){
 			oclSslError=SSL_get_error(sslConn, bytesReceived);
+			clean_ssl(sslConn);
 			return OCL_ERR_RECEIVING_PACKETS_ERROR;
 		}
 		if(bytesReceived==0) break;
