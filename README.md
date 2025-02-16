@@ -63,7 +63,7 @@ The options supported are:
 |--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, duration, etc.
 |--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in reasoning models like 'deepseek-r1'
 |--stdout-parsed | N/A:false | Option for parsing the output when piped (particularly useful for speeching the response)
-|--stdout-chunked | N/A:false | Option for chunked the output by sentence. Only works if '--stdout-parsed' was set.
+|--stdout-chunked | N/A:false | Option for chunking the output by sentence. Only works if '--stdout-parsed' was set.
 
 Note: all options are optional (really?!).
 
