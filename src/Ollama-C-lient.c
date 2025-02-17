@@ -272,8 +272,8 @@ static void signal_handler(int signalType){
 }
 
 char *parse_output(const char *in){
-	char *buff=malloc(strlen(in));
-	memset(buff,0,strlen(in));
+	char *buff=malloc(strlen(in)+1);
+	memset(buff,0,strlen(in)+1);
 	int cont=0;
 	for(size_t i=0;i<strlen(in);i++,cont++){
 		if(in[i]=='\\'){
@@ -326,13 +326,14 @@ char chunkings[1024]="";
 
 static void print_response(char const *token){
 	if(stdinPresent && stdoutParsed && stdoutChunked){
-		char const *parsedOut=parse_output(token);
+		char *parsedOut=parse_output(token);
 		strcat(chunkings,parsedOut);
 		if(strstr(parsedOut, ".")){
 			fputs(chunkings, stdout);
 			fflush(stdout);
 			memset(chunkings,0,1024);
 		}
+		free(parsedOut);
 		return;
 	}
 	if(stdinPresent) return;
@@ -411,6 +412,17 @@ bool check_model_loaded(){
 		}
 	}
 	return true;
+}
+
+char *remove_spaces(const char *s){
+	size_t len=strlen(s)+1;
+	char *b=malloc(len);
+	memset(b,0,len);
+	int idx=0;
+	for(size_t i=0;i<len;i++){
+		if(s[i]!=' ') b[idx++]=s[i];
+	}
+	return b;
 }
 
 int main(int argc, char *argv[]) {
@@ -511,9 +523,10 @@ int main(int argc, char *argv[]) {
 			fflush(stdout);
 		}else{
 			if(!stdoutChunked){
-				char const *out=parse_output(OCL_get_response(ocl));
+				char *out=parse_output(OCL_get_response(ocl));
 				fputs(out, stdout);
 				fflush(stdout);
+				free(out);
 			}
 		}
 		close_program(ocl);
@@ -555,11 +568,13 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strncmp(messagePrompted,"model;", strlen("model;"))==0){
-			if(strcmp(messagePrompted+strlen("model;"),"")==0){
+			char *m=remove_spaces(messagePrompted+strlen("model;"));
+			if(m==NULL || strcmp(messagePrompted+strlen("model;"),"")==0){
 				OCl_set_model(ocl,model);
 			}else{
-				OCl_set_model(ocl,messagePrompted+strlen("model;"));
+				OCl_set_model(ocl,m);
 			}
+			free(m);
 			continue;
 		}
 		if(strncmp(messagePrompted,"roles;", strlen("roles;"))==0){
