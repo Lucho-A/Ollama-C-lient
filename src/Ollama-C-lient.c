@@ -263,7 +263,7 @@ static void signal_handler(int signalType){
 		oclCanceled=true;
 		break;
 	case SIGHUP:
-		close_program(ocl);
+		close_program();
 		break;
 	case SIGPIPE:
 	default:
