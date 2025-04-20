@@ -75,7 +75,7 @@ On the other hand, some commands can be prompting:
 |:------- |:---------|:----------- |
 | flush;   | N/A     | the context in RAM will be cleared (this action won't delete any messages in the context file). I find it useful for avoiding any "misunderstanding" when I start or changing to a new topic.
 | models;  | N/A     | shows available models.
-| model;   | string* | change the model.
+| model;   | string (1) | change the model.
 | roles;   | N/A     | show available roles;
 | role;    | string* | change the system role (included into the file '--roles-file').
 | instructions;   | N/A     | show available instructions;
@@ -102,7 +102,7 @@ On the other hand, some commands can be prompting:
 - In case that you want to **input a new line** without submitting, just use 'alt+enter'. Same key combination for **exiting** when empty prompt.
 - In case that pipes are used, like: 'df | ollama-c-lient >> file.txt', the output is always uncolored, no-streamed, and in RAW format.
 - Crl-C cancel the responses.
-- for entering a "tab", just entering two followed spaces (this is for preventing conflict when using tab for file pathing).
+- for entering a "tab", just entering two followed spaces (this is for preventing conflicts when using tab for file pathing).
 
 ### Examples:
 
