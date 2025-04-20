@@ -102,6 +102,7 @@ On the other hand, some commands can be prompting:
 - In case that you want to **input a new line** without submitting, just use 'alt+enter'. Same key combination for **exiting** when empty prompt.
 - In case that pipes are used, like: 'df | ollama-c-lient >> file.txt', the output is always uncolored, no-streamed, and in RAW format.
 - Crl-C cancel the responses.
+- for entering a "tab", just entering two followed spaces (this is for preventing conflict when using tab for file pathing).
 
 ### Examples:
 
