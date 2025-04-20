@@ -79,11 +79,11 @@ On the other hand, some commands can be prompting:
 | roles;   | N/A     | show available roles;
 | role;    | string* | change the system role (included into the file '--roles-file').
 | instructions;   | N/A     | show available instructions;
-| instruction;    | string (1) | add the instructions entered (included into the file '--instructions-file') to prompt history.
-| image;    | string (2) | path to the image file to attach to the query.
+| instruction;    | string[^1] | add the instructions entered (included into the file '--instructions-file') to prompt history.
+| image;    | string[^2] | path to the image file to attach to the query.
 
-#### (1) If 'string' is empty, the model|role will change to the default on (included into the model file, if it was specified).
-(2) The image loaded will be keep as part of the successive messages. For de-attaching, just entering "image;" without any path.
+[^1] If 'string' is empty, the model|role will change to the default on (included into the model file, if it was specified).
+[^2] The image loaded will be keep as part of the successive messages. For de-attaching, just entering "image;" without any path.
 
 #### Considerations
 
