@@ -82,7 +82,7 @@ On the other hand, some commands can be prompting:
 | instruction;    | string (1) | add the instructions entered (included into the file '--instructions-file') to prompt history.
 | image;    | string (2) | path to the image file to attach to the query.
 
-###### (1) If 'string' is empty, the model|role will change to the default on (included into the model file, if it was specified).
+###### (1) If 'string' is empty, the model|role will change to the default one (included into the model file, if it was specified).
 ###### (2) The image loaded will be keep as part of the successive messages. For de-attaching, just entering "image;" without any path.
 
 #### Considerations
