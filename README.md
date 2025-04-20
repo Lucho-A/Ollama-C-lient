@@ -67,7 +67,7 @@ The options supported are:
 |--stdout-parsed | N/A:false | Option for parsing the output when piped (particularly useful for speeching the response)
 |--stdout-chunked | N/A:false | Option for chunking the output by sentence. Only works if '--stdout-parsed' was set.
 
-Note: all options are optional (really?!).
+###### Note: all options are optional (really?!).
 
 On the other hand, some commands can be prompting:
 
@@ -77,7 +77,7 @@ On the other hand, some commands can be prompting:
 | models;  | N/A     | shows available models.
 | model;   | string (1) | change the model.
 | roles;   | N/A     | show available roles;
-| role;    | string* | change the system role (included into the file '--roles-file').
+| role;    | string (1) | change the system role (included into the file '--roles-file').
 | instructions;   | N/A     | show available instructions;
 | instruction;    | string (1) | add the instructions entered (included into the file '--instructions-file') to prompt history.
 | image;    | string (2) | path to the image file to attach to the query.
