@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <pwd.h>
 
 #include "lib/libOllama-C-lient.h"
 
@@ -39,8 +40,8 @@ char keepalive[512]="";
 char maxMsgCtx[512]="";
 char maxTokensCtx[512]="";
 char *systemRole=NULL;
-char *contextFile="";
-char *staticContextFile="";
+char *contextFile=NULL;
+char *staticContextFile=NULL;
 char serverAddr[16]="";
 char serverPort[6]="";
 long int responseSpeed=RESPONSE_SPEED;
@@ -226,7 +227,11 @@ static int readline_input(FILE *stream){
 		prevInput=0;
 		return 0;
 	}
-	if(c==9) rl_insert_text("\t");
+	if(c==' ' && prevInput==' '){
+		rl_insert_text("\t");
+		prevInput=0;
+		return 0;
+	}
 	if(c==-1 || c==4){
 		rl_delete_text(0,strlen(rl_line_buffer));
 		rl_redisplay();
@@ -272,6 +277,7 @@ static void signal_handler(int signalType){
 }
 
 char *parse_output(const char *in){
+	char buffer[5]="";
 	char *buff=malloc(strlen(in)+1);
 	memset(buff,0,strlen(in)+1);
 	int cont=0;
@@ -294,7 +300,6 @@ char *parse_output(const char *in){
 				buff[cont]='\"';
 				break;
 			case 'u':
-				char buffer[5]="";
 				snprintf(buffer,5,"%c%c%c%c",in[i+2],in[i+3],in[i+4],in[i+5]);
 				buff[cont]=(int)strtol(buffer,NULL,16);
 				i+=4;
@@ -350,6 +355,7 @@ static void print_response(char const *token){
 		return;
 	}
 	if(isThinking) return;
+	char buffer[5]="";
 	for(size_t i=0;i<strlen(token);i++){
 		usleep(responseSpeed);
 		if(token[i]=='\\'){
@@ -370,7 +376,6 @@ static void print_response(char const *token){
 				printf("\"");
 				break;
 			case 'u':
-				char buffer[5]="";
 				snprintf(buffer,5,"%c%c%c%c",token[i+2],token[i+3],token[i+4],token[i+5]);
 				printf("%c",(int)strtol(buffer,NULL,16));
 				i+=4;
@@ -386,9 +391,14 @@ static void print_response(char const *token){
 	}
 }
 
+struct SendingMessage{
+	char *messagePrompted;
+	char *imageFile;
+};
+
 void *start_sending_message(void *arg){
-	char const *messagePrompted=arg;
-	int retVal=OCl_send_chat(ocl,messagePrompted, print_response);
+	struct SendingMessage *sm=arg;
+	int retVal=OCl_send_chat(ocl,sm->messagePrompted,sm->imageFile ,print_response);
 	if(retVal!=OCL_RETURN_OK){
 		if(oclCanceled) printf("\n");
 		oclCanceled=true;
@@ -431,7 +441,7 @@ int main(int argc, char *argv[]) {
 	signal(SIGTSTP, signal_handler);
 	signal(SIGHUP, signal_handler);
 	signal(SIGSEGV, signal_handler);
-	const char *rolesFile=NULL, *instructionsFile=NULL;
+	char *rolesFile=NULL, *instructionsFile=NULL, *imageFile=NULL;
 	char buffer[1024]="", input[1024*32]="";
 	if(!isatty(fileno(stdin))){
 		while(fgets(buffer, sizeof(buffer), stdin)) strcat(input,buffer);
@@ -451,6 +461,12 @@ int main(int argc, char *argv[]) {
 		}
 		if(strcmp(argv[i],"--server-port")==0){
 			snprintf(serverPort,6,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--image-file")==0){
+			if(validate_file(argv[i+1])!=OCL_RETURN_OK) print_error_msg("File not found.","",true);
+			imageFile=argv[i+1];
 			i++;
 			continue;
 		}
@@ -509,14 +525,22 @@ int main(int argc, char *argv[]) {
 		printf("\n");
 		print_error_msg(argv[i],": argument not recognized",true);
 	}
-	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo, model, keepalive,systemRole,
+	if((retVal=OCl_get_instance(&ocl, serverAddr, serverPort, socketConnTo, socketSendTo, socketRecvTo, model,
+			keepalive,systemRole,
 			maxMsgCtx, temp, maxTokensCtx, contextFile))!=OCL_RETURN_OK) print_error_msg("OCl getting instance error. ",OCL_error_handling(ocl,retVal),true);
-	if((retVal=OCl_import_static_context(staticContextFile))!=OCL_RETURN_OK) print_error_msg("Importing static context error. ",OCL_error_handling(ocl,retVal),true);
-	if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK) print_error_msg("Importing context error. ",OCL_error_handling(ocl,retVal),true);
+	if(staticContextFile){
+		if((retVal=OCl_import_static_context(staticContextFile))!=OCL_RETURN_OK) print_error_msg("Importing static context error. ",OCL_error_handling(ocl,retVal),true);
+	}
+	if(contextFile){
+		if((retVal=OCl_import_context(ocl))!=OCL_RETURN_OK) print_error_msg("Importing context error. ",OCL_error_handling(ocl,retVal),true);
+	}
 	rl_getc_function=readline_input;
 	if(stdinPresent){
+		struct SendingMessage sm={0};
+		sm.messagePrompted=input;
+		sm.imageFile=imageFile;
 		pthread_t tSendingMessage;
-		pthread_create(&tSendingMessage, NULL, start_sending_message, input);
+		pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
 		pthread_join(tSendingMessage,NULL);
 		if(!stdoutParsed){
 			fputs(OCL_get_response(ocl), stdout);
@@ -529,26 +553,29 @@ int main(int argc, char *argv[]) {
 				free(out);
 			}
 		}
-		close_program(ocl);
+		close_program();
 		exit(EXIT_SUCCESS);
 	}
-	char *messagePrompted=NULL;
+	struct SendingMessage sm={0};
 	do{
 		exitProgram=oclCanceled=false;
-		free(messagePrompted);
+		free(sm.messagePrompted);
 		printf("%s\n",promptFont);
-		messagePrompted=readline_get(PROMPT_DEFAULT, false);
+		sm.messagePrompted=readline_get(PROMPT_DEFAULT, false);
 		if(exitProgram){
 			printf("\n⎋");
 			break;
 		}
-		if(oclCanceled || strcmp(messagePrompted,"")==0) continue;
+		for(int i=strlen(sm.messagePrompted)-1;sm.messagePrompted[i]==' '
+				|| sm.messagePrompted[i]=='\n'
+				|| sm.messagePrompted[i]==9;i--) sm.messagePrompted[i]=0;
+		if(oclCanceled || strcmp(sm.messagePrompted,"")==0) continue;
 		printf("↵\n");
-		if(strcmp(messagePrompted,"flush;")==0){
+		if(strcmp(sm.messagePrompted,"flush;")==0){
 			OCl_flush_context();
 			continue;
 		}
-		if(strcmp(messagePrompted,"models;")==0){
+		if(strcmp(sm.messagePrompted,"models;")==0){
 			char models[512][512]={""};
 			int cantModels=OCl_get_models(ocl, models);
 			if(cantModels<0) {
@@ -567,9 +594,9 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 			continue;
 		}
-		if(strncmp(messagePrompted,"model;", strlen("model;"))==0){
-			char *m=remove_spaces(messagePrompted+strlen("model;"));
-			if(m==NULL || strcmp(messagePrompted+strlen("model;"),"")==0){
+		if(strncmp(sm.messagePrompted,"model;", strlen("model;"))==0){
+			char *m=remove_spaces(sm.messagePrompted+strlen("model;"));
+			if(m==NULL || strcmp(sm.messagePrompted+strlen("model;"),"")==0){
 				OCl_set_model(ocl,model);
 			}else{
 				OCl_set_model(ocl,m);
@@ -577,7 +604,7 @@ int main(int argc, char *argv[]) {
 			free(m);
 			continue;
 		}
-		if(strncmp(messagePrompted,"roles;", strlen("roles;"))==0){
+		if(strncmp(sm.messagePrompted,"roles;", strlen("roles;"))==0){
 			if(validate_file(rolesFile)!=OCL_RETURN_OK){
 				print_error_msg("Roles file not found.","",false);
 				continue;
@@ -598,8 +625,8 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 			continue;
 		}
-		if(strncmp(messagePrompted,"role;", strlen("role;"))==0){
-			if(strcmp(messagePrompted+strlen("role;"),"")==0){
+		if(strncmp(sm.messagePrompted,"role;", strlen("role;"))==0){
+			if(strcmp(sm.messagePrompted+strlen("role;"),"")==0){
 				OCl_set_role(ocl, systemRole);
 				continue;
 			}
@@ -613,8 +640,8 @@ int main(int argc, char *argv[]) {
 			bool found=false;
 			char role[255]="";
 			int contSpaces=0;
-			for(int i=strlen("role;");messagePrompted[i]==' ';i++) contSpaces++;
-			snprintf(role, 255,"[%s]", messagePrompted+strlen("role;")+contSpaces);
+			for(int i=strlen("role;");sm.messagePrompted[i]==' ';i++) contSpaces++;
+			snprintf(role, 255,"[%s]", sm.messagePrompted+strlen("role;")+contSpaces);
 			char *newSystemRole=NULL;
 			newSystemRole=malloc(1);
 			newSystemRole[0]=0;
@@ -635,7 +662,7 @@ int main(int argc, char *argv[]) {
 			free(newSystemRole);
 			continue;
 		}
-		if(strncmp(messagePrompted,"instructions;", strlen("instructions;"))==0){
+		if(strncmp(sm.messagePrompted,"instructions;", strlen("instructions;"))==0){
 			if(validate_file(instructionsFile)!=OCL_RETURN_OK){
 				print_error_msg("Instructions file not found.","",false);
 				continue;
@@ -656,8 +683,8 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 			continue;
 		}
-		if(strncmp(messagePrompted,"instruction;", strlen("instruction;"))==0){
-			if(strcmp(messagePrompted+strlen("instruction;"),"")==0) continue;
+		if(strncmp(sm.messagePrompted,"instruction;", strlen("instruction;"))==0){
+			if(strcmp(sm.messagePrompted+strlen("instruction;"),"")==0) continue;
 			if(validate_file(instructionsFile)!=OCL_RETURN_OK){
 				print_error_msg("Instructions file not found.","",false);
 				continue;
@@ -668,8 +695,8 @@ int main(int argc, char *argv[]) {
 			bool found=false;
 			char instruction[255]="";
 			int contSpaces=0;
-			for(int i=strlen("instruction;");messagePrompted[i]==' ';i++) contSpaces++;
-			snprintf(instruction, 255,"[%s]", messagePrompted+strlen("instruction;")+contSpaces);
+			for(int i=strlen("instruction;");sm.messagePrompted[i]==' ';i++) contSpaces++;
+			snprintf(instruction, 255,"[%s]", sm.messagePrompted+strlen("instruction;")+contSpaces);
 			while((getline(&line, &len, f))!=-1){
 				if(strncmp(line, instruction, strlen(instruction))==0){
 					found=true;
@@ -685,17 +712,57 @@ int main(int argc, char *argv[]) {
 			fclose(f);
 			continue;
 		}
+		if(strncmp(sm.messagePrompted,"image;", strlen("image;"))==0){
+			if(strlen(sm.messagePrompted)==strlen("image;")){
+				if(sm.imageFile){
+					free(sm.imageFile);
+					sm.imageFile=NULL;
+				}
+				continue;
+			}
+			char img[255]="";
+			int idx=0;
+			bool ltrim=true;
+			for(int i=strlen("image;");sm.messagePrompted[i]!=0;i++){
+				if(ltrim && sm.messagePrompted[i]==' ') continue;
+				ltrim=false;
+				img[idx]=sm.messagePrompted[i];
+				idx++;
+			}
+			char fullPath[2048]="";
+			if(img[0]=='~' || strncmp(img,"/home/", strlen("/home/")!=0)){
+				struct passwd *user_info = getpwuid(getuid());
+				strcat(fullPath, user_info->pw_dir);
+				strcat(fullPath, "/");
+				(img[0]=='~')?(strcat(fullPath,img+1)):(strcat(fullPath,img));
+			}else{
+				strcat(fullPath, "/");
+				strcat(fullPath,img);
+			}
+			char* absolutePath = realpath(fullPath, NULL);
+			if(validate_file(absolutePath)!=OCL_RETURN_OK){
+				print_error_msg("Image file not found.","",false);
+				continue;
+			}
+			free(sm.imageFile);
+			sm.imageFile=malloc(strlen(absolutePath)+1);
+			memset(sm.imageFile,0,strlen(absolutePath)+1);
+			snprintf(sm.imageFile,strlen(absolutePath)+1,"%s",absolutePath);
+			add_history(sm.messagePrompted);
+			continue;
+		}
 		if(check_model_loaded()){
 			pthread_t tSendingMessage;
 			printf("\n");
-			pthread_create(&tSendingMessage, NULL, start_sending_message, messagePrompted);
-			add_history(messagePrompted);
+			pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
+			add_history(sm.messagePrompted);
 			pthread_join(tSendingMessage,NULL);
 			if(showResponseInfo && !oclCanceled) print_response_info();
 			printf("\n");
 		}
 	}while(true);
-	free(messagePrompted);
+	free(sm.messagePrompted);
+	free(sm.imageFile);
 	close_program();
 	printf("%s\n\n","\e[0m");
 	exit(EXIT_SUCCESS);

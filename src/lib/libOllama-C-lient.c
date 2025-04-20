@@ -21,6 +21,7 @@
 #include <string.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <stdint.h>
 
 #define BUFFER_SIZE_1K				(1024)
 #define BUFFER_SIZE_2K				(1024*2)
@@ -207,7 +208,8 @@ int OCl_free(OCl *ocl){
 	return OCL_RETURN_OK;
 }
 
-int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, const char *socketConnTo, const char *socketSendTo
+int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, const char *socketConnTo, 
+		const char *socketSendTo
 		,const char *socketRecvTo, const char *model, const char *keepAlive, const char *systemRole
 		,const char *maxContextMsg, const char *temp, const char *maxTokensCtx, const char *contextFile){
 	*ocl=malloc(sizeof(OCl));
@@ -338,7 +340,7 @@ int OCl_import_static_context(const char *filename){
 }
 
 int OCl_import_context(const OCl *ocl){
-	if(!strcmp(ocl->contextFile,"\n")){
+	if(strlen(ocl->contextFile)>0){
 		FILE *f=fopen(ocl->contextFile,"r");
 		if(f==NULL) return OCL_ERR_OPENING_FILE_ERROR;
 		size_t len=0, i=0;
@@ -731,7 +733,60 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	return totalBytesReceived;
 }
 
-int OCl_send_chat(OCl *ocl, const char *message, void (*callback)(const char *)){
+static char encoding_table[]=
+		{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+		'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+		'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+		'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+		'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+		'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+		'w', 'x', 'y', 'z', '0', '1', '2', '3',
+		'4', '5', '6', '7', '8', '9', '+', '/'};
+
+static char *decoding_table=NULL;
+static int mod_table[]={0,2,1};
+
+void build_decoding_table() {
+	decoding_table = malloc(256);
+	for (int i=0;i<64;i++) decoding_table[(unsigned char) encoding_table[i]] = i;
+}
+
+char * base64_encode(const char* fileName, size_t *outLen) {
+	FILE *f=fopen(fileName, "rb");
+	fseek(f,0,SEEK_END);
+	size_t inLen=ftell(f);
+	rewind(f);
+	unsigned char *data=malloc(inLen);
+	size_t br=fread(data,1,inLen,f);
+	if (br!=inLen) {
+		free(data);
+		fclose(f);
+		return NULL;
+	}
+	*outLen = 4*((inLen+2)/3);
+	char *encodedData = malloc(*outLen);
+	if(encodedData == NULL) return NULL;
+	for(size_t i=0, j=0; i<inLen;) {
+		uint32_t octetA=i<inLen ? (unsigned char)data[i++] : 0;
+		uint32_t octetB=i<inLen ? (unsigned char)data[i++] : 0;
+		uint32_t octetC=i<inLen ? (unsigned char)data[i++] : 0;
+		uint32_t triple = (octetA << 0x10) + (octetB << 0x08) + octetC;
+		encodedData[j++] = encoding_table[(triple >> 3 * 6) & 0x3F];
+		encodedData[j++] = encoding_table[(triple >> 2 * 6) & 0x3F];
+		encodedData[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
+		encodedData[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
+	}
+	for(int i=0; i<mod_table[inLen % 3]; i++) encodedData[*outLen-1-i]='=';
+	return encodedData;
+}
+
+int OCl_send_chat(OCl *ocl, const char *message,const char *imageFile ,void (*callback)(const char *)){
+	char *imageFileBase64=NULL;
+	size_t imageFileSize=0;
+	if(imageFile!=NULL){
+		imageFileBase64=base64_encode(imageFile, &imageFileSize);
+		if(imageFileBase64==NULL) return OCL_ERR_BASE64_ENCODING_ERROR;
+	}
 	char *messageParsed=NULL;
 	parse_input(&messageParsed, message);
 	char *context=malloc(1), *buf=NULL;
@@ -754,7 +809,6 @@ int OCl_send_chat(OCl *ocl, const char *message, void (*callback)(const char *))
 		temp=temp->nextMessage;
 		free(buf);
 	}
-
 	if(message[strlen(message)-1]!=';'){
 		temp=rootContextMessages;
 		while(temp!=NULL){
@@ -782,24 +836,43 @@ int OCl_send_chat(OCl *ocl, const char *message, void (*callback)(const char *))
 			+strlen(roleParsed)
 			+strlen(context)
 			+strlen(messageParsed)
+			+imageFileSize
 			+512;
 	char *body=malloc(len);
 	memset(body,0,len);
-	snprintf(body,len,
-			"{\"model\":\"%s\","
-			"\"temperature\": %f,"
-			"\"num_ctx\": %d,"
-			"\"stream\": %s,"
-			"\"keep_alive\": -1,"
-			"\"stop\": null,"
-			"\"messages\":["
-			"{\"role\":\"system\",\"content\":\"%s\"},"
-			"%s""{\"role\": \"user\",\"content\": \"%s\"}]}",
-			ocl->model,
-			ocl->temp,
-			ocl->maxTokensCtx,"true",
-			roleParsed,context,
-			messageParsed);
+	if(imageFileBase64){
+		snprintf(body,len,
+				"{\"model\":\"%s\","
+				"\"temperature\": %f,"
+				"\"num_ctx\": %d,"
+				"\"stream\": %s,"
+				"\"keep_alive\": -1,"
+				"\"stop\": null,"
+				"\"messages\":["
+				"{\"role\":\"system\",\"content\":\"%s\"},"
+				"%s""{\"role\": \"user\",\"content\": \"%s\",\"images\": [\"%s\"]}]}",
+				ocl->model,
+				ocl->temp,
+				ocl->maxTokensCtx,"true",
+				roleParsed,context,
+				messageParsed, imageFileBase64);
+	}else{
+		snprintf(body,len,
+				"{\"model\":\"%s\","
+				"\"temperature\": %f,"
+				"\"num_ctx\": %d,"
+				"\"stream\": %s,"
+				"\"keep_alive\": -1,"
+				"\"stop\": null,"
+				"\"messages\":["
+				"{\"role\":\"system\",\"content\":\"%s\"},"
+				"%s""{\"role\": \"user\",\"content\": \"%s\"}]}",
+				ocl->model,
+				ocl->temp,
+				ocl->maxTokensCtx,"true",
+				roleParsed,context,
+				messageParsed);
+	}
 	free(context);
 	free(roleParsed);
 	len=strlen(ocl->srvAddr)+sizeof(ocl->srvPort)+sizeof((int) strlen(body))+strlen(body)+512;

@@ -21,7 +21,7 @@
 #define OCL_MAJOR_VERSION						"0"
 #define OCL_MINOR_VERSION						"0"
 #define OCL_MICRO_VERSION						"1"
-#define OCL_VERSION								PROGRAM_MAJOR_VERSION"."PROGRAM_MINOR_VERSION"."PROGRAM_MICRO_VERSION
+#define OCL_VERSION								PROGRAM_MAJOR_VERSION"." PROGRAM_MINOR_VERSION"." PROGRAM_MICRO_VERSION
 #define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
 #define OCL_DBG									printf("\nWTFFF?!?!\n");
@@ -65,6 +65,7 @@ enum ocl_errors{
 	OCL_ERR_ZEROBYTESRECV_ERROR,
 	OCL_ERR_MODEL_FILE_NOT_FOUND,
 	OCL_ERR_CONTEXT_FILE_NOT_FOUND,
+	OCL_ERR_BASE64_ENCODING_ERROR,
 	OCL_ERR_CERT_FILE_NOT_FOUND,
 	OCL_ERR_OPENING_FILE_ERROR,
 	OCL_ERR_CONTEXT_FILE_CORRUPTED,
@@ -101,7 +102,7 @@ int OCl_free(OCl *);
 
 int OCl_flush_context();
 int OCl_load_model(OCl *, bool load);
-int OCl_send_chat(OCl *, const char *, void (*)(const char *));
+int OCl_send_chat(OCl *, const char *, const char *, void (*)(const char *));
 int OCl_check_service_status(OCl *);
 int OCl_check_model_loaded(OCl *);
 int OCl_import_static_context(const char *);

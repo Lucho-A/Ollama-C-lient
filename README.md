@@ -16,6 +16,7 @@ Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lu
 - it supports 'pipe' redirection
 - it supports history of queries during the session
 - it supports changing system-roles, models, and adding pre-defined instructions to prompt
+- it supports loading images
 - at the moment, the output is only streamed (except when piped)
 - allows to show the response's info
 - allows to hide/show the model's 'thoughts' (like DeepSeek-R1 and latest models)
@@ -60,6 +61,7 @@ The options supported are:
 |--instructions-file | string:NULL | File with the different instructions for the model.
 |--context-file | string:NULL | File where the interactions (except the queries ended with ';') will be stored.
 |--static-context-file | string:NULL | File where the interactions included into it (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as 'MAX_MSG_CTX' (it does as 'MAX_TOKENS_CTX').
+|--image-file | string:NULL | Image file to attach to the query.
 |--show-response-info | N/A:false | Option for showing the responses' information, as tokens count, duration, etc.
 |--show-thoughts | N/A:false | Option for showing what the model is 'thinking' in reasoning models like 'deepseek-r1'
 |--stdout-parsed | N/A:false | Option for parsing the output when piped (particularly useful for speeching the response)
@@ -78,8 +80,10 @@ On the other hand, some commands can be prompting:
 | role;    | string* | change the system role (included into the file '--roles-file').
 | instructions;   | N/A     | show available instructions;
 | instruction;    | string* | add the instructions entered (included into the file '--instructions-file') to prompt history.
+| image;    | string** | path to the image file to attach to the query.
 
 * If 'string' is empty, the model|role will change to the default on (included into the model file, if it was specified).
+** The image loaded will be keep as part of the successive messages. For de-attaching, just entering "image;" without any path.
 
 #### Considerations
 
@@ -142,6 +146,7 @@ $ ollama-c-lient --model-file ~/ollama/any3modelModelFile --show-thoughts
 $ ollama-c-lient --server-addr 192.168.2.10 --server-port 4433 --roles-file ~/ollama/roles --context-file ~/ollama/context --static-context-file ~/ollama/staticContextFile
 $ (echo 'What can you tell me about my storage: ' && df) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile --stdout-parsed >> log-file.log
 $ (echo 'What can you tell me about current processes: ' && ps ax) | ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model-file ~/agents/modelFile --context-file ~/agents/dfAgentContextFile --stdout-parsed --stdout-chunked | grep 'Ollama-C-lient'
+$ (echo 'What can you tell me about about this paint? ') | ollama-c-lient --setting-file ~/ollama/settingFile --model-file ~/agents/modelFile --image-file ~/paints/van-gogh.jpg
 ```
 
 #### Bugs known/unknown
