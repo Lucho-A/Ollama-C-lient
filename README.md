@@ -45,7 +45,7 @@ The options supported are:
 |--response-speed | int:0 _[>=0]_ | in microseconds, if > 0, the responses will be sending out to stdin at the interval set up.
 |--socket-connect-to | int:5 _[>=0]_ | in seconds, set up the connection time out.
 |--socket-send-to | int:5 _[>=0]_ | in seconds, set up the sending time out.
-|--socket-recv-to | int:15 _[>=0]_ | in seconds, set up the receiving time out. When a model is loading, this value is set to 60s to prevent false errors reporting.
+|--socket-recv-to | int:15 _[>=0]_ | in seconds, set up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting.
 |--model | string:NULL | model to use.
 |--temperature | double:0.5 _[>=0]_ | set the temperature of the model.
 |--keep-alive | int:300 _[>=0]_ | in seconds, tell to the server how many seconds the model will be available until unloaded.

@@ -980,7 +980,7 @@ int OCl_load_model(OCl *ocl, bool load){
 			"Content-Length: %d\r\n\r\n"
 			"%s",ocl->srvAddr,(int) strlen(body), body);
 	int prevRecvTo=ocl->socketRecvTimeout;
-	ocl->socketRecvTimeout=60;
+	ocl->socketRecvTimeout=120;
 	int retVal=0;
 	retVal=send_message(ocl, msg, NULL);
 	ocl->socketRecvTimeout=prevRecvTo;
