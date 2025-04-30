@@ -1,8 +1,9 @@
 /Debug/
-/bak/
 /.settings/
 /.cproject
 /.project
 /docs/
 /.clang-format
 /.clangd
+/bak/
+/.directory
