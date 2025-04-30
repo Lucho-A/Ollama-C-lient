@@ -62,7 +62,7 @@ The options supported are:
 |--image-file | string:NULL | Image file to attach to the query.
 |--color-font-response | string:"00;00;00" | in ANSI format, set the color used for responses.
 |--color-font-system | string:"00;00;00" | in ANSI format, set the color used for program's messages.
-|--color-font-info | string:00;"00;00" | in ANSI format, set the color used for response's info ('--show-response-info').
+|--color-font-info | string:"00;00;00" | in ANSI format, set the color used for response's info ('--show-response-info').
 |--color-font-error | string:"00;00;00" | in ANSI format, set the color used for errors.
 |--show-response-info | N/A:false | showing the responses' information, as tokens count, duration, etc.
 |--show-thoughts | N/A:false | showing what the model is 'thinking' in reasoning models like 'deepseek-r1'
