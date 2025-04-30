@@ -2,13 +2,9 @@
 
 C program for interacting with [Ollama](https://github.com/ollama/ollama) server from a Linux terminal. It is not meant to be a complete library at all. At the moment, it's just the simplest interface that I'm developing solely for my personal and daily usage.
 
-Btw, because of this, the development of [ChatGP-Terminal](https://github.com/Lucho-A/ChatGP-Terminal) it is not more maintained by now.
-
 ### Version:
 
 - 0.0.1-beta (experimental)
-
-#### Note: since Im moving on agents developing and OS integration, the View layer (Ollama-C-lient.c) will be deprecated soon.
 
 ### Disclaimer
 
@@ -55,7 +51,7 @@ The options supported are:
 |--keep-alive | int:300 _[>=0]_ | in seconds, tell to the server how many seconds the model will be available until unloaded.
 |--max-msgs-ctx | int:3 _[>=0]_ | set the maximum messages to be added as context in the messages.
 |--max-msgs-tokens | int:4096 _[>=0]_ | set the maximum tokens.
-|--system-role | string:"" | set the system role.
+|--system-role | string:"" | set the system role. Override '--system-role-file'.
 |--system-role-file | string:NULL | set the path to the file that include the system role.
 |--context-file | string:NULL | file where the interactions (except the queries ended with ';') will be stored.
 |--static-context-file | string:NULL | file where the interactions included into it (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as '--max-msgs-ctx' (it does as '--max-msgs-tokens').
@@ -90,7 +86,7 @@ The options supported are:
 
 ### Examples:
 
-##### - Chatting
+#### - Chatting
 Just using a script like:
 ```
 #!/bin/bash
@@ -125,7 +121,7 @@ echo
 exit 0
 ```
 
-##### - Scripting/Agents
+#### - Scripting/Agents
 ```
 $ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --context-file ~/agents/dfAgentContextFile.context --stdout-parsed --color-font-response "0;0;90" --response-speed 30000 >> log-file.log
 $ ./ollama-c-lient --model deepseek-r1 < prompt.txt
