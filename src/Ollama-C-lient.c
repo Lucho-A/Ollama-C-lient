@@ -63,16 +63,24 @@ struct ProgramOpts{
 	struct Colors colors;
 };
 
-struct ProgramOpts po={0};
+struct SendingMessage{
+	char *input;
+	char *imageFile;
+};
 
+struct ProgramOpts po={0};
+struct SendingMessage sm={0};
 bool isThinking=false;
+char chunkings[8196]="";
 
 static int close_program(bool finishWithErrors){
 	oclCanceled=true;
 	if(ocl) OCl_free(ocl);
+	OCl_shutdown();
 	if(po.ocl.staticContextFile!=NULL) free(po.ocl.staticContextFile);
 	if(po.ocl.contextFile!=NULL) free(po.ocl.contextFile);
 	if(po.ocl.systemRole!=NULL) free(po.ocl.systemRole);
+	if(sm.input!=NULL) free(sm.input);
 	if(isatty(fileno(stdout))) fputs("\x1b[0m\n",stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
 	exit(EXIT_SUCCESS);
@@ -106,7 +114,7 @@ static void print_error_msg(char *msg, char *error, bool exitProgram){
 		fflush(stderr);
 		usleep(po.responseSpeed);
 	}
-	fputs("\x1b[0m\n",stderr);
+	if(isatty(fileno(stderr))) fputs("\x1b[0m\n",stderr);
 	if(exitProgram) close_program(true);
 }
 
@@ -178,8 +186,6 @@ char *parse_output(const char *in){
 	return buff;
 }
 
-char chunkings[8196]="";
-
 static void print_response(char const *token, bool done){
 	if(po.stdoutParsed && po.stdoutChunked){
 		char *parsedOut=parse_output(token);
@@ -214,16 +220,12 @@ static void print_response(char const *token, bool done){
 			fputc(parsedOut[i], stdout);
 			fflush(stdout);
 		}
+		free(parsedOut);
 	}else{
 		fputs(token, stdout);
 		fflush(stdout);
 	}
 }
-
-struct SendingMessage{
-	char *input;
-	char *imageFile;
-};
 
 void *start_sending_message(void *arg){
 	struct SendingMessage *sm=arg;
@@ -260,7 +262,6 @@ int main(int argc, char *argv[]) {
 	signal(SIGHUP, signal_handler);
 	signal(SIGSEGV, signal_handler);
 	po.responseSpeed=RESPONSE_SPEED;
-	struct SendingMessage sm={0};
 	if(!isatty(fileno(stdin))){
 		char *line=NULL;
 		size_t len=0;
@@ -353,6 +354,8 @@ int main(int argc, char *argv[]) {
 		}
 		if(strcmp(argv[i],"--system-role")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(po.ocl.systemRole) free(po.ocl.systemRole);
+			po.ocl.systemRole=NULL;
 			po.ocl.systemRole=malloc(strlen(argv[i+1])+1);
 			memset(po.ocl.systemRole,0,strlen(argv[i+1])+1);
 			snprintf(po.ocl.systemRole,strlen(argv[i+1])+1,"%s",argv[i+1]);

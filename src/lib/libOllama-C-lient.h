@@ -101,6 +101,7 @@ int OCl_init();
 int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *, const char *, const char *
 		,const char *,const char *, const char *, const char *, const char *, const char *);
 int OCl_free(OCl *);
+int OCl_shutdown();
 
 int OCl_flush_context(OCl *);
 int OCl_load_model(OCl *, bool load);

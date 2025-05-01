@@ -243,6 +243,12 @@ int OCl_flush_context(OCl *ocl){
 	return OCL_RETURN_OK;
 }
 
+int OCl_shutdown(){
+	SSL_CTX_free(oclSslCtx);
+	oclSslCtx = NULL;
+	return OCL_RETURN_OK;
+}
+
 int OCl_free(OCl *ocl){
 	OCl_flush_context(ocl);
 	if(ocl->rootContextMessages) free(ocl->rootContextMessages);
@@ -431,10 +437,12 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 }
 
 static void clean_ssl(SSL *ssl){
-	SSL_shutdown(ssl);
+	SSL_free_buffers(ssl);
 	SSL_certs_clear(ssl);
 	SSL_clear(ssl);
+	SSL_shutdown(ssl);
 	SSL_free(ssl);
+	ssl = NULL;
 }
 
 int OCl_save_message(OCl *ocl, char *userMessage, char *assistantMessage){
