@@ -67,13 +67,14 @@ struct ProgramOpts po={0};
 
 bool isThinking=false;
 
-static int close_program(){
+static int close_program(bool finishWithErrors){
 	oclCanceled=true;
 	if(ocl) OCl_free(ocl);
 	if(po.ocl.staticContextFile!=NULL) free(po.ocl.staticContextFile);
 	if(po.ocl.contextFile!=NULL) free(po.ocl.contextFile);
 	if(po.ocl.systemRole!=NULL) free(po.ocl.systemRole);
-	printf("\n");
+	if(isatty(fileno(stdout))) fputs("\x1b[0m\n",stdout);
+	if(finishWithErrors) exit(EXIT_FAILURE);
 	exit(EXIT_SUCCESS);
 }
 
@@ -85,7 +86,7 @@ static void signal_handler(int signalType){
 		oclCanceled=true;
 		break;
 	case SIGHUP:
-		close_program();
+		close_program(true);
 		break;
 	case SIGPIPE:
 	default:
@@ -95,28 +96,38 @@ static void signal_handler(int signalType){
 
 static void print_error_msg(char *msg, char *error, bool exitProgram){
 	char errMsg[1024]="";
-	snprintf(errMsg,1024,"%s\nERROR: %s %s\n",po.colors.colorFontError, msg,error);
+	if(isatty(fileno(stderr))){
+		snprintf(errMsg,1024,"%sERROR: %s %s\n",po.colors.colorFontError, msg,error);
+	}else{
+		snprintf(errMsg,1024,"ERROR: %s %s\n",msg,error);
+	}
 	for(size_t i=0;i<strlen(errMsg);i++){
-		printf("%c",errMsg[i]);
-		fflush(stdout);
+		fputc(errMsg[i],stderr);
+		fflush(stderr);
 		usleep(po.responseSpeed);
 	}
-	if(exitProgram) close_program();
+	fputs("\x1b[0m\n",stderr);
+	if(exitProgram) close_program(true);
 }
 
 static void print_system_msg(char *msg){
 	char sysMsg[1024]="";
-	snprintf(sysMsg,1024,"%s%s\n",po.colors.colorFontSystem,msg);
+	if(isatty(fileno(stdout))){
+		snprintf(sysMsg,1024,"%s%s\n",po.colors.colorFontSystem,msg);
+	}else{
+		snprintf(sysMsg,1024,"%s\n",msg);
+	}
 	for(size_t i=0;i<strlen(sysMsg);i++){
-		printf("%c",sysMsg[i]);
+		fputc(sysMsg[i],stdout);
 		fflush(stdout);
 		usleep(po.responseSpeed);
 	}
+	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 }
 
 
 static void print_response_info(){
-	printf("%s\n\n", po.colors.colorFontInfo);
+	if(isatty(fileno(stdout))) printf("%s\n\n", po.colors.colorFontInfo);
 	printf("- load_duration (time spent loading the model): %f\n",OCL_get_response_load_duration(ocl));
 	printf("- prompt_eval_duration (time spent evaluating the prompt): %f\n",OCL_get_response_prompt_eval_duration(ocl));
 	printf("- eval_duration (time spent generating the response): %f\n",OCL_get_response_eval_duration(ocl));
@@ -124,6 +135,7 @@ static void print_response_info(){
 	printf("- prompt_eval_count (number of tokens in the prompt): %d\n",OCL_get_response_prompt_eval_count(ocl));
 	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_response_eval_count(ocl));
 	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
+	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 }
 
 char *parse_output(const char *in){
@@ -166,7 +178,7 @@ char *parse_output(const char *in){
 	return buff;
 }
 
-char chunkings[1024]="";
+char chunkings[8196]="";
 
 static void print_response(char const *token, bool done){
 	if(po.stdoutParsed && po.stdoutChunked){
@@ -175,22 +187,23 @@ static void print_response(char const *token, bool done){
 		if(strstr(parsedOut, "\n") || done){
 			fputs(chunkings, stdout);
 			fflush(stdout);
-			memset(chunkings,0,1024);
+			memset(chunkings,0,8196);
 		}
 		free(parsedOut);
 		return;
 	}
 	if(po.responseSpeed==0) return;
-	printf("%s",po.colors.colorFontResponse);
 	if(strstr(token, "\\u003cthink\\u003e")!=NULL){
 		isThinking=true;
-		printf("\x1b[3m(Thinking...)\x1b[23m\n");
+		fputs("(Thinking...)\n", stdout);
+		fflush(stdout);
 		if(po.showThoughts) isThinking=false;
 		return;
 	}
 	if(strstr(token, "\\u003c/think\\u003e")!=NULL){
 		isThinking=false;
-		printf("\x1b[3m(Stop thinking...)\x1b[23m");
+		fputs("(Stop thinking...)\n", stdout);
+		fflush(stdout);
 		return;
 	}
 	if(isThinking) return;
@@ -198,11 +211,11 @@ static void print_response(char const *token, bool done){
 		char *parsedOut=parse_output(token);
 		for(size_t i=0;i<strlen(parsedOut);i++){
 			usleep(po.responseSpeed);
-			printf("%c",parsedOut[i]);
+			fputc(parsedOut[i], stdout);
 			fflush(stdout);
 		}
 	}else{
-		printf("%s",token);
+		fputs(token, stdout);
 		fflush(stdout);
 	}
 }
@@ -267,7 +280,7 @@ int main(int argc, char *argv[]) {
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0 || strcmp(argv[i],"--help")==0){
 			BANNER
-			close_program();
+			close_program(false);
 		}
 		if(strcmp(argv[i],"--server-addr")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
@@ -445,6 +458,7 @@ int main(int argc, char *argv[]) {
 		}
 		print_error_msg(argv[i],": argument not recognized",true);
 	}
+	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 	if((retVal=OCl_get_instance(
 			&ocl,
 			po.ocl.serverAddr,
@@ -470,9 +484,9 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 		for(int i=0;i<cantModels;i++){
-			printf("%s  - ", po.colors.colorFontSystem);
+				printf("  - ");
 			for(size_t j=0;j<strlen(models[i]);j++){
-				printf("%c", models[i][j]);
+				fputc(models[i][j], stdout);
 				fflush(stdout);
 				usleep(po.responseSpeed);
 			}
@@ -502,6 +516,6 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 		}
 	}
-	close_program();
+	close_program(false);
 }
 
