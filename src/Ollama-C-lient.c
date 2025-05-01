@@ -376,6 +376,7 @@ int main(int argc, char *argv[]) {
 					po.ocl.systemRole=realloc(po.ocl.systemRole,strlen(po.ocl.systemRole)+chars+1);
 					strcat(po.ocl.systemRole,line);
 				}
+				fclose(f);
 				free(line);
 			}
 			i++;
@@ -502,6 +503,7 @@ int main(int argc, char *argv[]) {
 			pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
 			pthread_join(tSendingMessage,NULL);
 			free(sm.input);
+			sm.input=NULL;
 			if(po.responseSpeed==0){
 				if(!po.stdoutParsed){
 					fputs(OCL_get_response(ocl), stdout);

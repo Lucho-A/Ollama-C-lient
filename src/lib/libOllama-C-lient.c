@@ -231,6 +231,18 @@ int OCl_init(){
 	return OCL_RETURN_OK;
 }
 
+static int OCl_flush_static_context(OCl *ocl){
+	while(ocl->rootStaticContextMessages!=NULL){
+		Message *temp=ocl->rootStaticContextMessages;
+		ocl->rootStaticContextMessages=temp->nextMessage;
+		if(temp->userMessage!=NULL) free(temp->userMessage);
+		if(temp->assistantMessage!=NULL) free(temp->assistantMessage);
+		free(temp);
+	}
+	ocl->rootStaticContextMessages=0;
+	return OCL_RETURN_OK;
+}
+
 int OCl_flush_context(OCl *ocl){
 	while(ocl->rootContextMessages!=NULL){
 		Message *temp=ocl->rootContextMessages;
@@ -251,6 +263,7 @@ int OCl_shutdown(){
 
 int OCl_free(OCl *ocl){
 	OCl_flush_context(ocl);
+	OCl_flush_static_context(ocl);
 	if(ocl->rootContextMessages) free(ocl->rootContextMessages);
 	if(ocl->rootStaticContextMessages) free(ocl->rootStaticContextMessages);
 	if(ocl->staticContextFile) free(ocl->staticContextFile);
