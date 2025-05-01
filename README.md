@@ -65,7 +65,7 @@ The options supported are:
 |--show-models | N/A:false | show the models available.
 |--show-loading-models | N/A:false | show a message when a model is loading.
 |--stdout-parsed | N/A:false | parsing the output when piped (useful for speeching/chatting)
-|--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set, and the output is always uncolored.
+|--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set.
 
 ###### Note: all options are optional (really?!).
 
@@ -76,10 +76,9 @@ The options supported are:
 - So, if '--max-msgs-ctx' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions. (1)
 - If '--max-msgs-ctx' == 0, the interactions won't be recorded into context file.
 - If '--stdout-chunked', '--response-speed' is deprecated.
-- the font format in '--font-...' must be ANSI (XX;XX;XX).
+- the font format in '--font-...' must be ANSI ("XX;XX;XX").
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ('--max-msgs-ctx') and won't be written to the context file,
 - If the entered **prompt finish with ';'**, the query/response won't be part of subsequent context messages. (1)
-- If '--response-speed' is 0, the output is always uncolored.
 - Crl-C cancel the responses.
 
 ###### (1) only relevant for developing purposes using the library.
