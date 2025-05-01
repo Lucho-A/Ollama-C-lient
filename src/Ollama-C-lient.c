@@ -77,10 +77,14 @@ static int close_program(bool finishWithErrors){
 	oclCanceled=true;
 	if(ocl) OCl_free(ocl);
 	OCl_shutdown();
-	if(po.ocl.staticContextFile!=NULL) free(po.ocl.staticContextFile);
-	if(po.ocl.contextFile!=NULL) free(po.ocl.contextFile);
-	if(po.ocl.systemRole!=NULL) free(po.ocl.systemRole);
-	if(sm.input!=NULL) free(sm.input);
+	free(po.ocl.staticContextFile);
+	po.ocl.staticContextFile=NULL;
+	free(po.ocl.contextFile);
+	po.ocl.contextFile=NULL;
+	free(po.ocl.systemRole);
+	po.ocl.systemRole=NULL;
+	free(sm.input);
+	sm.input=NULL;
 	if(isatty(fileno(stdout))) fputs("\x1b[0m\n",stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
 	exit(EXIT_SUCCESS);
@@ -196,6 +200,7 @@ static void print_response(char const *token, bool done){
 			memset(chunkings,0,8196);
 		}
 		free(parsedOut);
+		parsedOut=NULL;
 		return;
 	}
 	if(po.responseSpeed==0) return;
@@ -221,6 +226,7 @@ static void print_response(char const *token, bool done){
 			fflush(stdout);
 		}
 		free(parsedOut);
+		parsedOut=NULL;
 	}else{
 		fputs(token, stdout);
 		fflush(stdout);
@@ -274,6 +280,7 @@ int main(int argc, char *argv[]) {
 		}
 		sm.input[strlen(sm.input)-1]=0;
 		free(line);
+		line=NULL;
 	}
 	int retVal=0;
 	if((retVal=OCl_init())!=OCL_RETURN_OK)
@@ -354,7 +361,7 @@ int main(int argc, char *argv[]) {
 		}
 		if(strcmp(argv[i],"--system-role")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
-			if(po.ocl.systemRole) free(po.ocl.systemRole);
+			free(po.ocl.systemRole);
 			po.ocl.systemRole=NULL;
 			po.ocl.systemRole=malloc(strlen(argv[i+1])+1);
 			memset(po.ocl.systemRole,0,strlen(argv[i+1])+1);
@@ -378,6 +385,7 @@ int main(int argc, char *argv[]) {
 				}
 				fclose(f);
 				free(line);
+				line=NULL;
 			}
 			i++;
 			continue;
@@ -514,6 +522,7 @@ int main(int argc, char *argv[]) {
 						fputs(out, stdout);
 						fflush(stdout);
 						free(out);
+						out=NULL;
 					}
 				}
 			}

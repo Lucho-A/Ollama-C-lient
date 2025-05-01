@@ -71,6 +71,11 @@ struct _ocl_response{
 	double tokensPerSec;
 };
 
+static void sfree(void *p){
+	free(p);
+	p=NULL;
+}
+
 static int parse_input(char **stringTo, char const *stringFrom){
 	if(stringFrom==NULL) return OCL_RETURN_OK;
 	int cont=0, contEsc=0;
@@ -87,7 +92,7 @@ static int parse_input(char **stringTo, char const *stringFrom){
 			break;
 		}
 	}
-	if(*stringTo) free(*stringTo);
+	if(*stringTo) sfree(*stringTo);
 	*stringTo=malloc(strlen(stringFrom)+contEsc+1);
 	memset(*stringTo,0,strlen(stringFrom)+contEsc+1);
 	for(size_t i=0;i<strlen(stringFrom);i++,cont++){
@@ -159,7 +164,7 @@ static int OCl_set_keepalive(OCl *ocl, char const *keepalive){
 }
 
 int OCl_set_role(OCl *ocl, const char *role){
-	if(ocl->systemRole) free(ocl->systemRole);
+	sfree(ocl->systemRole);
 	ocl->systemRole=malloc(1);
 	ocl->systemRole[0]=0;
 	parse_input(&(ocl->systemRole), role);
@@ -235,9 +240,11 @@ static int OCl_flush_static_context(OCl *ocl){
 	while(ocl->rootStaticContextMessages!=NULL){
 		Message *temp=ocl->rootStaticContextMessages;
 		ocl->rootStaticContextMessages=temp->nextMessage;
-		if(temp->userMessage!=NULL) free(temp->userMessage);
-		if(temp->assistantMessage!=NULL) free(temp->assistantMessage);
-		free(temp);
+		sfree(temp->userMessage);
+		sfree(temp->assistantMessage);
+		temp->assistantMessage=NULL;
+		sfree(temp);
+		temp=NULL;
 	}
 	ocl->rootStaticContextMessages=0;
 	return OCL_RETURN_OK;
@@ -247,9 +254,9 @@ int OCl_flush_context(OCl *ocl){
 	while(ocl->rootContextMessages!=NULL){
 		Message *temp=ocl->rootContextMessages;
 		ocl->rootContextMessages=temp->nextMessage;
-		if(temp->userMessage!=NULL) free(temp->userMessage);
-		if(temp->assistantMessage!=NULL) free(temp->assistantMessage);
-		free(temp);
+		sfree(temp->userMessage);
+		sfree(temp->assistantMessage);
+		sfree(temp);
 	}
 	ocl->contContextMessages=0;
 	return OCL_RETURN_OK;
@@ -264,13 +271,13 @@ int OCl_shutdown(){
 int OCl_free(OCl *ocl){
 	OCl_flush_context(ocl);
 	OCl_flush_static_context(ocl);
-	if(ocl->rootContextMessages) free(ocl->rootContextMessages);
-	if(ocl->rootStaticContextMessages) free(ocl->rootStaticContextMessages);
-	if(ocl->staticContextFile) free(ocl->staticContextFile);
-	if(ocl->contextFile) free(ocl->contextFile);
-	if(ocl->systemRole) free(ocl->systemRole);
-	if(ocl->ocl_resp) free(ocl->ocl_resp);
-	if(ocl) free(ocl);
+	sfree(ocl->rootContextMessages);
+	sfree(ocl->rootStaticContextMessages);
+	sfree(ocl->staticContextFile);
+	sfree(ocl->contextFile);
+	sfree(ocl->systemRole);
+	sfree(ocl->ocl_resp);
+	sfree(ocl);
 	return OCL_RETURN_OK;
 }
 
@@ -299,9 +306,9 @@ static void create_new_context_message(OCl *ocl, char *userMessage, char *assist
 	if(ocl->rootContextMessages!=NULL){
 		if(ocl->contContextMessages>=ocl->maxHistoryCtx){
 			Message *temp=ocl->rootContextMessages->nextMessage;
-			if(ocl->rootContextMessages->userMessage!=NULL) free(ocl->rootContextMessages->userMessage);
-			if(ocl->rootContextMessages->assistantMessage!=NULL) free(ocl->rootContextMessages->assistantMessage);
-			free(ocl->rootContextMessages);
+			sfree(ocl->rootContextMessages->userMessage);
+			sfree(ocl->rootContextMessages->assistantMessage);
+			sfree(ocl->rootContextMessages);
 			ocl->rootContextMessages=temp;
 		}
 		Message *temp=ocl->rootContextMessages;
@@ -327,7 +334,7 @@ static int OCl_import_static_context(OCl *ocl){
 		char *line=NULL, *userMessage=NULL,*assistantMessage=NULL;
 		while((chars=getline(&line, &len, f))!=-1){
 			if(strstr(line,"\t")==NULL){
-				free(line);
+				sfree(line);
 				fclose(f);
 				return OCL_ERR_CONTEXT_FILE_CORRUPTED;
 			}
@@ -339,10 +346,10 @@ static int OCl_import_static_context(OCl *ocl){
 			memset(assistantMessage,0,chars+1);
 			for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
 			create_new_static_context_message(ocl, userMessage, assistantMessage);
-			free(userMessage);
-			free(assistantMessage);
+			sfree(userMessage);
+			sfree(assistantMessage);
 		}
-		free(line);
+		sfree(line);
 		fclose(f);
 	}
 	return OCL_RETURN_OK;
@@ -363,7 +370,7 @@ static int OCl_import_context(OCl *ocl){
 		while((chars=getline(&line, &len, f))!=-1){
 			if(rows>1){
 				if(strstr(line,"\t")==NULL){
-					free(line);
+					sfree(line);
 					fclose(f);
 					return OCL_ERR_CONTEXT_FILE_CORRUPTED;
 				}
@@ -376,13 +383,13 @@ static int OCl_import_context(OCl *ocl){
 					memset(assistantMessage,0,chars+1);
 					for(i++;line[i]!='\n';i++,index++) assistantMessage[index]=line[i];
 					create_new_context_message(ocl, userMessage, assistantMessage);
-					free(userMessage);
-					free(assistantMessage);
+					sfree(userMessage);
+					sfree(assistantMessage);
 				}
 				contRows++;
 			}
 		}
-		free(line);
+		sfree(line);
 		fclose(f);
 	}
 	return OCL_RETURN_OK;
@@ -808,7 +815,7 @@ int base64_encode(const char* fileName, size_t *outLen, char **encodedData) {
 	unsigned char *data=malloc(inLen);
 	size_t br=fread(data,1,inLen,f);
 	if (br!=inLen) {
-		free(data);
+		sfree(data);
 		fclose(f);
 		return OCL_ERR_IMAGE_FILE;
 	}
@@ -847,8 +854,8 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 		len=strlen(contextTemplate)+strlen(temp->userMessage)+strlen(temp->assistantMessage);
 		buf=malloc(len);
 		if(buf==NULL){
-			free(messageParsed);
-			free(context);
+			sfree(messageParsed);
+			sfree(context);
 			return OCL_ERR_MALLOC;
 		}
 		memset(buf,0,len);
@@ -856,7 +863,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 		context=realloc(context, strlen(context)+strlen(buf)+1);
 		strcat(context,buf);
 		temp=temp->nextMessage;
-		free(buf);
+		sfree(buf);
 	}
 	if(message[strlen(message)-1]!=';'){
 		temp=ocl->rootContextMessages;
@@ -864,8 +871,8 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 			len=strlen(contextTemplate)+strlen(temp->userMessage)+strlen(temp->assistantMessage);
 			buf=malloc(len);
 			if(buf==NULL){
-				free(messageParsed);
-				free(context);
+				sfree(messageParsed);
+				sfree(context);
 				return OCL_ERR_MALLOC;
 			}
 			memset(buf,0,len);
@@ -873,7 +880,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 			context=realloc(context, strlen(context)+strlen(buf)+1);
 			strcat(context,buf);
 			temp=temp->nextMessage;
-			free(buf);
+			sfree(buf);
 		}
 	}
 	len=
@@ -920,7 +927,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				ocl->systemRole,context,
 				messageParsed);
 	}
-	free(context);
+	sfree(context);
 	len=strlen(ocl->srvAddr)+sizeof(ocl->srvPort)+sizeof((int) strlen(body))+strlen(body)+512;
 	char *msg=malloc(len);
 	memset(msg,0,len);
@@ -932,19 +939,19 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 			"Content-Type: application/json; charset=utf-8\r\n"
 			"Content-Length: %d\r\n\r\n"
 			"%s",ocl->srvAddr,(int) strlen(body), body);
-	free(body);
+	sfree(body);
 	int retVal=send_message(ocl, msg, callback);
-	free(msg);
+	sfree(msg);
 	if(retVal<0){
-		free(messageParsed);
+		sfree(messageParsed);
 		return retVal;
 	}
 	if(retVal==0){
-		free(messageParsed);
+		sfree(messageParsed);
 		return OCL_ERR_RECV_TIMEOUT;
 	}
 	if((strstr(ocl->ocl_resp->response,"\"done\":true")==NULL || strstr(ocl->ocl_resp->response,"\"done\": true")!=NULL) && !oclCanceled){
-		free(messageParsed);
+		sfree(messageParsed);
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
 	}
 	if(!oclCanceled && retVal>0){
@@ -961,7 +968,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 			if(ocl->maxHistoryCtx>0) OCl_save_message(ocl, messageParsed, ocl->ocl_resp->content);
 		}
 	}
-	free(messageParsed);
+	sfree(messageParsed);
 	return OCL_RETURN_OK;
 }
 
