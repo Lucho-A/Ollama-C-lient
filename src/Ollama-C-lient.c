@@ -85,7 +85,7 @@ static int close_program(bool finishWithErrors){
 	po.ocl.systemRole=NULL;
 	free(sm.input);
 	sm.input=NULL;
-	if(isatty(fileno(stdout))) fputs("\x1b[0m\n",stdout);
+	if(isatty(fileno(stdout))) fputs("\x1b[0m",stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
 	exit(EXIT_SUCCESS);
 }
@@ -118,7 +118,7 @@ static void print_error_msg(char *msg, char *error, bool exitProgram){
 		fflush(stderr);
 		usleep(po.responseSpeed);
 	}
-	if(isatty(fileno(stderr))) fputs("\x1b[0m\n",stderr);
+	if(isatty(fileno(stderr))) fputs("\x1b[0m",stderr);
 	if(exitProgram) close_program(true);
 }
 
@@ -239,7 +239,7 @@ void *start_sending_message(void *arg){
 	if(retVal!=OCL_RETURN_OK){
 		if(oclCanceled) printf("\n");
 		oclCanceled=true;
-		print_error_msg(OCL_error_handling(ocl, retVal),"",false);
+		print_error_msg(OCL_error_handling(ocl, retVal),"",true);
 	}
 	pthread_exit(NULL);
 }
@@ -253,7 +253,6 @@ bool check_model_loaded(){
 		}
 		if(po.showLoadingModels) print_system_msg("Loading model..\n");
 		if((retVal=OCl_load_model(ocl, true))<0){
-			printf("\n");
 			print_error_msg(OCL_error_handling(ocl,retVal),"",false);
 			return false;
 		}
@@ -491,10 +490,8 @@ int main(int argc, char *argv[]) {
 		char models[512][512]={""};
 		int cantModels=OCl_get_models(ocl, models);
 		if(cantModels<0) {
-			printf("\n");
 			print_error_msg(OCL_error_handling(ocl,cantModels),"",true);
 		}
-		printf("\n");
 		for(int i=0;i<cantModels;i++){
 				printf("  - ");
 			for(size_t j=0;j<strlen(models[i]);j++){
@@ -512,7 +509,7 @@ int main(int argc, char *argv[]) {
 			pthread_join(tSendingMessage,NULL);
 			free(sm.input);
 			sm.input=NULL;
-			if(po.responseSpeed==0){
+			if(po.responseSpeed==0 && !oclCanceled){
 				if(!po.stdoutParsed){
 					fputs(OCL_get_response(ocl), stdout);
 					fflush(stdout);

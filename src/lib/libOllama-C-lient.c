@@ -719,6 +719,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	memset(ocl->ocl_resp->response,0,BUFFER_SIZE_128K);
 	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
 	bool done=false;
+	bool respOk=false;
 	do{
 		FD_ZERO(&rFdset);
 		FD_SET(socketConn, &rFdset);
@@ -736,6 +737,21 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 		}
 		char buffer[BUFFER_SIZE_16K]="";
 		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
+		const char *err=NULL;
+		if(((err=strstr(buffer,"{\"error\":\""))!=NULL) &&
+				((strncmp(buffer, "HTTP/1.1 404 Not Found", strlen("HTTP/1.1 404 Not Found"))==0) ||
+				(strncmp(buffer, "HTTP/1.1 400 Bad Request", strlen("HTTP/1.1 400 Bad Request"))==0))){
+			strcat(ocl->ocl_resp->error,err);
+			close(socketConn);
+			clean_ssl(sslConn);
+			return OCL_ERR_MSG_FOUND;
+		}
+		if(!respOk && strncmp(buffer, "HTTP/1.1 200 OK", strlen("HTTP/1.1 200 OK"))!=0){
+			close(socketConn);
+			clean_ssl(sslConn);
+			return OCL_ERR_SERVICE_UNAVAILABLE;
+		}
+		respOk=true;
 		if(bytesReceived<0){
 			oclSslError=SSL_get_error(sslConn, bytesReceived);
 			clean_ssl(sslConn);
@@ -767,18 +783,6 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			if(done || strstr(buffer,"{\"models\":[{\"")!=NULL){
 				strcat(ocl->ocl_resp->response,buffer);
 				break;
-			}
-			const char *err=NULL;
-			if((err=strstr(buffer,"{\"error\":\""))!=NULL){
-				strcat(ocl->ocl_resp->error,err);
-				close(socketConn);
-				clean_ssl(sslConn);
-				return OCL_ERR_MSG_FOUND;
-			}
-			if(strstr(buffer,"HTTP/1.1 503 Service Unavailable")!=NULL){
-				close(socketConn);
-				clean_ssl(sslConn);
-				return OCL_ERR_SERVICE_UNAVAILABLE;
 			}
 		}
 		if(!SSL_pending(sslConn)) break;
