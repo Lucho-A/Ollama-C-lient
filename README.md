@@ -64,7 +64,7 @@ The options supported are:
 |--show-thoughts | N/A:false | showing what the model is 'thinking' in reasoning models like 'deepseek-r1'
 |--show-models | N/A:false | show the models available.
 |--show-loading-models | N/A:false | show a message when a model is loading.
-|--stdout-parsed | N/A:false | parsing the output when piped (useful for speeching/chatting)
+|--stdout-parsed | N/A:false | parsing the output (useful for speeching/chatting)
 |--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set.
 
 ###### Note: all options are optional (really?!).
