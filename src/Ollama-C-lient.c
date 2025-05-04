@@ -36,6 +36,7 @@ struct OclParams{
 	char socketRecvTo[8];
 	char model[128];
 	char temp[8];
+	char seed[8];
 	char keepalive[8];
 	char maxMsgCtx[8];
 	char maxTokensCtx[8];
@@ -340,6 +341,12 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
+		if(strcmp(argv[i],"--seed")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			snprintf(po.ocl.seed,8,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--keep-alive")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
 			snprintf(po.ocl.keepalive,8,"%s",argv[i+1]);
@@ -482,6 +489,7 @@ int main(int argc, char *argv[]) {
 			po.ocl.systemRole,
 			po.ocl.maxMsgCtx,
 			po.ocl.temp,
+			po.ocl.seed,
 			po.ocl.maxTokensCtx,
 			po.ocl.contextFile,
 			po.ocl.staticContextFile))!=OCL_RETURN_OK)

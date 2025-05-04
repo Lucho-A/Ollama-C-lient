@@ -48,6 +48,7 @@ typedef struct _ocl{
 	int keepalive;
 	char *systemRole;
 	double temp;
+	int seed;
 	int maxHistoryCtx;
 	int maxTokensCtx;
 	Message *rootContextMessages;
@@ -202,7 +203,16 @@ static int OCl_set_temp(OCl *ocl, char const *temp){
 	if(temp!=NULL && strcmp(temp,"")!=0){
 		char *tail=NULL;
 		ocl->temp=strtod(temp,&tail);
-		if(ocl->temp<=0.0 || tail[0]!=0) return OCL_ERR_TEMP;
+		if(ocl->temp<0.0 || tail[0]!=0) return OCL_ERR_TEMP;
+	}
+	return OCL_RETURN_OK;
+}
+
+static int OCl_set_seed(OCl *ocl, char const *seed){
+	if(seed!=NULL && strcmp(seed,"")!=0){
+		char *tail=NULL;
+		ocl->seed=strtol(seed,&tail,10);
+		if(ocl->seed<0 || tail[0]!=0) return OCL_ERR_SEED;
 	}
 	return OCL_RETURN_OK;
 }
@@ -242,9 +252,7 @@ static int OCl_flush_static_context(OCl *ocl){
 		ocl->rootStaticContextMessages=temp->nextMessage;
 		sfree(temp->userMessage);
 		sfree(temp->assistantMessage);
-		temp->assistantMessage=NULL;
 		sfree(temp);
-		temp=NULL;
 	}
 	ocl->rootStaticContextMessages=0;
 	return OCL_RETURN_OK;
@@ -398,40 +406,32 @@ static int OCl_import_context(OCl *ocl){
 int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, const char *socketConnTo, 
 		const char *socketSendTo
 		,const char *socketRecvTo, const char *model, const char *keepAlive, const char *systemRole
-		,const char *maxContextMsg, const char *temp, const char *maxTokensCtx
+		,const char *maxContextMsg, const char *temp, const char *seed, const char *maxTokensCtx
 		,const char *contextFile, const char *contextStaticFile){
 	*ocl=malloc(sizeof(OCl));
 	int retVal=0;
+	(*ocl)->contextFile=NULL;
+	(*ocl)->staticContextFile=NULL;
 	(*ocl)->rootContextMessages=NULL;
 	(*ocl)->rootStaticContextMessages=NULL;
-	(*ocl)->contContextMessages=0;
-	OCl_set_server_addr(*ocl, OCL_OLLAMA_SERVER_ADDR);
-	OCl_set_server_addr(*ocl, serverAddr);
-	OCl_set_server_port(*ocl, OCL_OLLAMA_SERVER_PORT);
-	if((retVal=OCl_set_server_port(*ocl, serverPort))!=OCL_RETURN_OK) return retVal;
-	OCl_set_connect_timeout(*ocl, OCL_SOCKET_CONNECT_TIMEOUT_S);
-	if((retVal=OCl_set_connect_timeout(*ocl, socketConnTo))!=OCL_RETURN_OK) return retVal;
-	OCl_set_send_timeout(*ocl, OCL_SOCKET_SEND_TIMEOUT_S);
-	if((retVal=OCl_set_send_timeout(*ocl, socketSendTo))!=OCL_RETURN_OK) return retVal;
-	OCl_set_recv_timeout(*ocl, OCL_SOCKET_RECV_TIMEOUT_S);
-	if((retVal=OCl_set_recv_timeout(*ocl, socketRecvTo))!=OCL_RETURN_OK) return retVal;
-	OCl_set_model(*ocl, OCL_MODEL);
-	OCl_set_model(*ocl, model);
-	OCl_set_keepalive(*ocl, OCL_KEEPALIVE_S);
-	if((retVal=OCl_set_keepalive(*ocl, keepAlive))!=OCL_RETURN_OK) return retVal;
 	(*ocl)->systemRole=NULL;
-	OCl_set_role(*ocl, OCL_SYSTEM_ROLE);
-	OCl_set_role(*ocl, systemRole);
-	OCl_set_temp(*ocl, OCL_TEMP);
-	if((retVal=OCl_set_temp(*ocl, temp))!=OCL_RETURN_OK) return retVal;
-	OCl_set_max_history_ctx(*ocl, OCL_MAX_HISTORY_CTX);
-	if((retVal=OCl_set_max_history_ctx(*ocl, maxContextMsg))!=OCL_RETURN_OK) return retVal;
-	OCl_set_max_tokens_ctx(*ocl, OCL_MAX_TOKENS_CTX);
-	if((retVal=OCl_set_max_tokens_ctx(*ocl, maxTokensCtx))!=OCL_RETURN_OK) return retVal;
 	(*ocl)->ocl_resp=malloc(sizeof(struct _ocl_response));
 	memset((*ocl)->ocl_resp->content,0,BUFFER_SIZE_128K);
 	memset((*ocl)->ocl_resp->response,0,BUFFER_SIZE_128K);
 	memset((*ocl)->ocl_resp->error,0,BUFFER_SIZE_1K);
+	(*ocl)->contContextMessages=0;
+	OCl_set_server_addr(*ocl, OCL_OLLAMA_SERVER_ADDR);
+	OCl_set_server_port(*ocl, OCL_OLLAMA_SERVER_PORT);
+	OCl_set_connect_timeout(*ocl, OCL_SOCKET_CONNECT_TIMEOUT_S);
+	OCl_set_send_timeout(*ocl, OCL_SOCKET_SEND_TIMEOUT_S);
+	OCl_set_recv_timeout(*ocl, OCL_SOCKET_RECV_TIMEOUT_S);
+	OCl_set_model(*ocl, OCL_MODEL);
+	OCl_set_keepalive(*ocl, OCL_KEEPALIVE_S);
+	OCl_set_temp(*ocl, OCL_TEMP);
+	OCl_set_seed(*ocl, OCL_SEED);
+	OCl_set_max_history_ctx(*ocl, OCL_MAX_HISTORY_CTX);
+	OCl_set_max_tokens_ctx(*ocl, OCL_MAX_TOKENS_CTX);
+	OCl_set_role(*ocl, OCL_SYSTEM_ROLE);
 	(*ocl)->ocl_resp->loadDuration=0.0;
 	(*ocl)->ocl_resp->promptEvalDuration=0.0;
 	(*ocl)->ocl_resp->evalDuration=0.0;
@@ -439,8 +439,18 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	(*ocl)->ocl_resp->promptEvalCount=0;
 	(*ocl)->ocl_resp->evalCount=0;
 	(*ocl)->ocl_resp->tokensPerSec=0.0;
-	(*ocl)->contextFile=NULL;
-	(*ocl)->staticContextFile=NULL;
+	OCl_set_role(*ocl, systemRole);
+	OCl_set_server_addr(*ocl, serverAddr);
+	if((retVal=OCl_set_server_port(*ocl, serverPort))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_connect_timeout(*ocl, socketConnTo))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_send_timeout(*ocl, socketSendTo))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_recv_timeout(*ocl, socketRecvTo))!=OCL_RETURN_OK) return retVal;
+	OCl_set_model(*ocl, model);
+	if((retVal=OCl_set_keepalive(*ocl, keepAlive))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_temp(*ocl, temp))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_seed(*ocl, seed))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_max_history_ctx(*ocl, maxContextMsg))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_max_tokens_ctx(*ocl, maxTokensCtx))!=OCL_RETURN_OK) return retVal;
 	if(contextStaticFile){
 		(*ocl)->staticContextFile=malloc(strlen(contextStaticFile)+1);
 		memset((*ocl)->staticContextFile,0,strlen(contextStaticFile)+1);
@@ -587,16 +597,19 @@ char * OCL_error_handling(OCl *ocl, int error){
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Port not valid ");
 		break;
 	case OCL_ERR_KEEP_ALIVE:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Keep alive value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Keep alive value not valid. ");
 		break;
 	case OCL_ERR_TEMP:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Temperature value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Temperature value not valid. ");
+		break;
+	case OCL_ERR_SEED:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Seed value not valid. ");
 		break;
 	case OCL_ERR_MAX_HISTORY_CTX:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. message context value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. message context value not valid. ");
 		break;
 	case OCL_ERR_MAX_TOKENS_CTX:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. tokens context value not valid. Check modfile");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. tokens context value not valid. ");
 		break;
 	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Connection Timeout value not valid");
@@ -901,35 +914,48 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 	if(imageFileBase64){
 		snprintf(body,len,
 				"{\"model\":\"%s\","
+				"\"messages\":["
+				"{\"role\":\"system\",\"content\":\"%s\"},"
+				"%s""{\"role\": \"user\",\"content\": \"%s\",\"images\": [\"%s\"]}],"
+				"\"options\": {"
 				"\"temperature\": %f,"
+				"\"seed\": %d,"
 				"\"num_ctx\": %d,"
 				"\"stream\": %s,"
 				"\"keep_alive\": %d,"
-				"\"stop\": null,"
-				"\"messages\":["
-				"{\"role\":\"system\",\"content\":\"%s\"},"
-				"%s""{\"role\": \"user\",\"content\": \"%s\",\"images\": [\"%s\"]}]}",
+				"\"stop\": null}}",
 				ocl->model,
+				ocl->systemRole,
+				context,
+				messageParsed,
+				imageFileBase64,
 				ocl->temp,
-				ocl->maxTokensCtx,"true",ocl->keepalive,
-				ocl->systemRole,context,
-				messageParsed, imageFileBase64);
+				ocl->seed,
+				ocl->maxTokensCtx,
+				"true",
+				ocl->keepalive);
 	}else{
 		snprintf(body,len,
 				"{\"model\":\"%s\","
+				"\"messages\":["
+				"{\"role\":\"system\",\"content\":\"%s\"},"
+				"%s""{\"role\": \"user\",\"content\": \"%s\"}],"
+				"\"options\": {"
 				"\"temperature\": %f,"
+				"\"seed\": %d,"
 				"\"num_ctx\": %d,"
 				"\"stream\": %s,"
 				"\"keep_alive\": %d,"
-				"\"stop\": null,"
-				"\"messages\":["
-				"{\"role\":\"system\",\"content\":\"%s\"},"
-				"%s""{\"role\": \"user\",\"content\": \"%s\"}]}",
+				"\"stop\": null}}",
 				ocl->model,
+				ocl->systemRole,
+				context,
+				messageParsed,
 				ocl->temp,
-				ocl->maxTokensCtx,"true",ocl->keepalive,
-				ocl->systemRole,context,
-				messageParsed);
+				ocl->seed,
+				ocl->maxTokensCtx,
+				"true",
+				ocl->keepalive);
 	}
 	sfree(context);
 	len=strlen(ocl->srvAddr)+sizeof(ocl->srvPort)+sizeof((int) strlen(body))+strlen(body)+512;

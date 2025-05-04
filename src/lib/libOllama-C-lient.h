@@ -37,6 +37,7 @@
 #define OCL_KEEPALIVE_S							"300"
 #define OCL_SYSTEM_ROLE							""
 #define OCL_TEMP								"0.5"
+#define OCL_SEED								"0"
 #define OCL_MAX_HISTORY_CTX						"3"
 #define OCL_MAX_TOKENS_CTX						"4096"
 
@@ -83,6 +84,7 @@ enum ocl_errors{
 	OCL_ERR_PORT,
 	OCL_ERR_KEEP_ALIVE,
 	OCL_ERR_TEMP,
+	OCL_ERR_SEED,
 	OCL_ERR_MAX_HISTORY_CTX,
 	OCL_ERR_MAX_TOKENS_CTX,
 	OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID,
@@ -98,8 +100,8 @@ extern int oclSslError;
 extern bool oclCanceled;
 
 int OCl_init();
-int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *, const char *, const char *
-		,const char *,const char *, const char *, const char *, const char *, const char *);
+int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *, const char *
+		, const char *, const char *,const char *,const char *, const char *, const char *, const char *, const char *);
 int OCl_free(OCl *);
 int OCl_shutdown();
 

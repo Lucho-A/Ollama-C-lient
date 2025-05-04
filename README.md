@@ -48,6 +48,7 @@ The options supported are:
 |--socket-recv-to | int:15 _[>=0]_ | in seconds, set up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting.
 |--model | string:NULL | model to use.
 |--temperature | double:0.5 _[>=0]_ | set the temperature of the model.
+|--seed | int:0 _[>=0]_ | set the seed of the model.
 |--keep-alive | int:300 _[>=0]_ | in seconds, tell to the server how many seconds the model will be available until unloaded.
 |--max-msgs-ctx | int:3 _[>=0]_ | set the maximum messages to be added as context in the messages.
 |--max-msgs-tokens | int:4096 _[>=0]_ | set the maximum tokens.
@@ -68,6 +69,7 @@ The options supported are:
 |--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set.
 
 ###### Note: all options are optional (really?!).
+https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
 
 #### Considerations
 
