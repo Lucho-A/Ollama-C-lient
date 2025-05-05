@@ -42,7 +42,7 @@ The options supported are:
 |--version | N/A:N/A |
 |--server-addr | string:"127.0.0.1" | URL or IP of the server
 |--server-port | int:443 _[1-65535]_ | listening port. Must be SSL/TLS.
-|--response-speed | int:0 _[>=0]_ | in microseconds, if > 0, the responses will be sending out to stdin at the interval set up.
+|--response-speed | int:0 _[>=0]_ | in microseconds, if > 0, the responses will be sending out to stdout at the interval set up.
 |--socket-connect-to | int:5 _[>=0]_ | in seconds, set up the connection time out.
 |--socket-send-to | int:5 _[>=0]_ | in seconds, set up the sending time out.
 |--socket-recv-to | int:15 _[>=0]_ | in seconds, set up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting.
@@ -69,11 +69,11 @@ The options supported are:
 |--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set.
 
 ###### Note: all options are optional (really?!).
-https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values
 
 #### Considerations
 
 - The sent messages & the responses are written into the context file if '--context-file' is specified.
+- If **'--context-file'** is specified and it doesn't exit, it will be created if possible.
 - If **'--context-file'** is specified, the latest X messages/responses (parameter '--max-msgs-ctx') are read when the program starts as context.
 - So, if '--max-msgs-ctx' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions. (1)
 - If '--max-msgs-ctx' == 0, the interactions won't be recorded into context file.
@@ -124,12 +124,12 @@ exit 0
 
 #### - Scripting/Agents
 ```
-$ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --context-file ~/agents/dfAgentContextFile.context --stdout-parsed --color-font-response "0;0;90" --response-speed 30000 >> log-file.log
+$ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --context-file ~/agents/dfAgentContextFile.context --stdout-parsed >> log-file.log
 $ ./ollama-c-lient --model deepseek-r1 < prompt.txt
 $ (echo 'What can you tell me about the content of this file?: ' && cat /home/user/file.txt) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --stdout-parsed < prompt.txt
 $ echo -n 'At ' && date +"%Y-%m-%d %H:%M:%S" && echo 'What can you tell me about current processes?: ' && ps ax | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral --stdout-parsed --stdout-chunked | grep 'Ollama-C-lient'
 $ echo 'Tell me a prompt about whatever: ' && cat whatever.txt | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model deepseek-r1:14b --stdout-parsed
-$ (echo 'What can you tell me about about this paint? ') | ./ollama-c-lient --setting-file ~/ollama/settingFile --model-file ~/agents/modelFile --image-file ~/paints/van-gogh.jpg
+$ (echo 'What can you tell me about about this paint? ') | ./ollama-c-lient --model gemma3:12b --stdout-parsed --response-speed 15000 --color-font-response "0;0;90" --image-file ~/paints/van-gogh.jpg
 ```
 ###### Note: since the incorporation of reasoning models, is not recommended incorporating a 'system-role'. Instead, just leave it blank and incorporate the instructions as part of the 'user-role', like:
 
