@@ -277,6 +277,7 @@ int OCl_shutdown(){
 }
 
 int OCl_free(OCl *ocl){
+	if(!ocl) return OCL_RETURN_OK;
 	OCl_flush_context(ocl);
 	OCl_flush_static_context(ocl);
 	sfree(ocl->rootContextMessages);
@@ -762,6 +763,8 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 		if(!respOk && strncmp(buffer, "HTTP/1.1 200 OK", strlen("HTTP/1.1 200 OK"))!=0){
 			close(socketConn);
 			clean_ssl(sslConn);
+			//TODO
+			printf("\nDBG: \n%s\n", buffer);
 			return OCL_ERR_SERVICE_UNAVAILABLE;
 		}
 		respOk=true;
