@@ -27,6 +27,7 @@
 #define BUFFER_SIZE_2K				(1024*2)
 #define BUFFER_SIZE_16K				(1024*16)
 #define BUFFER_SIZE_128K			(1024*128)
+#define BUFFER_SIZE_1M				(1024*1024)
 
 typedef struct Message{
 	char *userMessage;
@@ -60,8 +61,8 @@ typedef struct _ocl{
 }OCl;
 
 struct _ocl_response{
-	char content[BUFFER_SIZE_128K];
-	char response[BUFFER_SIZE_128K];
+	char *content;
+	char *response;
 	char error[BUFFER_SIZE_1K];
 	double loadDuration;
 	double promptEvalDuration;
@@ -289,6 +290,8 @@ int OCl_free(OCl *ocl){
 	sfree(ocl->staticContextFile);
 	sfree(ocl->contextFile);
 	sfree(ocl->systemRole);
+	sfree(ocl->ocl_resp->content);
+	sfree(ocl->ocl_resp->response);
 	sfree(ocl->ocl_resp);
 	sfree(ocl);
 	return OCL_RETURN_OK;
@@ -421,8 +424,10 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	(*ocl)->rootStaticContextMessages=NULL;
 	(*ocl)->systemRole=NULL;
 	(*ocl)->ocl_resp=malloc(sizeof(struct _ocl_response));
-	memset((*ocl)->ocl_resp->content,0,BUFFER_SIZE_128K);
-	memset((*ocl)->ocl_resp->response,0,BUFFER_SIZE_128K);
+	(*ocl)->ocl_resp->content=malloc(BUFFER_SIZE_1M);
+	(*ocl)->ocl_resp->content[0]=0;
+	(*ocl)->ocl_resp->response=malloc(BUFFER_SIZE_1M);
+	(*ocl)->ocl_resp->response[0]=0;
 	memset((*ocl)->ocl_resp->error,0,BUFFER_SIZE_1K);
 	(*ocl)->contContextMessages=0;
 	OCl_set_server_addr(*ocl, OCL_OLLAMA_SERVER_ADDR);
@@ -478,7 +483,7 @@ static void clean_ssl(SSL *ssl){
 	SSL_clear(ssl);
 	SSL_shutdown(ssl);
 	SSL_free(ssl);
-	ssl = NULL;
+	ssl=NULL;
 }
 
 int OCl_save_message(OCl *ocl, char *userMessage, char *assistantMessage){
@@ -731,8 +736,8 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	struct timeval tvRecvTo;
 	tvRecvTo.tv_sec=ocl->socketRecvTimeout;
 	tvRecvTo.tv_usec=0;
-	memset(ocl->ocl_resp->content,0,BUFFER_SIZE_128K);
-	memset(ocl->ocl_resp->response,0,BUFFER_SIZE_128K);
+	ocl->ocl_resp->content[0]=0;
+	ocl->ocl_resp->response[0]=0;
 	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
 	ocl->ocl_resp->done=false;
 	while(true && !oclCanceled){
@@ -979,7 +984,6 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 		sfree(messageParsed);
 		return OCL_ERR_RECV_TIMEOUT;
 	}
-
 	if(!ocl->ocl_resp->done && !oclCanceled){
 		sfree(messageParsed);
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
