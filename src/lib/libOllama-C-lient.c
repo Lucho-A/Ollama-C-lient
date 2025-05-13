@@ -643,8 +643,8 @@ static bool get_string_from_token(char const *text, char const *token, char *res
 	char const *content=strstr(text,token);
 	if(content!=NULL){
 		size_t i=0, len=strlen(token);
-		for(i=len+1;(content[i-1]=='\\' || content[i]!=endChar);i++) result[i-len-1]=content[i];
-		result[i-len-1]=0;
+		for(i=len;(content[i-1]=='\\' || content[i]!=endChar);i++) result[i-len]=content[i];
+		result[i-len]=0;
 		return true;
 	}
 	return false;
@@ -762,7 +762,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			totalBytesReceived+=bytesReceived;
 			strcat(ocl->ocl_resp->response,buffer);
 			char token[128]="";
-			if(get_string_from_token(buffer, "\"content\":", token, '"')){
+			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){
 				char const *b=strstr(token,"\\\"},");
 				if(b){
 					int idx=0;

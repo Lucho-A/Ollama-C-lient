@@ -497,9 +497,7 @@ int main(int argc, char *argv[]) {
 	if(po.showModels){
 		char models[512][512]={""};
 		int cantModels=OCl_get_models(ocl, models);
-		if(cantModels<0) {
-			print_error_msg(OCL_error_handling(ocl,cantModels),"",true);
-		}
+		if(cantModels<0) print_error_msg(OCL_error_handling(ocl,cantModels),"",true);
 		for(int i=0;i<cantModels;i++){
 				printf("  - ");
 			for(size_t j=0;j<strlen(models[i]);j++){
