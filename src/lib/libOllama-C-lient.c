@@ -26,7 +26,6 @@
 #define BUFFER_SIZE_1K				(1024)
 #define BUFFER_SIZE_2K				(1024*2)
 #define BUFFER_SIZE_16K				(1024*16)
-#define BUFFER_SIZE_128K			(1024*128)
 #define BUFFER_SIZE_1M				(1024*1024)
 
 typedef struct Message{
@@ -770,23 +769,20 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			strcat(ocl->ocl_resp->response,buffer);
 			char token[128]="";
 			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){
-				char const *b=strstr(token,"\\\"},");
-				if(b){
-					int idx=0;
-					for(size_t i=0;i<strlen(token);i++,idx++){
-						if(b==&token[i]){
-							token[idx]='\\';
-							token[idx+1]=0;
-							i+=3;
-						}else{
-							token[idx]=token[i];
-						}
-					}
-				}
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) ocl->ocl_resp->done=true;
 				if(callback!=NULL) callback(token, ocl->ocl_resp->done);
 				strcat(ocl->ocl_resp->content,token);
-				if(ocl->ocl_resp->done) break;
+				if(ocl->ocl_resp->done){
+					char result[128]="";
+					if(get_string_from_token(ocl->ocl_resp->response, "\"load_duration\":", result, ',')) ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_duration\":", result, ',')) ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(ocl->ocl_resp->response, "\"eval_duration\":", result, '}')) ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(ocl->ocl_resp->response, "\"total_duration\":", result, ',')) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_count\":", result, ',')) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
+					if(get_string_from_token(ocl->ocl_resp->response, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
+					ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
+					break;
+				}
 				continue;
 			}
 			if(strstr(buffer,"{\"models\":[{\"")!=NULL) break;
@@ -991,14 +987,6 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 		return OCL_ERR_PARTIAL_RESPONSE_RECV;
 	}
 	if(!oclCanceled && retVal>0){
-		char result[128]="";
-		if(get_string_from_token(ocl->ocl_resp->response, "\"load_duration\":", result, ',')) ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
-		if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_duration\":", result, ',')) ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
-		if(get_string_from_token(ocl->ocl_resp->response, "\"eval_duration\":", result, '}')) ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
-		if(get_string_from_token(ocl->ocl_resp->response, "\"total_duration\":", result, ',')) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
-		if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_count\":", result, ',')) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
-		if(get_string_from_token(ocl->ocl_resp->response, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
-		ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 		if(message[strlen(message)-1]!=';'){
 			create_new_context_message(ocl, messageParsed, ocl->ocl_resp->content);
 			if(ocl->maxHistoryCtx>0) OCl_save_message(ocl, messageParsed, ocl->ocl_resp->content);
