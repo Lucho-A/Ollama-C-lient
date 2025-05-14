@@ -131,7 +131,7 @@ $ echo -n 'At ' && date +"%Y-%m-%d %H:%M:%S" && echo 'What can you tell me about
 $ echo 'Tell me a prompt about whatever: ' && cat whatever.txt | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model deepseek-r1:14b --stdout-parsed
 $ (echo 'What can you tell me about about this paint? ') | ./ollama-c-lient --model gemma3:12b --stdout-parsed --response-speed 15000 --color-font-response "0;0;90" --image-file ~/paints/van-gogh.jpg
 ```
-###### Note: since the incorporation of reasoning models, is not recommended incorporating a 'system-role'. Instead, just leave it blank and incorporate the instructions as part of the 'user-role', like:
+###### Note: since the incorporation of reasoning models, is not recommended incorporating a 'system-role'. Instead, just leave it blank and incorporate the instructions as part of the 'user-role'.
 
 #### Bugs known/unknown
 
