@@ -21,7 +21,6 @@
 #include <string.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#include <stdint.h>
 
 #define BUFFER_SIZE_1K				(1024)
 #define BUFFER_SIZE_2K				(1024*2)
@@ -731,7 +730,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			if(retVal<0) return OCL_ERR_SENDING_PACKETS;
 			return OCL_ERR_SEND_TIMEOUT;
 		}
-		totalBytesSent+=SSL_write(sslConn, payload + totalBytesSent, strlen(payload) - totalBytesSent);
+		totalBytesSent+=SSL_write(sslConn, payload+totalBytesSent, strlen(payload)-totalBytesSent);
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
 	struct timeval tvRecvTo;
@@ -741,6 +740,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	ocl->ocl_resp->response[0]=0;
 	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
 	ocl->ocl_resp->done=false;
+	long int bufferAssigned=BUFFER_SIZE_1M;
 	while(true && !oclCanceled){
 		FD_ZERO(&rFdset);
 		FD_SET(socketConn, &rFdset);
@@ -766,20 +766,30 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 		if(bytesReceived==0) break;
 		if(bytesReceived>0){
 			totalBytesReceived+=bytesReceived;
-			strcat(ocl->ocl_resp->response,buffer);
+			if(totalBytesReceived>bufferAssigned){
+				bufferAssigned*=2;
+				ocl->ocl_resp->response=realloc(ocl->ocl_resp->response,bufferAssigned);
+				ocl->ocl_resp->content=realloc(ocl->ocl_resp->content,bufferAssigned);
+				if(!ocl->ocl_resp->response || !ocl->ocl_resp->content){
+					close(socketConn);
+					clean_ssl(sslConn);
+					return OCL_ERR_REALLOC;
+				}
+			}
+			strncat(ocl->ocl_resp->response,buffer, bufferAssigned-1);
 			char token[128]="";
 			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) ocl->ocl_resp->done=true;
 				if(callback!=NULL) callback(token, ocl->ocl_resp->done);
-				strcat(ocl->ocl_resp->content,token);
+				strncat(ocl->ocl_resp->content,token, bufferAssigned-1);
 				if(ocl->ocl_resp->done){
 					char result[128]="";
-					if(get_string_from_token(ocl->ocl_resp->response, "\"load_duration\":", result, ',')) ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_duration\":", result, ',')) ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(ocl->ocl_resp->response, "\"eval_duration\":", result, '}')) ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(ocl->ocl_resp->response, "\"total_duration\":", result, ',')) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(ocl->ocl_resp->response, "\"prompt_eval_count\":", result, ',')) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
-					if(get_string_from_token(ocl->ocl_resp->response, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
+					if(get_string_from_token(buffer, "\"load_duration\":", result, ',')) ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"prompt_eval_duration\":", result, ',')) ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"eval_duration\":", result, '}')) ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"total_duration\":", result, ',')) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"prompt_eval_count\":", result, ',')) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
+					if(get_string_from_token(buffer, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
 					ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 					break;
 				}

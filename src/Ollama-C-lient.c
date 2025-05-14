@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <errno.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
@@ -196,7 +195,7 @@ char *parse_output(const char *in){
 static void print_response(char const *token, bool done){
 	if(po.stdoutParsed && po.stdoutChunked){
 		char *parsedOut=parse_output(token);
-		strcat(chunkings,parsedOut);
+		strncat(chunkings,parsedOut,8196-1);
 		if(strstr(parsedOut, "\n") || done){
 			fputs(chunkings, stdout);
 			fflush(stdout);
