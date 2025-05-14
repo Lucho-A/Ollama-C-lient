@@ -137,6 +137,8 @@ double OCL_get_response_total_duration(const OCl *ocl){ return ocl->ocl_resp->to
 int OCL_get_response_prompt_eval_count(const OCl *ocl){ return ocl->ocl_resp->promptEvalCount;}
 int OCL_get_response_eval_count(const OCl *ocl){ return ocl->ocl_resp->evalCount;}
 double OCL_get_response_tokens_per_sec(const OCl *ocl){ return ocl->ocl_resp->tokensPerSec;}
+int OCL_get_response_chars_content(const OCl *ocl){ return strlen(ocl->ocl_resp->content);}
+long int OCL_get_response_size(const OCl *ocl){ return strlen(ocl->ocl_resp->response);}
 
 int OCl_set_server_addr(OCl *ocl, const char *serverAddr){
 	if(serverAddr!=NULL && strcmp(serverAddr,"")!=0) snprintf(ocl->srvAddr,512,"%s",serverAddr);

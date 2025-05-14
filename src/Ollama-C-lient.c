@@ -141,13 +141,15 @@ static void print_system_msg(char *msg){
 
 static void print_response_info(){
 	if(isatty(fileno(stdout))) printf("%s\n\n", po.colors.colorFontInfo);
-	printf("- load_duration (time spent loading the model): %f\n",OCL_get_response_load_duration(ocl));
-	printf("- prompt_eval_duration (time spent evaluating the prompt): %f\n",OCL_get_response_prompt_eval_duration(ocl));
-	printf("- eval_duration (time spent generating the response): %f\n",OCL_get_response_eval_duration(ocl));
-	printf("- total_duration (time spent generating the response): %f\n",OCL_get_response_total_duration(ocl));
-	printf("- prompt_eval_count (number of tokens in the prompt): %d\n",OCL_get_response_prompt_eval_count(ocl));
-	printf("- eval_count (number of tokens in the response): %d\n",OCL_get_response_eval_count(ocl));
-	printf("- Tokens per sec.: %.2f",OCL_get_response_tokens_per_sec(ocl));
+	printf("- Time spent loading the model (load_duration): %.4fs\n",OCL_get_response_load_duration(ocl));
+	printf("- Time spent evaluating the prompt (prompt_eval_duration): %.4fs\n",OCL_get_response_prompt_eval_duration(ocl));
+	printf("- Time spent evaluating the response (eval_duration): %.4fs\n",OCL_get_response_eval_duration(ocl));
+	printf("- Time spent generating the response (total_duration): %.4fs\n",OCL_get_response_total_duration(ocl));
+	printf("- Number of tokens in the prompt (prompt_eval_count): %d\n",OCL_get_response_prompt_eval_count(ocl));
+	printf("- Number of tokens in the response (eval_count): %d\n",OCL_get_response_eval_count(ocl));
+	printf("- Tokens per sec.: %.4f\n",OCL_get_response_tokens_per_sec(ocl));
+	printf("- Characters in content: %d\n",OCL_get_response_chars_content(ocl));
+	printf("- Response size: %.2f kb",OCL_get_response_size(ocl)/1024.0);
 	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 }
 
