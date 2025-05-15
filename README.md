@@ -89,7 +89,7 @@ The options supported are:
 
 ### Examples:
 
-#### - Chatting
+#### Chatting
 Just using a script like:
 ```
 #!/bin/bash
@@ -124,7 +124,7 @@ echo
 exit 0
 ```
 
-#### - Scripting/Agents
+#### Scripting/Agents
 ```
 $ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --context-file ~/agents/dfAgentContextFile.context --stdout-parsed >> log-file.log
 $ ./ollama-c-lient --model deepseek-r1 < prompt.txt
