@@ -72,7 +72,7 @@ The options supported are:
 
 ###### Note: all options are optional (really?!).
 
-#### Considerations
+### Considerations
 
 - The sent messages & the responses are written into the context file if '--context-file' is specified.
 - If **'--context-file'** is specified and it doesn't exit, it will be created if possible.
