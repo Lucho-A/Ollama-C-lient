@@ -4,11 +4,13 @@ C program for interacting with [Ollama](https://github.com/ollama/ollama) server
 
 ### Version:
 
-- 0.0.1-beta (experimental)
+- 0.0.1-beta
 
 ### Disclaimer
 
 - supports only SSL/TLS (sorry, security by design, baby)
+
+###### Note: self signed certs are allowed.
 
 ### Dependencies:
 
@@ -135,5 +137,5 @@ $ (echo 'What can you tell me about about this paint? ') | ./ollama-c-lient --mo
 
 #### Bugs known/unknown
 
-In line with a Top Down approach (and the beta & experimental stage), bugs will/can be found and the scoping and approach can change at any time.
+In line with a Top Down approach (and beta stage), bugs could be found and the scoping and approach could change at any time.
 

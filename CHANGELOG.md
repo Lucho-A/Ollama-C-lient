@@ -1,11 +1,16 @@
-### ollama-c-lient-v0.0.1-beta (experimental) - Under Dev./Testing
+### ollama-c-lient-v0.0.1-beta
 
-Criticality: N/A
+DATE: 2025/05/15
 
-BUG_FIXED:
+SEVERITY: N/A
+
+BUGS-FIXED:
 - N/A
 
-FEATURE:
+NEW-FEATURES:
+- N/A
+
+IMPROVEMENTS:
 - N/A
 
 OTHERS:
