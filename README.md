@@ -39,8 +39,8 @@ gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto
 
 The options supported are:
 
-| Parameter | data-type:default-value _[boundaries]_ | Description |
-|:--------- | :- | -- |
+| <div style="width:290px">Parameter</div> | data-type:default-value _[boundaries]_ | Description |
+|:- | :- | -- |
 |--version | N/A:N/A | |
 |--help | N/A:N/A | |
 |--server-addr | string:"127.0.0.1" | URL or IP of the server |
