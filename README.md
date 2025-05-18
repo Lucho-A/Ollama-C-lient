@@ -39,7 +39,7 @@ gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto
 
 The options supported are:
 
-| Parameter &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; | data-type:default-value _[boundaries]_ | Description |
+Parameter &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; | data-type:default-value _[boundaries]_ | Description |
 |:- | :- | -- |
 |--version | N/A:N/A | |
 |--help | N/A:N/A | |
