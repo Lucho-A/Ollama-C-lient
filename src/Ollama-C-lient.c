@@ -19,7 +19,7 @@
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.1-beta"
+#define PROGRAM_VERSION					"0.0.1"
 
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
@@ -72,6 +72,44 @@ struct ProgramOpts po={0};
 struct SendingMessage sm={0};
 bool isThinking=false;
 char chunkings[8196]="";
+
+static void show_help(char *programName){
+	BANNER
+	printf("USAGE: %s [OPTIONS]\n", programName);
+	printf("\nOptions:\n\n");
+	printf("--version \t\t\t\t\t\t show version.\n");
+	printf("--help \t\t\t\t\t\t\t show this.\n");
+	printf("--server-addr \t\t\t string:'127.0.0.1' \t URL or IP of the server.\n");
+	printf("--server-port \t\t\t int:443 [1-65535] \t listening port. Must be SSL/TLS.\n");
+	printf("--response-speed \t\t int:0 [>=0] \t\t in microseconds, if > 0, the responses will be sending out to stdout at the interval set up.\n");
+	printf("--socket-conn-to \t\t int:5 [>=0] \t\t in seconds, set up the connection time out.\n");
+	printf("--socket-send-to \t\t int:5 [>=0] \t\t in seconds, set up the sending time out.\n");
+	printf("--socket-recv-to \t\t int:15 [>=0] \t\t in seconds, set up the receiving time out.\n");
+	printf("--model \t\t\t string:NULL \t\t model to use.\n");
+	printf("--temperature \t\t\t double:0.5 [>=0] \t set the temperature of the model.\n");
+	printf("--seed \t\t\t\t int:0 [>=0] \t\t set the seed of the model.\n");
+	printf("--keep-alive \t\t\t int:300 [>=0] \t\t in seconds, tell to the server how many seconds the model will be available until unloaded.\n");
+	printf("--max-msgs-ctx \t\t\t int:3 [>=0] \t\t set the maximum messages to be added as context in the messages.\n");
+	printf("--max-msgs-tokens \t\t int:4096 [>=0] \t set the maximum tokens.\n");
+	printf("--system-role \t\t\t string:'' \t\t set the system role. Override '--system-role-file'.\n");
+	printf("--system-role-file \t\t string:NULL \t\t set the path to the file that include the system role.\n");
+	printf("--context-file \t\t\t string:NULL \t\t file where the interactions (except the queries ended with ';') will be stored.\n");
+	printf("--static-context-file \t\t string:NULL \t\t file where the interactions included into it (separated by '\\t') will be include (statically) as interactions in every query.\n");
+	printf("--image-file \t\t\t string:NULL \t\t Image file to attach to the query.\n");
+	printf("--color-font-response \t\t string:'00;00;00' \t in ANSI format, set the color used for responses.\n");
+	printf("--color-font-system \t\t string:'00;00;00' \t in ANSI format, set the color used for program's messages.\n");
+	printf("--color-font-info \t\t string:'00;00;00' \t in ANSI format, set the color used for response's info ('--show-response-info').\n");
+	printf("--color-font-error \t\t string:'00;00;00' \t in ANSI format, set the color used for errors.\n");
+	printf("--show-response-info \t\t N/A:false \t\t showing the responses' information, as tokens count, duration, etc.\n");
+	printf("--show-thoughts \t\t N/A:false \t\t showing what the model is 'thinking' in reasoning models like 'deepseek-r1'.\n");
+	printf("--show-models \t\t\t N/A:false \t\t show the models available.\n");
+	printf("--show-loading-models \t\t N/A:false \t\t show a message when a model is loading.\n");
+	printf("--stdout-parsed \t\t N/A:false \t\t parsing the output (useful for speeching/chatting).\n");
+	printf("--stdout-chunked \t\t N/A:false \t\t chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set.\n\n");
+	printf("Example: \n\n");
+	printf("$ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --model deepseek-r1 --stdout-parsed --response-speed 1\n");
+	printf("\nSee https://github.com/lucho-a/ollama-c-lient for a full description & more examples.\n\n");
+}
 
 static int close_program(bool finishWithErrors){
 	oclCanceled=true;
@@ -287,8 +325,12 @@ int main(int argc, char *argv[]) {
 	if((retVal=OCl_init())!=OCL_RETURN_OK)
 		print_error_msg("OCl Init error. ", OCL_error_handling(ocl,retVal),true);
 	for(int i=1;i<argc;i++){
-		if(strcmp(argv[i],"--version")==0 || strcmp(argv[i],"--help")==0){
+		if(strcmp(argv[i],"--version")==0){
 			BANNER
+			close_program(false);
+		}
+		if(strcmp(argv[i],"--help")==0){
+			show_help(argv[0]);
 			close_program(false);
 		}
 		if(strcmp(argv[i],"--server-addr")==0){
@@ -312,7 +354,7 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
-		if(strcmp(argv[i],"--socket-connect-to")==0){
+		if(strcmp(argv[i],"--socket-conn-to")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
 			snprintf(po.ocl.socketConnTo,8,"%s",argv[i+1]);
 			i++;
