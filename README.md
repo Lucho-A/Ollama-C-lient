@@ -39,7 +39,7 @@ gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto
 
 The options supported are:
 
-| <div style="width:290px">Parameter</div> | data-type:default-value _[boundaries]_ | Description |
+| <div style="width:512px">Parameter</div> | data-type:default-value _[boundaries]_ | Description |
 |:- | :- | -- |
 |--version | N/A:N/A | |
 |--help | N/A:N/A | |
