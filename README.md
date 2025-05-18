@@ -39,7 +39,7 @@ gcc -o ollama-c-lient Ollama-C-lient.c lib/* -lssl -lcrypto
 
 The options supported are:
 
-| <img width=250/> Parameter | data-type:default-value _[boundaries]_ | Description |
+| <img width=300/> Parameter | data-type:default-value _[boundaries]_ | Description |
 |:- | :- | -- |
 |--version | N/A:N/A | |
 |--help | N/A:N/A | |
