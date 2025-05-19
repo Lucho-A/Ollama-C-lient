@@ -1,6 +1,6 @@
-### ollama-c-lient-v0.0.1-beta
+### ollama-c-lient-v0.0.1
 
-DATE: 2025/05/15
+DATE: 2025/05/18
 
 SEVERITY: N/A
 
