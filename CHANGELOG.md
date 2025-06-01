@@ -1,7 +1,7 @@
 ### ollama-c-lient-v0.0.2 - Under Dev./Testing
 
 #### date: 
-severity: low
+#### severity: low
 #### bugs-fixed:
 - N/A
 #### new-features:
