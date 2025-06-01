@@ -55,10 +55,12 @@ typedef struct _ocl{
 	int contContextMessages;
 	char *staticContextFile;
 	char *contextFile;
+	bool getThoughts;
 	struct _ocl_response *ocl_resp;
 }OCl;
 
 struct _ocl_response{
+	char *thoughts;
 	char *content;
 	char *response;
 	char error[BUFFER_SIZE_1K];
@@ -128,6 +130,7 @@ static int parse_input(char **stringTo, char const *stringFrom){
 }
 
 char * OCL_get_response(OCl *ocl){ return ocl->ocl_resp->content;}
+char * OCL_get_response_thoughts(OCl *ocl){ return ocl->ocl_resp->thoughts;}
 double OCL_get_response_load_duration(const OCl *ocl){ return ocl->ocl_resp->loadDuration;}
 double OCL_get_response_prompt_eval_duration(const OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
 double OCL_get_response_eval_duration(const OCl *ocl){ return ocl->ocl_resp->evalDuration;}
@@ -290,6 +293,7 @@ int OCl_free(OCl *ocl){
 	sfree(ocl->staticContextFile);
 	sfree(ocl->contextFile);
 	sfree(ocl->systemRole);
+	sfree(ocl->ocl_resp->thoughts);
 	sfree(ocl->ocl_resp->content);
 	sfree(ocl->ocl_resp->response);
 	sfree(ocl->ocl_resp);
@@ -415,7 +419,7 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 		const char *socketSendTo
 		,const char *socketRecvTo, const char *model, const char *keepAlive, const char *systemRole
 		,const char *maxContextMsg, const char *temp, const char *seed, const char *maxTokensCtx
-		,const char *contextFile, const char *contextStaticFile){
+		,const char *contextFile, const char *contextStaticFile, bool getThoughts){
 	*ocl=malloc(sizeof(OCl));
 	int retVal=0;
 	(*ocl)->contextFile=NULL;
@@ -424,6 +428,8 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	(*ocl)->rootStaticContextMessages=NULL;
 	(*ocl)->systemRole=NULL;
 	(*ocl)->ocl_resp=malloc(sizeof(struct _ocl_response));
+	(*ocl)->ocl_resp->thoughts=malloc(BUFFER_SIZE_1M);
+	(*ocl)->ocl_resp->thoughts[0]=0;
 	(*ocl)->ocl_resp->content=malloc(BUFFER_SIZE_1M);
 	(*ocl)->ocl_resp->content[0]=0;
 	(*ocl)->ocl_resp->response=malloc(BUFFER_SIZE_1M);
@@ -442,6 +448,8 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	OCl_set_max_history_ctx(*ocl, OCL_MAX_HISTORY_CTX);
 	OCl_set_max_tokens_ctx(*ocl, OCL_MAX_TOKENS_CTX);
 	OCl_set_role(*ocl, OCL_SYSTEM_ROLE);
+	(*ocl)->getThoughts=OCL_GET_THOUGHTS;
+	(*ocl)->getThoughts=getThoughts;
 	(*ocl)->ocl_resp->loadDuration=0.0;
 	(*ocl)->ocl_resp->promptEvalDuration=0.0;
 	(*ocl)->ocl_resp->evalDuration=0.0;
@@ -698,7 +706,7 @@ static int create_connection(const char *srvAddr, int srvPort, int socketConnect
 	return socketConn;
 }
 
-static int send_message(OCl *ocl, char const *payload, void (*callback)(const char *, bool)){
+static int send_message(OCl *ocl, char const *payload, void (*callback)(const char *, bool, bool)){
 	oclSslError=0;
 	int socketConn=create_connection(ocl->srvAddr, ocl->srvPort, ocl->socketConnectTimeout);
 	if(socketConn<=0) return socketConn;
@@ -736,6 +744,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	struct timeval tvRecvTo;
 	tvRecvTo.tv_sec=ocl->socketRecvTimeout;
 	tvRecvTo.tv_usec=0;
+	ocl->ocl_resp->thoughts[0]=0;
 	ocl->ocl_resp->content[0]=0;
 	ocl->ocl_resp->response[0]=0;
 	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
@@ -768,9 +777,10 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			totalBytesReceived+=bytesReceived;
 			if(totalBytesReceived>bufferAssigned){
 				bufferAssigned*=2;
+				ocl->ocl_resp->response=realloc(ocl->ocl_resp->thoughts,bufferAssigned);
 				ocl->ocl_resp->response=realloc(ocl->ocl_resp->response,bufferAssigned);
 				ocl->ocl_resp->content=realloc(ocl->ocl_resp->content,bufferAssigned);
-				if(!ocl->ocl_resp->response || !ocl->ocl_resp->content){
+				if(!ocl->ocl_resp->thoughts || !ocl->ocl_resp->response || !ocl->ocl_resp->content){
 					close(socketConn);
 					clean_ssl(sslConn);
 					return OCL_ERR_REALLOC;
@@ -778,7 +788,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			}
 			strncat(ocl->ocl_resp->response,buffer, bufferAssigned-1);
 			char token[128]="";
-			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){
+			if(get_string_from_token(buffer, "\"thinking\":\"", token, '"')){
 				char const *b=strstr(token,"\\\"},");
 				if(b){
 					int idx=0;
@@ -792,8 +802,26 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 						}
 					}
 				}
+				if(callback!=NULL) callback(token, ocl->ocl_resp->done, true);
+				strncat(ocl->ocl_resp->thoughts,token, bufferAssigned-1);
+				continue;
+			}
+			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){
+					char const *b=strstr(token,"\\\"},");
+					if(b){
+						int idx=0;
+						for(size_t i=0;i<strlen(token);i++,idx++){
+							if(b==&token[i]){
+								token[idx]='\\';
+								token[idx+1]=0;
+								i+=3;
+							}else{
+								token[idx]=token[i];
+							}
+						}
+					}
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) ocl->ocl_resp->done=true;
-				if(callback!=NULL) callback(token, ocl->ocl_resp->done);
+				if(callback!=NULL) callback(token, ocl->ocl_resp->done, false);
 				strncat(ocl->ocl_resp->content,token, bufferAssigned-1);
 				if(ocl->ocl_resp->done){
 					char result[128]="";
@@ -878,7 +906,7 @@ int base64_encode(const char* fileName, size_t *outLen, char **encodedData) {
 	return OCL_RETURN_OK;
 }
 
-int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*callback)(const char *, bool)){
+int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*callback)(const char *, bool, bool)){
 	char *imageFileBase64=NULL;
 	size_t imageFileSize=0;
 	if(imageFile!=NULL){
@@ -942,6 +970,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"messages\":["
 				"{\"role\":\"system\",\"content\":\"%s\"},"
 				"%s""{\"role\": \"user\",\"content\": \"%s\",\"images\": [\"%s\"]}],"
+				"\"think\": %s,"
 				"\"options\": {"
 				"\"temperature\": %f,"
 				"\"seed\": %d,"
@@ -954,6 +983,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				context,
 				messageParsed,
 				imageFileBase64,
+				(ocl->getThoughts)?("true"):("false"),
 				ocl->temp,
 				ocl->seed,
 				ocl->maxTokensCtx,
@@ -965,6 +995,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"messages\":["
 				"{\"role\":\"system\",\"content\":\"%s\"},"
 				"%s""{\"role\": \"user\",\"content\": \"%s\"}],"
+				"\"think\": %s,"
 				"\"options\": {"
 				"\"temperature\": %f,"
 				"\"seed\": %d,"
@@ -976,6 +1007,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				ocl->systemRole,
 				context,
 				messageParsed,
+				(ocl->getThoughts)?("true"):("false"),
 				ocl->temp,
 				ocl->seed,
 				ocl->maxTokensCtx,

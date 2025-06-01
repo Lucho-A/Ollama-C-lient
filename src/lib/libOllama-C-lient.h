@@ -20,7 +20,7 @@
 #define OCL_NAME 								"libOCl"
 #define OCL_MAJOR_VERSION						"0"
 #define OCL_MINOR_VERSION						"0"
-#define OCL_MICRO_VERSION						"1"
+#define OCL_MICRO_VERSION						"2"
 #define OCL_VERSION								PROGRAM_MAJOR_VERSION"." PROGRAM_MINOR_VERSION"." PROGRAM_MICRO_VERSION
 #define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
@@ -40,6 +40,7 @@
 #define OCL_SEED								"0"
 #define OCL_MAX_HISTORY_CTX						"3"
 #define OCL_MAX_TOKENS_CTX						"4096"
+#define OCL_GET_THOUGHTS						false
 
 enum ocl_errors{
 	OCL_ERR_INIT=-100,
@@ -101,19 +102,21 @@ extern bool oclCanceled;
 
 int OCl_init();
 int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *, const char *
-		, const char *, const char *,const char *,const char *, const char *, const char *, const char *, const char *);
+		, const char *, const char *,const char *,const char *, const char *, const char *, const char *
+		, const char *, bool);
 int OCl_free(OCl *);
 int OCl_shutdown();
 
 int OCl_flush_context(OCl *);
 int OCl_load_model(OCl *, bool load);
-int OCl_send_chat(OCl *, const char *, const char *, void (*)(const char *, bool));
+int OCl_send_chat(OCl *, const char *, const char *, void (*)(const char *, bool, bool));
 int OCl_check_service_status(OCl *);
 int OCl_check_model_loaded(OCl *);
 char * OCL_error_handling(OCl *, int);
 
 int OCl_get_models(OCl *, char(*)[512]);
 char * OCL_get_response(OCl *);
+char * OCL_get_response_thoughts(OCl *);
 double OCL_get_response_load_duration(const OCl *);
 double OCL_get_response_prompt_eval_duration(const OCl *);
 double OCL_get_response_eval_duration(const OCl *);

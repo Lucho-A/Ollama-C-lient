@@ -19,7 +19,7 @@
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.1"
+#define PROGRAM_VERSION					"0.0.2"
 
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
@@ -42,6 +42,7 @@ struct OclParams{
 	char *systemRole;
 	char *contextFile;
 	char *staticContextFile;
+	bool getThoughts;
 };
 
 struct Colors{
@@ -55,7 +56,6 @@ struct ProgramOpts{
 	struct OclParams ocl;
 	long int responseSpeed;
 	bool showResponseInfo;
-	bool showThoughts;
 	bool showModels;
 	bool showLoadingModels;
 	bool stdoutParsed;
@@ -70,7 +70,7 @@ struct SendingMessage{
 
 struct ProgramOpts po={0};
 struct SendingMessage sm={0};
-bool isThinking=false;
+bool thinking=false;
 char chunkings[8196]="";
 
 static void show_help(char *programName){
@@ -230,7 +230,7 @@ char *parse_output(const char *in){
 	return buff;
 }
 
-static void print_response(char const *token, bool done){
+static void print_response(char const *token, bool done, bool isThinking){
 	if(po.stdoutParsed && po.stdoutChunked){
 		char *parsedOut=parse_output(token);
 		strncat(chunkings,parsedOut,8196-1);
@@ -244,20 +244,17 @@ static void print_response(char const *token, bool done){
 		return;
 	}
 	if(po.responseSpeed==0) return;
-	if(strstr(token, "\\u003cthink\\u003e")!=NULL){
-		isThinking=true;
+	if(isThinking && !thinking){
+		thinking=true;
 		fputs("(Thinking...)\n", stdout);
 		fflush(stdout);
-		if(po.showThoughts) isThinking=false;
-		return;
 	}
-	if(strstr(token, "\\u003c/think\\u003e")!=NULL){
-		isThinking=false;
+	if(!isThinking && thinking){
+		thinking=false;
 		fputs("(Stop thinking...)\n", stdout);
 		fflush(stdout);
-		return;
 	}
-	if(isThinking) return;
+	if(isThinking && !po.ocl.getThoughts) return;
 	if(po.stdoutParsed){
 		char *parsedOut=parse_output(token);
 		for(size_t i=0;i<strlen(parsedOut);i++){
@@ -498,7 +495,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--show-thoughts")==0){
-			po.showThoughts=true;
+			po.ocl.getThoughts=true;
 			continue;
 		}
 		if(strcmp(argv[i],"--stdout-parsed")==0){
@@ -535,7 +532,8 @@ int main(int argc, char *argv[]) {
 			po.ocl.seed,
 			po.ocl.maxTokensCtx,
 			po.ocl.contextFile,
-			po.ocl.staticContextFile))!=OCL_RETURN_OK)
+			po.ocl.staticContextFile,
+			po.ocl.getThoughts))!=OCL_RETURN_OK)
 		print_error_msg("",OCL_error_handling(ocl,retVal),true);
 	if(po.showModels){
 		char models[512][512]={""};
@@ -560,11 +558,23 @@ int main(int argc, char *argv[]) {
 			sm.input=NULL;
 			if(po.responseSpeed==0 && !oclCanceled){
 				if(!po.stdoutParsed){
+					if(po.ocl.getThoughts){
+						fputs("<thinking>", stdout);
+						fputs(OCL_get_response_thoughts(ocl), stdout);
+						fputs("</thinking>\n", stdout);
+					}
 					fputs(OCL_get_response(ocl), stdout);
 					fflush(stdout);
 				}else{
 					if(!po.stdoutChunked){
-						char *out=parse_output(OCL_get_response(ocl));
+						char *out=NULL;
+						if(po.ocl.getThoughts){
+							fputs("<thinking>", stdout);
+							out=parse_output(OCL_get_response_thoughts(ocl));
+							fputs(out, stdout);
+							fputs("</thinking>\n", stdout);
+						}
+						out=parse_output(OCL_get_response(ocl));
 						fputs(out, stdout);
 						fflush(stdout);
 						free(out);
