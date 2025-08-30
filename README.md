@@ -50,6 +50,7 @@ The options supported are:
 |--socket-send-to | int:5 _[>=0]_ | in seconds, set up the sending time out. |
 |--socket-recv-to | int:15 _[>=0]_ | in seconds, set up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting. |
 |--model | string:NULL | model to use. |
+|--no-think | N/A:false | set a no-thinking status for the model. |
 |--temperature | double:0.5 _[>=0]_ | set the temperature of the model. |
 |--seed | int:0 _[>=0]_ | set the seed of the model. |
 |--keep-alive | int:300 _[>=0]_ | in seconds, tell to the server how many seconds the model will be available until unloaded. |
