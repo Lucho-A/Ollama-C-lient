@@ -44,6 +44,7 @@ typedef struct _ocl{
 	int socketSendTimeout;
 	int socketRecvTimeout;
 	char model[512];
+	bool noThink;
 	int keepalive;
 	char *systemRole;
 	double temp;
@@ -55,7 +56,6 @@ typedef struct _ocl{
 	int contContextMessages;
 	char *staticContextFile;
 	char *contextFile;
-	bool getThoughts;
 	struct _ocl_response *ocl_resp;
 }OCl;
 
@@ -157,6 +157,11 @@ static int OCl_set_server_port(OCl *ocl, const char *serverPort){
 
 int OCl_set_model(OCl *ocl, const char *model){
 	snprintf(ocl->model,512,"%s",model);
+	return OCL_RETURN_OK;
+}
+
+int OCl_set_no_think(OCl *ocl,bool noThink){
+	ocl->noThink=noThink;
 	return OCL_RETURN_OK;
 }
 
@@ -417,9 +422,10 @@ static int OCl_import_context(OCl *ocl){
 
 int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, const char *socketConnTo, 
 		const char *socketSendTo
-		,const char *socketRecvTo, const char *model, const char *keepAlive, const char *systemRole
+		,const char *socketRecvTo, const char *model, bool noThink
+		, const char *keepAlive, const char *systemRole
 		,const char *maxContextMsg, const char *temp, const char *seed, const char *maxTokensCtx
-		,const char *contextFile, const char *contextStaticFile, bool getThoughts){
+		,const char *contextFile, const char *contextStaticFile){
 	*ocl=malloc(sizeof(OCl));
 	int retVal=0;
 	(*ocl)->contextFile=NULL;
@@ -442,14 +448,13 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	OCl_set_send_timeout(*ocl, OCL_SOCKET_SEND_TIMEOUT_S);
 	OCl_set_recv_timeout(*ocl, OCL_SOCKET_RECV_TIMEOUT_S);
 	OCl_set_model(*ocl, OCL_MODEL);
+	OCl_set_no_think(*ocl, false);
 	OCl_set_keepalive(*ocl, OCL_KEEPALIVE_S);
 	OCl_set_temp(*ocl, OCL_TEMP);
 	OCl_set_seed(*ocl, OCL_SEED);
 	OCl_set_max_history_ctx(*ocl, OCL_MAX_HISTORY_CTX);
 	OCl_set_max_tokens_ctx(*ocl, OCL_MAX_TOKENS_CTX);
 	OCl_set_role(*ocl, OCL_SYSTEM_ROLE);
-	(*ocl)->getThoughts=OCL_GET_THOUGHTS;
-	(*ocl)->getThoughts=getThoughts;
 	(*ocl)->ocl_resp->loadDuration=0.0;
 	(*ocl)->ocl_resp->promptEvalDuration=0.0;
 	(*ocl)->ocl_resp->evalDuration=0.0;
@@ -465,6 +470,7 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	if((retVal=OCl_set_send_timeout(*ocl, socketSendTo))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_recv_timeout(*ocl, socketRecvTo))!=OCL_RETURN_OK) return retVal;
 	OCl_set_model(*ocl, model);
+	OCl_set_no_think(*ocl, noThink);
 	if((retVal=OCl_set_keepalive(*ocl, keepAlive))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_temp(*ocl, temp))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_seed(*ocl, seed))!=OCL_RETURN_OK) return retVal;
@@ -983,7 +989,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				context,
 				messageParsed,
 				imageFileBase64,
-				(ocl->getThoughts)?("true"):("false"),
+				(ocl->noThink)?("false"):("true"),
 				ocl->temp,
 				ocl->seed,
 				ocl->maxTokensCtx,
@@ -1007,7 +1013,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				ocl->systemRole,
 				context,
 				messageParsed,
-				(ocl->getThoughts)?("true"):("false"),
+				(ocl->noThink)?("false"):("true"),
 				ocl->temp,
 				ocl->seed,
 				ocl->maxTokensCtx,

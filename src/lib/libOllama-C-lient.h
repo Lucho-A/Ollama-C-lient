@@ -101,9 +101,10 @@ extern int oclSslError;
 extern bool oclCanceled;
 
 int OCl_init();
-int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *, const char *
-		, const char *, const char *,const char *,const char *, const char *, const char *, const char *
-		, const char *, bool);
+int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *
+		, const char *, bool, const char *, const char *,const char *,const char *, const char *
+		, const char *, const char *
+		, const char *);
 int OCl_free(OCl *);
 int OCl_shutdown();
 

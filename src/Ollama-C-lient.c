@@ -34,6 +34,7 @@ struct OclParams{
 	char socketSendTo[8];
 	char socketRecvTo[8];
 	char model[128];
+	bool noThink;
 	char temp[8];
 	char seed[8];
 	char keepalive[8];
@@ -42,7 +43,6 @@ struct OclParams{
 	char *systemRole;
 	char *contextFile;
 	char *staticContextFile;
-	bool getThoughts;
 };
 
 struct Colors{
@@ -55,6 +55,7 @@ struct Colors{
 struct ProgramOpts{
 	struct OclParams ocl;
 	long int responseSpeed;
+	bool showThoughts;
 	bool showResponseInfo;
 	bool showModels;
 	bool showLoadingModels;
@@ -86,6 +87,7 @@ static void show_help(char *programName){
 	printf("--socket-send-to \t\t int:5 [>=0] \t\t in seconds, set up the sending time out.\n");
 	printf("--socket-recv-to \t\t int:15 [>=0] \t\t in seconds, set up the receiving time out.\n");
 	printf("--model \t\t\t string:NULL \t\t model to use.\n");
+	printf("--no-think \t\t\t N/A:false \t\t set a no-thinking status for the model.\n");
 	printf("--temperature \t\t\t double:0.5 [>=0] \t set the temperature of the model.\n");
 	printf("--seed \t\t\t\t int:0 [>=0] \t\t set the seed of the model.\n");
 	printf("--keep-alive \t\t\t int:300 [>=0] \t\t in seconds, tell to the server how many seconds the model will be available until unloaded.\n");
@@ -254,7 +256,7 @@ static void print_response(char const *token, bool done, bool isThinking){
 		fputs("(Stop thinking...)\n", stdout);
 		fflush(stdout);
 	}
-	if(isThinking && !po.ocl.getThoughts) return;
+	if(isThinking && !po.showThoughts) return;
 	if(po.stdoutParsed){
 		char *parsedOut=parse_output(token);
 		for(size_t i=0;i<strlen(parsedOut);i++){
@@ -373,6 +375,10 @@ int main(int argc, char *argv[]) {
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
 			snprintf(po.ocl.model,128,"%s",argv[i+1]);
 			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--no-think")==0){
+			po.ocl.noThink=true;
 			continue;
 		}
 		if(strcmp(argv[i],"--temperature")==0){
@@ -495,7 +501,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--show-thoughts")==0){
-			po.ocl.getThoughts=true;
+			po.showThoughts=true;
 			continue;
 		}
 		if(strcmp(argv[i],"--stdout-parsed")==0){
@@ -525,6 +531,7 @@ int main(int argc, char *argv[]) {
 			po.ocl.socketSendTo,
 			po.ocl.socketRecvTo,
 			po.ocl.model,
+			po.ocl.noThink,
 			po.ocl.keepalive,
 			po.ocl.systemRole,
 			po.ocl.maxMsgCtx,
@@ -532,8 +539,7 @@ int main(int argc, char *argv[]) {
 			po.ocl.seed,
 			po.ocl.maxTokensCtx,
 			po.ocl.contextFile,
-			po.ocl.staticContextFile,
-			po.ocl.getThoughts))!=OCL_RETURN_OK)
+			po.ocl.staticContextFile))!=OCL_RETURN_OK)
 		print_error_msg("",OCL_error_handling(ocl,retVal),true);
 	if(po.showModels){
 		char models[512][512]={""};
@@ -558,7 +564,7 @@ int main(int argc, char *argv[]) {
 			sm.input=NULL;
 			if(po.responseSpeed==0 && !oclCanceled){
 				if(!po.stdoutParsed){
-					if(po.ocl.getThoughts){
+					if(po.showThoughts){
 						fputs("<thinking>", stdout);
 						fputs(OCL_get_response_thoughts(ocl), stdout);
 						fputs("</thinking>\n", stdout);
@@ -568,7 +574,7 @@ int main(int argc, char *argv[]) {
 				}else{
 					if(!po.stdoutChunked){
 						char *out=NULL;
-						if(po.ocl.getThoughts){
+						if(po.showThoughts){
 							fputs("<thinking>", stdout);
 							out=parse_output(OCL_get_response_thoughts(ocl));
 							fputs(out, stdout);

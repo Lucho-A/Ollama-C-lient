@@ -5,11 +5,11 @@
 #### bugs-fixed:
 - N/A
 #### new-features:
-- N/A
+- changes for alignment with [Ollama v0.9.0 changes](https://github.com/ollama/ollama/releases/tag/v0.9.0)
 #### improvements:
 - N/A
 #### others:
-- changes for alignment with [Ollama v0.9.0 changes](https://github.com/ollama/ollama/releases/tag/v0.9.0)
+- N/A
 
 ### ollama-c-lient-v0.0.1
 
