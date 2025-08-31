@@ -2,10 +2,6 @@
 
 C program for interacting with [Ollama](https://github.com/ollama/ollama) server from a Linux terminal. It is not meant to be a complete library at all. At the moment, it's just the simplest interface that I'm developing solely for my personal and daily usage.
 
-### Version:
-
-- 0.0.1
-
 ### Disclaimer
 
 - supports only SSL/TLS (sorry, security by design, baby)
@@ -23,6 +19,11 @@ sudo apt-get install libssl-dev libcrypt-dev
 ```
 ### Program compilation:
 
+- Stable
+
+Download and unzip the latest version from [here](https://github.com/lucho-a/Ollama-C-lient/releases/latest).
+
+- Dev./Testing
 ```
 git clone https://github.com/lucho-a/Ollama-C-lient.git
 ```
