@@ -2,8 +2,6 @@
  ============================================================================
  Name        : libOllama-C-lient.h
  Author      : L. (lucho-a.github.io)
- Version     : 0.0.1
- Created on	 : 204/04/19
  Copyright   : GNU General Public License v3.0
  Description : Header file
  ============================================================================
@@ -37,10 +35,14 @@
 #define OCL_KEEPALIVE_S							"300"
 #define OCL_SYSTEM_ROLE							""
 #define OCL_TEMP								"0.5"
+#define OCL_REPEAT_LAST_N						"64"
+#define OCL_REPEAT_PENALTY						"1.1"
 #define OCL_SEED								"0"
+#define OCL_TOP_K								"40"
+#define OCL_TOP_P								"0.9"
+#define OCL_MIN_P								"0.0"
 #define OCL_MAX_HISTORY_CTX						"3"
 #define OCL_MAX_TOKENS_CTX						"4096"
-#define OCL_GET_THOUGHTS						false
 
 enum ocl_errors{
 	OCL_ERR_INIT=-100,
@@ -85,7 +87,12 @@ enum ocl_errors{
 	OCL_ERR_PORT,
 	OCL_ERR_KEEP_ALIVE,
 	OCL_ERR_TEMP,
+	OCL_ERR_REPEAT_LAST_N,
+	OCL_ERR_REPEAT_PENALTY,
 	OCL_ERR_SEED,
+	OCL_ERR_TOP_K,
+	OCL_ERR_TOP_P,
+	OCL_ERR_MIN_P,
 	OCL_ERR_MAX_HISTORY_CTX,
 	OCL_ERR_MAX_TOKENS_CTX,
 	OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID,
@@ -103,8 +110,8 @@ extern bool oclCanceled;
 int OCl_init();
 int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *
 		, const char *, bool, const char *, const char *,const char *,const char *, const char *
-		, const char *, const char *
-		, const char *);
+		, const char *,const char *, const char *, const char *, const char *, const char *
+		, const char *, const char *);
 int OCl_free(OCl *);
 int OCl_shutdown();
 

@@ -52,8 +52,13 @@ The options supported are:
 |--socket-recv-to | int:15 _[>=0]_ | in seconds, set up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting. |
 |--model | string:NULL | model to use. |
 |--no-think | N/A:false | set a no-thinking status for the model. |
-|--temperature | double:0.5 _[>=0]_ | set the temperature of the model. |
-|--seed | int:0 _[>=0]_ | set the seed of the model. |
+|--temperature | double:0.5 _[>=0]_ | set the temperature parameter. |
+|--seed | int:0 _[>=0]_ | set the seed parameter. |
+|--repeat-last-n | int:64 _[>=-1]_ | set repeat_last_n parameter. |
+|--repeat-penalty | double:1.1 _[>=0]_ | set repeat_penalty parameter. |
+|--top-k | int:40 _[>=0]_ | set top_k parameter. |
+|--top-p | double:0.9 _[>=0]_ | set the top_p parameter. |
+|--min-p | double:0.0 _[>=0]_ | set the min_p parameter. |
 |--keep-alive | int:300 _[>=0]_ | in seconds, tell to the server how many seconds the model will be available until unloaded. |
 |--max-msgs-ctx | int:3 _[>=0]_ | set the maximum messages to be added as context in the messages. |
 |--max-msgs-tokens | int:4096 _[>=0]_ | set the maximum tokens. |

@@ -2,8 +2,6 @@
  ============================================================================
  Name        : Ollama-C-lient.c
  Author      : L. (lucho-a.github.io)
- Version     : 0.0.1
- Created on	 : 2024/04/19
  Copyright   : GNU General Public License v3.0
  Description : Main file
  ============================================================================
@@ -36,6 +34,11 @@ struct OclParams{
 	char model[128];
 	bool noThink;
 	char temp[8];
+	char repeat_last_n[8];
+	char repeat_penalty[8];
+	char top_k[8];
+	char top_p[8];
+	char min_p[8];
 	char seed[8];
 	char keepalive[8];
 	char maxMsgCtx[8];
@@ -88,8 +91,13 @@ static void show_help(char *programName){
 	printf("--socket-recv-to \t\t int:15 [>=0] \t\t in seconds, set up the receiving time out.\n");
 	printf("--model \t\t\t string:NULL \t\t model to use.\n");
 	printf("--no-think \t\t\t N/A:false \t\t set a no-thinking status for the model.\n");
-	printf("--temperature \t\t\t double:0.5 [>=0] \t set the temperature of the model.\n");
-	printf("--seed \t\t\t\t int:0 [>=0] \t\t set the seed of the model.\n");
+	printf("--temperature \t\t\t double:0.5 [>=0] \t set the temperature parameter.\n");
+	printf("--seed \t\t\t\t int:0 [>=0] \t\t set the seed parameter.\n");
+	printf("--repeat-last-n \t\t int:64 [>=-1] \t\t set the repeat_last_n parameter.\n");
+	printf("--repeat-penalty \t\t double:1.1 [>=0] \t\t set the repeat_penalty parameter.\n");
+	printf("--top-k \t\t\t int:40 [>=0] \t\t set the top_k parameter.\n");
+	printf("--top-p \t\t\t double:0.9 [>=0] \t set the top_p parameter.\n");
+	printf("--min-p \t\t\t double:0.0 [>=0] \t set the min_p parameter.\n");
 	printf("--keep-alive \t\t\t int:300 [>=0] \t\t in seconds, tell to the server how many seconds the model will be available until unloaded.\n");
 	printf("--max-msgs-ctx \t\t\t int:3 [>=0] \t\t set the maximum messages to be added as context in the messages.\n");
 	printf("--max-msgs-tokens \t\t int:4096 [>=0] \t set the maximum tokens.\n");
@@ -393,6 +401,36 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
+		if(strcmp(argv[i],"--repeat-last-n")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			snprintf(po.ocl.repeat_last_n,8,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--repeat-penalty")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			snprintf(po.ocl.repeat_penalty,8,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--top-k")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			snprintf(po.ocl.top_k,8,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--top-p")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			snprintf(po.ocl.top_p,8,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--min-p")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			snprintf(po.ocl.min_p,8,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--keep-alive")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
 			snprintf(po.ocl.keepalive,8,"%s",argv[i+1]);
@@ -536,7 +574,12 @@ int main(int argc, char *argv[]) {
 			po.ocl.systemRole,
 			po.ocl.maxMsgCtx,
 			po.ocl.temp,
+			po.ocl.repeat_last_n,
+			po.ocl.repeat_penalty,
 			po.ocl.seed,
+			po.ocl.top_k,
+			po.ocl.top_p,
+			po.ocl.min_p,
 			po.ocl.maxTokensCtx,
 			po.ocl.contextFile,
 			po.ocl.staticContextFile))!=OCL_RETURN_OK)

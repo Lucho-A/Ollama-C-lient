@@ -2,8 +2,6 @@
  ============================================================================
  Name        : libOllama-C-lient.c
  Author      : L. (lucho-a.github.io)
- Version     : 0.0.1
- Created on	 : 2024/04/19
  Copyright   : GNU General Public License v3.0
  Description : C file
  ============================================================================
@@ -48,7 +46,12 @@ typedef struct _ocl{
 	int keepalive;
 	char *systemRole;
 	double temp;
+	int repeat_last_n;
+	double repeat_penalty;
 	int seed;
+	int top_k;
+	double top_p;
+	double min_p;
 	int maxHistoryCtx;
 	int maxTokensCtx;
 	Message *rootContextMessages;
@@ -218,11 +221,56 @@ static int OCl_set_temp(OCl *ocl, char const *temp){
 	return OCL_RETURN_OK;
 }
 
+static int OCl_set_repeat_last_n(OCl *ocl, char const *repeat_last_n){
+	if(repeat_last_n!=NULL && strcmp(repeat_last_n,"")!=0){
+		char *tail=NULL;
+		ocl->repeat_last_n=strtol(repeat_last_n,&tail,10);
+		if(ocl->repeat_last_n < -1 || tail[0]!=0) return OCL_ERR_REPEAT_LAST_N;
+	}
+	return OCL_RETURN_OK;
+}
+
+static int OCl_set_repeat_penalty(OCl *ocl, char const *repeat_penalty){
+	if(repeat_penalty!=NULL && strcmp(repeat_penalty,"")!=0){
+		char *tail=NULL;
+		ocl->repeat_penalty=strtod(repeat_penalty,&tail);
+		if(ocl->repeat_penalty<0.0 || tail[0]!=0) return OCL_ERR_REPEAT_PENALTY;
+	}
+	return OCL_RETURN_OK;
+}
+
 static int OCl_set_seed(OCl *ocl, char const *seed){
 	if(seed!=NULL && strcmp(seed,"")!=0){
 		char *tail=NULL;
 		ocl->seed=strtol(seed,&tail,10);
 		if(ocl->seed<0 || tail[0]!=0) return OCL_ERR_SEED;
+	}
+	return OCL_RETURN_OK;
+}
+
+static int OCl_set_top_k(OCl *ocl, char const *top_k){
+	if(top_k!=NULL && strcmp(top_k,"")!=0){
+		char *tail=NULL;
+		ocl->top_k=strtol(top_k,&tail,10);
+		if(ocl->top_k<0 || tail[0]!=0) return OCL_ERR_TOP_K;
+	}
+	return OCL_RETURN_OK;
+}
+
+static int OCl_set_top_p(OCl *ocl, char const *top_p){
+	if(top_p!=NULL && strcmp(top_p,"")!=0){
+		char *tail=NULL;
+		ocl->top_p=strtod(top_p,&tail);
+		if(ocl->top_p<0 || tail[0]!=0) return OCL_ERR_TOP_P;
+	}
+	return OCL_RETURN_OK;
+}
+
+static int OCl_set_min_p(OCl *ocl, char const *min_p){
+	if(min_p!=NULL && strcmp(min_p,"")!=0){
+		char *tail=NULL;
+		ocl->min_p=strtod(min_p,&tail);
+		if(ocl->min_p<0 || tail[0]!=0) return OCL_ERR_MIN_P;
 	}
 	return OCL_RETURN_OK;
 }
@@ -421,10 +469,10 @@ static int OCl_import_context(OCl *ocl){
 }
 
 int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, const char *socketConnTo, 
-		const char *socketSendTo
-		,const char *socketRecvTo, const char *model, bool noThink
-		, const char *keepAlive, const char *systemRole
-		,const char *maxContextMsg, const char *temp, const char *seed, const char *maxTokensCtx
+		const char *socketSendTo,const char *socketRecvTo, const char *model, bool noThink
+		, const char *keepAlive, const char *systemRole,const char *maxContextMsg, const char *temp
+		, const char *repeat_last_n, const char *repeat_penalty, const char *seed
+		, const char *top_k, const char *top_p, const char *min_p, const char *maxTokensCtx
 		,const char *contextFile, const char *contextStaticFile){
 	*ocl=malloc(sizeof(OCl));
 	int retVal=0;
@@ -451,7 +499,12 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	OCl_set_no_think(*ocl, false);
 	OCl_set_keepalive(*ocl, OCL_KEEPALIVE_S);
 	OCl_set_temp(*ocl, OCL_TEMP);
+	OCl_set_repeat_last_n(*ocl, OCL_REPEAT_LAST_N);
+	OCl_set_repeat_penalty(*ocl, OCL_REPEAT_PENALTY);
 	OCl_set_seed(*ocl, OCL_SEED);
+	OCl_set_top_k(*ocl, OCL_TOP_K);
+	OCl_set_top_p(*ocl, OCL_TOP_P);
+	OCl_set_min_p(*ocl, OCL_MIN_P);
 	OCl_set_max_history_ctx(*ocl, OCL_MAX_HISTORY_CTX);
 	OCl_set_max_tokens_ctx(*ocl, OCL_MAX_TOKENS_CTX);
 	OCl_set_role(*ocl, OCL_SYSTEM_ROLE);
@@ -473,7 +526,12 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	OCl_set_no_think(*ocl, noThink);
 	if((retVal=OCl_set_keepalive(*ocl, keepAlive))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_temp(*ocl, temp))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_repeat_last_n(*ocl, repeat_last_n))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_repeat_penalty(*ocl, repeat_penalty))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_seed(*ocl, seed))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_top_k(*ocl, top_k))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_top_p(*ocl, top_p))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_min_p(*ocl, min_p))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_max_history_ctx(*ocl, maxContextMsg))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_max_tokens_ctx(*ocl, maxTokensCtx))!=OCL_RETURN_OK) return retVal;
 	if(contextStaticFile){
@@ -627,8 +685,23 @@ char * OCL_error_handling(OCl *ocl, int error){
 	case OCL_ERR_TEMP:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Temperature value not valid. ");
 		break;
+	case OCL_ERR_REPEAT_LAST_N:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Repeat_last_n value not valid. ");
+		break;
+	case OCL_ERR_REPEAT_PENALTY:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Repeat_penalty value not valid. ");
+		break;
 	case OCL_ERR_SEED:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Seed value not valid. ");
+		break;
+	case OCL_ERR_TOP_K:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Top_k value not valid. ");
+		break;
+	case OCL_ERR_TOP_P:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Top_p value not valid. ");
+		break;
+	case OCL_ERR_MIN_P:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Min_p value not valid. ");
 		break;
 	case OCL_ERR_MAX_HISTORY_CTX:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. message context value not valid. ");
@@ -979,7 +1052,12 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"think\": %s,"
 				"\"options\": {"
 				"\"temperature\": %f,"
+				"\"repeat_last_n\": %d,"
+				"\"repeat_penalty\": %f,"
 				"\"seed\": %d,"
+				"\"top_k\": %d,"
+				"\"top_p\": %f,"
+				"\"min_p\": %f,"
 				"\"num_ctx\": %d,"
 				"\"stream\": %s,"
 				"\"keep_alive\": %d,"
@@ -991,7 +1069,12 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				imageFileBase64,
 				(ocl->noThink)?("false"):("true"),
 				ocl->temp,
+				ocl->repeat_last_n,
+				ocl->repeat_penalty,
 				ocl->seed,
+				ocl->top_k,
+				ocl->top_p,
+				ocl->min_p,
 				ocl->maxTokensCtx,
 				"true",
 				ocl->keepalive);
@@ -1004,7 +1087,12 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"think\": %s,"
 				"\"options\": {"
 				"\"temperature\": %f,"
+				"\"repeat_last_n\": %d,"
+				"\"repeat_penalty\": %f,"
 				"\"seed\": %d,"
+				"\"top_k\": %d,"
+				"\"top_p\": %f,"
+				"\"min_p\": %f,"
 				"\"num_ctx\": %d,"
 				"\"stream\": %s,"
 				"\"keep_alive\": %d,"
@@ -1015,7 +1103,12 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				messageParsed,
 				(ocl->noThink)?("false"):("true"),
 				ocl->temp,
+				ocl->repeat_last_n,
+				ocl->repeat_penalty,
 				ocl->seed,
+				ocl->top_k,
+				ocl->top_p,
+				ocl->min_p,
 				ocl->maxTokensCtx,
 				"true",
 				ocl->keepalive);
