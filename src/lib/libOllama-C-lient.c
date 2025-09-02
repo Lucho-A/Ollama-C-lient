@@ -82,7 +82,7 @@ static void sfree(void *p){
 	p=NULL;
 }
 
-static int parse_input(char **stringTo, char const *stringFrom){
+int OCl_parse_string(char **stringTo, char const *stringFrom){
 	if(stringFrom==NULL) return OCL_RETURN_OK;
 	int cont=0, contEsc=0;
 	for(size_t i=0;i<strlen(stringFrom);i++){
@@ -181,7 +181,7 @@ int OCl_set_role(OCl *ocl, const char *role){
 	sfree(ocl->systemRole);
 	ocl->systemRole=malloc(1);
 	ocl->systemRole[0]=0;
-	parse_input(&(ocl->systemRole), role);
+	OCl_parse_string(&(ocl->systemRole), role);
 	return OCL_RETURN_OK;
 }
 
@@ -791,7 +791,10 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	if(socketConn<=0) return socketConn;
 	if(oclSslCtx==NULL) return OCL_ERR_SSLCTX_NULL;
 	SSL *sslConn=NULL;
-	if((sslConn=SSL_new(oclSslCtx))==NULL) return OCL_ERR_SSL_CONTEXT;
+	if((sslConn=SSL_new(oclSslCtx))==NULL){
+		clean_ssl(sslConn);
+		return OCL_ERR_SSL_CONTEXT;
+	}
 	if(!SSL_set_fd(sslConn, socketConn)){
 		clean_ssl(sslConn);
 		return OCL_ERR_SSL_FD;
@@ -993,7 +996,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 		if(retVal!=OCL_RETURN_OK) return retVal;
 	}
 	char *messageParsed=NULL;
-	parse_input(&messageParsed, message);
+	OCl_parse_string(&messageParsed, message);
 	char *context=malloc(1), *buf=NULL;
 	context[0]=0;
 	char const *contextTemplate="{\"role\":\"user\",\"content\":\"%s\"},{\"role\":\"assistant\",\"content\":\"%s\"},";

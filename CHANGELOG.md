@@ -3,15 +3,16 @@
 #### date: 
 #### severity: medium
 #### bugs-fixed:
-- N/A
+- fixed --response-speed when --stdout-parsed wasn't set.
+- fixed program blocking when --response-speed < 0.
 #### new-features:
 - added parameter: --no-think. Alignment with [Ollama v0.9.0 changes](https://github.com/ollama/ollama/releases/tag/v0.9.0)
-- added parameters: repeat_last_n, repeat_penalty, top_k, top_p, min_p. 
+- added parameters: --repeat-last-n, --repeat-penalty, --top-k, --top-p, --min-p. 
+- added parameter: --stdout-json.
 #### improvements:
-- N/A
+- --stdout-chunked set --stdout-parsed, as well.
 #### others:
-- N/A
-
+- potential memory leak fixed
 
 ### ollama-c-lient-v0.0.1
 

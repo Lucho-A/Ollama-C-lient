@@ -138,4 +138,6 @@ long int OCL_get_response_size(const OCl *ocl);
 int OCl_set_model(OCl *, const char *);
 int OCl_set_role(OCl *, const char *);
 
+int OCl_parse_string(char **, char const *);
+
 #endif /* HEADERS_LIBOLLAMA_C_LIENT_H_ */

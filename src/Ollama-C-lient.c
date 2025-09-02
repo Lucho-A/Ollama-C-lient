@@ -64,6 +64,7 @@ struct ProgramOpts{
 	bool showLoadingModels;
 	bool stdoutParsed;
 	bool stdoutChunked;
+	bool stdoutJson;
 	struct Colors colors;
 };
 
@@ -94,7 +95,7 @@ static void show_help(char *programName){
 	printf("--temperature \t\t\t double:0.5 [>=0] \t set the temperature parameter.\n");
 	printf("--seed \t\t\t\t int:0 [>=0] \t\t set the seed parameter.\n");
 	printf("--repeat-last-n \t\t int:64 [>=-1] \t\t set the repeat_last_n parameter.\n");
-	printf("--repeat-penalty \t\t double:1.1 [>=0] \t\t set the repeat_penalty parameter.\n");
+	printf("--repeat-penalty \t\t double:1.1 [>=0] \t set the repeat_penalty parameter.\n");
 	printf("--top-k \t\t\t int:40 [>=0] \t\t set the top_k parameter.\n");
 	printf("--top-p \t\t\t double:0.9 [>=0] \t set the top_p parameter.\n");
 	printf("--min-p \t\t\t double:0.0 [>=0] \t set the min_p parameter.\n");
@@ -115,7 +116,8 @@ static void show_help(char *programName){
 	printf("--show-models \t\t\t N/A:false \t\t show the models available.\n");
 	printf("--show-loading-models \t\t N/A:false \t\t show a message when a model is loading.\n");
 	printf("--stdout-parsed \t\t N/A:false \t\t parsing the output (useful for speeching/chatting).\n");
-	printf("--stdout-chunked \t\t N/A:false \t\t chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set.\n\n");
+	printf("--stdout-chunked \t\t N/A:false \t\t chunking the output by paragraph (particularly useful for speeching). Set '--stdout-parsed', as well. \n");
+	printf("--stdout-json \t\t\t N/A:false \t\t write stdout in JSON format. Output always no streamed and in RAW format.\n\n");
 	printf("Example: \n\n");
 	printf("$ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --model deepseek-r1 --stdout-parsed --response-speed 1\n");
 	printf("\nSee https://github.com/lucho-a/ollama-c-lient for a full description & more examples.\n\n");
@@ -241,7 +243,7 @@ char *parse_output(const char *in){
 }
 
 static void print_response(char const *token, bool done, bool isThinking){
-	if(po.stdoutParsed && po.stdoutChunked){
+	if(po.stdoutChunked){
 		char *parsedOut=parse_output(token);
 		strncat(chunkings,parsedOut,8196-1);
 		if(strstr(parsedOut, "\n") || done){
@@ -275,9 +277,72 @@ static void print_response(char const *token, bool done, bool isThinking){
 		free(parsedOut);
 		parsedOut=NULL;
 	}else{
-		fputs(token, stdout);
-		fflush(stdout);
+		for(size_t i=0;i<strlen(token);i++){
+			usleep(po.responseSpeed);
+			fputc(token[i], stdout);
+			fflush(stdout);
+		}
 	}
+}
+
+void create_json(){
+	char *jsonTemplate=NULL;
+	char *inParsed=NULL;
+	OCl_parse_string(&inParsed, sm.input);
+	char *thoughts=OCL_get_response_thoughts(ocl);
+	char *response=OCL_get_response(ocl);
+	size_t len=strlen(thoughts)+strlen(response)+strlen(inParsed)+2048;
+	jsonTemplate=malloc(len);
+	memset(jsonTemplate,0,len);
+	time_t timestamp = time(NULL);
+	struct tm tm = *localtime(&timestamp);
+	char strTimeStamp[50]="";
+	snprintf(strTimeStamp,sizeof(strTimeStamp)
+			,"%d%02d%02d_%02d%02d%02d_UTC%s"
+			,tm.tm_year + 1900
+			,tm.tm_mon + 1
+			,tm.tm_mday
+			,tm.tm_hour
+			,tm.tm_min
+			,tm.tm_sec
+			,tm.tm_zone);
+	snprintf(jsonTemplate,len,
+			"{\n"
+			"\"status\": \"success\",\n"
+			"\"model\": \"%s\",\n"
+			"\"prompt\": \"%s\",\n"
+			"\"thoughts\": \"%s\",\n"
+			"\"response\": \"%s\",\n"
+			"\"timestamp\": \"%s\",\n"
+			"\"load_duration\": %.4f,\n"
+			"\"prompt_eval_duration\": %.4f,\n"
+			"\"eval_duration\": %.4f,\n"
+			"\"total_duration\": %.4f,\n"
+			"\"prompt_eval_count\": %d,\n"
+			"\"eval_count\": %d,\n"
+			"\"tokens_per_sec\": %.4f,\n"
+			"\"count_chars\": %d,\n"
+			"\"response_size\": %.2f\n"
+			"}\n"
+			,po.ocl.model
+			,inParsed
+			,thoughts
+			,response
+			,strTimeStamp
+			,OCL_get_response_load_duration(ocl)
+			,OCL_get_response_prompt_eval_duration(ocl)
+			,OCL_get_response_eval_duration(ocl)
+			,OCL_get_response_total_duration(ocl)
+			,OCL_get_response_prompt_eval_count(ocl)
+			,OCL_get_response_eval_count(ocl)
+			,OCL_get_response_tokens_per_sec(ocl)
+			,OCL_get_response_chars_content(ocl)
+			,OCL_get_response_size(ocl)/1024.0
+	);
+	fputs(jsonTemplate, stdout);
+	fflush(stdout);
+	free(jsonTemplate);
+	free(inParsed);
 }
 
 void *start_sending_message(void *arg){
@@ -356,8 +421,10 @@ int main(int argc, char *argv[]) {
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
 			char *tail=NULL;
 			po.responseSpeed=strtol(argv[i+1], &tail, 10);
-			if(po.responseSpeed<0||(tail[0]!=0 && tail[0]!='\n'))
+			if(po.responseSpeed<0 || tail[0]!=0){
+				po.responseSpeed=RESPONSE_SPEED;
 				print_error_msg("Response speed not valid.","",true);
+			}
 			i++;
 			continue;
 		}
@@ -550,6 +617,10 @@ int main(int argc, char *argv[]) {
 			po.stdoutChunked=true;
 			continue;
 		}
+		if(strcmp(argv[i],"--stdout-json")==0){
+			po.stdoutJson=true;
+			continue;
+		}
 		if(strcmp(argv[i],"--show-models")==0){
 			po.showModels=true;
 			continue;
@@ -589,7 +660,7 @@ int main(int argc, char *argv[]) {
 		int cantModels=OCl_get_models(ocl, models);
 		if(cantModels<0) print_error_msg(OCL_error_handling(ocl,cantModels),"",true);
 		for(int i=0;i<cantModels;i++){
-				printf("  - ");
+			printf("  - ");
 			for(size_t j=0;j<strlen(models[i]);j++){
 				fputc(models[i][j], stdout);
 				fflush(stdout);
@@ -598,43 +669,53 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 		}
 	}
+	if(po.stdoutJson) po.responseSpeed=0;
+	if(po.stdoutChunked) po.stdoutParsed=true;
 	if(sm.input){
 		if(check_model_loaded()){
 			pthread_t tSendingMessage;
 			pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
 			pthread_join(tSendingMessage,NULL);
-			free(sm.input);
-			sm.input=NULL;
 			if(po.responseSpeed==0 && !oclCanceled){
-				if(!po.stdoutParsed){
-					if(po.showThoughts){
-						fputs("<thinking>", stdout);
-						fputs(OCL_get_response_thoughts(ocl), stdout);
-						fputs("</thinking>\n", stdout);
-					}
-					fputs(OCL_get_response(ocl), stdout);
-					fflush(stdout);
+				if(po.stdoutJson){
+					create_json();
 				}else{
-					if(!po.stdoutChunked){
-						char *out=NULL;
+					if(!po.stdoutParsed){
 						if(po.showThoughts){
 							fputs("<thinking>", stdout);
-							out=parse_output(OCL_get_response_thoughts(ocl));
-							fputs(out, stdout);
+							fputs(OCL_get_response_thoughts(ocl), stdout);
 							fputs("</thinking>\n", stdout);
 						}
-						out=parse_output(OCL_get_response(ocl));
-						fputs(out, stdout);
+						fputs(OCL_get_response(ocl), stdout);
 						fflush(stdout);
-						free(out);
-						out=NULL;
+					}else{
+						if(!po.stdoutChunked){
+							char *out=NULL;
+							if(po.showThoughts){
+								fputs("<thinking>", stdout);
+								out=parse_output(OCL_get_response_thoughts(ocl));
+								fputs(out, stdout);
+								fputs("</thinking>\n", stdout);
+							}
+							out=parse_output(OCL_get_response(ocl));
+							fputs(out, stdout);
+							fflush(stdout);
+							free(out);
+							out=NULL;
+						}
 					}
 				}
 			}
-			if(po.showResponseInfo && !oclCanceled) print_response_info();
+			if(po.showResponseInfo && !po.stdoutJson && !oclCanceled) print_response_info();
+			free(sm.input);
+			sm.input=NULL;
 			printf("\n");
 		}
 	}
 	close_program(false);
 }
+
+
+
+
 

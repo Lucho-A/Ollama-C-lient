@@ -27,6 +27,7 @@ Download and unzip the latest version from [here](https://github.com/lucho-a/Oll
 ```
 git clone https://github.com/lucho-a/Ollama-C-lient.git
 ```
+... then...
 ```
 cd Ollama-C-lient/src/
 ```
@@ -76,7 +77,8 @@ The options supported are:
 |--show-models | N/A:false | show the models available. |
 |--show-loading-models | N/A:false | show a message when a model is loading. |
 |--stdout-parsed | N/A:false | parsing the output (useful for speeching/chatting). |
-|--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Only works if '--stdout-parsed' was set. |
+|--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Set '--stdout-parsed', as well. |
+|--stdout-json | N/A:false | write stdout in JSON format. Output always no streamed and in RAW format. |
 
 ###### Note: all options are optional (really?!).
 
@@ -139,6 +141,9 @@ exit 0
 ```
 ```
 ./ollama-c-lient --model deepseek-r1 < prompt.txt
+```
+```
+cat prompt.txt | ./ollama-c-lient --server-addr 192.168.43.21 --server-port 4433 --model mistral-nemo --no-think --stdout-json > resp.json
 ```
 ```
 (echo 'What can you tell me about the content of this file?: ' && cat /home/user/file.txt) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --stdout-parsed < prompt.txt
