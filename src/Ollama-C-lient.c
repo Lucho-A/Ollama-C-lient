@@ -82,28 +82,28 @@ static void show_help(char *programName){
 	BANNER
 	printf("USAGE: %s [OPTIONS]\n", programName);
 	printf("\nOptions:\n\n");
-	printf("--version \t\t\t\t\t\t show version.\n");
-	printf("--help \t\t\t\t\t\t\t show this.\n");
+	printf("--version \t\t\t\t\t\t shows version.\n");
+	printf("--help \t\t\t\t\t\t\t shows this.\n");
 	printf("--server-addr \t\t\t string:'127.0.0.1' \t URL or IP of the server.\n");
 	printf("--server-port \t\t\t int:443 [1-65535] \t listening port. Must be SSL/TLS.\n");
 	printf("--response-speed \t\t int:0 [>=0] \t\t in microseconds, if > 0, the responses will be sending out to stdout at the interval set up.\n");
-	printf("--socket-conn-to \t\t int:5 [>=0] \t\t in seconds, set up the connection time out.\n");
-	printf("--socket-send-to \t\t int:5 [>=0] \t\t in seconds, set up the sending time out.\n");
-	printf("--socket-recv-to \t\t int:15 [>=0] \t\t in seconds, set up the receiving time out.\n");
+	printf("--socket-conn-to \t\t int:5 [>=0] \t\t in seconds, sets up the connection time out.\n");
+	printf("--socket-send-to \t\t int:5 [>=0] \t\t in seconds, sets up the sending time out.\n");
+	printf("--socket-recv-to \t\t int:15 [>=0] \t\t in seconds, sets up the receiving time out.\n");
 	printf("--model \t\t\t string:NULL \t\t model to use.\n");
-	printf("--no-think \t\t\t N/A:false \t\t set a no-thinking status for the model.\n");
-	printf("--temperature \t\t\t double:0.5 [>=0] \t set the temperature parameter.\n");
-	printf("--seed \t\t\t\t int:0 [>=0] \t\t set the seed parameter.\n");
-	printf("--repeat-last-n \t\t int:64 [>=-1] \t\t set the repeat_last_n parameter.\n");
-	printf("--repeat-penalty \t\t double:1.1 [>=0] \t set the repeat_penalty parameter.\n");
-	printf("--top-k \t\t\t int:40 [>=0] \t\t set the top_k parameter.\n");
-	printf("--top-p \t\t\t double:0.9 [>=0] \t set the top_p parameter.\n");
-	printf("--min-p \t\t\t double:0.0 [>=0] \t set the min_p parameter.\n");
+	printf("--no-think \t\t\t N/A:false \t\t sets a no-thinking status for the model.\n");
+	printf("--temperature \t\t\t double:0.5 [>=0] \t sets the temperature parameter.\n");
+	printf("--seed \t\t\t\t int:0 [>=0] \t\t sets the seed parameter.\n");
+	printf("--repeat-last-n \t\t int:64 [>=-1] \t\t sets the repeat_last_n parameter.\n");
+	printf("--repeat-penalty \t\t double:1.1 [>=0] \t sets the repeat_penalty parameter.\n");
+	printf("--top-k \t\t\t int:40 [>=0] \t\t sets the top_k parameter.\n");
+	printf("--top-p \t\t\t double:0.9 [>=0] \t sets the top_p parameter.\n");
+	printf("--min-p \t\t\t double:0.0 [>=0] \t sets the min_p parameter.\n");
 	printf("--keep-alive \t\t\t int:300 [>=0] \t\t in seconds, tell to the server how many seconds the model will be available until unloaded.\n");
-	printf("--max-msgs-ctx \t\t\t int:3 [>=0] \t\t set the maximum messages to be added as context in the messages.\n");
-	printf("--max-msgs-tokens \t\t int:4096 [>=0] \t set the maximum tokens.\n");
-	printf("--system-role \t\t\t string:'' \t\t set the system role. Override '--system-role-file'.\n");
-	printf("--system-role-file \t\t string:NULL \t\t set the path to the file that include the system role.\n");
+	printf("--max-msgs-ctx \t\t\t int:3 [>=0] \t\t sets the maximum messages to be added as context in the messages.\n");
+	printf("--max-msgs-tokens \t\t int:4096 [>=0] \t sets the maximum tokens.\n");
+	printf("--system-role \t\t\t string:'' \t\t sets the system role. Override '--system-role-file'.\n");
+	printf("--system-role-file \t\t string:NULL \t\t sets the path to the file that include the system role.\n");
 	printf("--context-file \t\t\t string:NULL \t\t file where the interactions (except the queries ended with ';') will be stored.\n");
 	printf("--static-context-file \t\t string:NULL \t\t file where the interactions included into it (separated by '\\t') will be include (statically) as interactions in every query.\n");
 	printf("--image-file \t\t\t string:NULL \t\t Image file to attach to the query.\n");
@@ -111,13 +111,13 @@ static void show_help(char *programName){
 	printf("--color-font-system \t\t string:'00;00;00' \t in ANSI format, set the color used for program's messages.\n");
 	printf("--color-font-info \t\t string:'00;00;00' \t in ANSI format, set the color used for response's info ('--show-response-info').\n");
 	printf("--color-font-error \t\t string:'00;00;00' \t in ANSI format, set the color used for errors.\n");
-	printf("--show-response-info \t\t N/A:false \t\t showing the responses' information, as tokens count, duration, etc.\n");
-	printf("--show-thoughts \t\t N/A:false \t\t showing what the model is 'thinking' in reasoning models like 'deepseek-r1'.\n");
-	printf("--show-models \t\t\t N/A:false \t\t show the models available.\n");
-	printf("--show-loading-models \t\t N/A:false \t\t show a message when a model is loading.\n");
-	printf("--stdout-parsed \t\t N/A:false \t\t parsing the output (useful for speeching/chatting).\n");
-	printf("--stdout-chunked \t\t N/A:false \t\t chunking the output by paragraph (particularly useful for speeching). Set '--stdout-parsed', as well. \n");
-	printf("--stdout-json \t\t\t N/A:false \t\t write stdout in JSON format. Output always no streamed and in RAW format.\n\n");
+	printf("--show-response-info \t\t N/A:false \t\t shows the responses' information, as tokens count, duration, etc.\n");
+	printf("--show-thoughts \t\t N/A:false \t\t shows what the model is 'thinking' in reasoning models like 'deepseek-r1'.\n");
+	printf("--show-models \t\t\t N/A:false \t\t shows the models available.\n");
+	printf("--show-loading-models \t\t N/A:false \t\t shows a message when a model is loading.\n");
+	printf("--stdout-parsed \t\t N/A:false \t\t parses the output (useful for speeching/chatting).\n");
+	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). Sets '--stdout-parsed', as well. \n");
+	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n\n");
 	printf("Example: \n\n");
 	printf("$ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --model deepseek-r1 --stdout-parsed --response-speed 1\n");
 	printf("\nSee https://github.com/lucho-a/ollama-c-lient for a full description & more examples.\n\n");
@@ -244,6 +244,7 @@ char *parse_output(const char *in){
 
 static void print_response(char const *token, bool done, bool isThinking){
 	if(po.stdoutChunked){
+		if(isThinking && !po.showThoughts) return;
 		char *parsedOut=parse_output(token);
 		strncat(chunkings,parsedOut,8196-1);
 		if(strstr(parsedOut, "\n") || done){

@@ -48,37 +48,37 @@ The options supported are:
 |--server-addr | string:"127.0.0.1" | URL or IP of the server |
 |--server-port | int:443 _[1-65535]_ | listening port. Must be SSL/TLS. |
 |--response-speed | int:0 _[>=0]_ | in microseconds, if > 0, the responses will be sending out to stdout at the interval set up. |
-|--socket-conn-to | int:5 _[>=0]_ | in seconds, set up the connection time out. |
-|--socket-send-to | int:5 _[>=0]_ | in seconds, set up the sending time out. |
-|--socket-recv-to | int:15 _[>=0]_ | in seconds, set up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting. |
+|--socket-conn-to | int:5 _[>=0]_ | in seconds, sets up the connection time out. |
+|--socket-send-to | int:5 _[>=0]_ | in seconds, sets up the sending time out. |
+|--socket-recv-to | int:15 _[>=0]_ | in seconds, sets up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting. |
 |--model | string:NULL | model to use. |
-|--no-think | N/A:false | set a no-thinking status for the model. |
-|--temperature | double:0.5 _[>=0]_ | set the temperature parameter. |
-|--seed | int:0 _[>=0]_ | set the seed parameter. |
-|--repeat-last-n | int:64 _[>=-1]_ | set repeat_last_n parameter. |
-|--repeat-penalty | double:1.1 _[>=0]_ | set repeat_penalty parameter. |
-|--top-k | int:40 _[>=0]_ | set top_k parameter. |
-|--top-p | double:0.9 _[>=0]_ | set the top_p parameter. |
-|--min-p | double:0.0 _[>=0]_ | set the min_p parameter. |
-|--keep-alive | int:300 _[>=0]_ | in seconds, tell to the server how many seconds the model will be available until unloaded. |
-|--max-msgs-ctx | int:3 _[>=0]_ | set the maximum messages to be added as context in the messages. |
-|--max-msgs-tokens | int:4096 _[>=0]_ | set the maximum tokens. |
-|--system-role | string:"" | set the system role. Override '--system-role-file'. |
-|--system-role-file | string:NULL | set the path to the file that include the system role. |
+|--no-think | N/A:false | sets a no-thinking status for the model. |
+|--temperature | double:0.5 _[>=0]_ | sets the temperature parameter. |
+|--seed | int:0 _[>=0]_ | sets the seed parameter. |
+|--repeat-last-n | int:64 _[>=-1]_ | sets repeat_last_n parameter. |
+|--repeat-penalty | double:1.1 _[>=0]_ | sets repeat_penalty parameter. |
+|--top-k | int:40 _[>=0]_ | sets top_k parameter. |
+|--top-p | double:0.9 _[>=0]_ | sets the top_p parameter. |
+|--min-p | double:0.0 _[>=0]_ | sets the min_p parameter. |
+|--keep-alive | int:300 _[>=0]_ | in seconds, tells to the server how many seconds the model will be available until unloaded. |
+|--max-msgs-ctx | int:3 _[>=0]_ | sets the maximum messages to be added as context in the messages. |
+|--max-msgs-tokens | int:4096 _[>=0]_ | sets the maximum tokens. |
+|--system-role | string:"" | sets the system role. Override '--system-role-file'. |
+|--system-role-file | string:NULL | sets the path to the file that include the system role. |
 |--context-file | string:NULL | file where the interactions (except the queries ended with ';') will be stored. |
 |--static-context-file | string:NULL | file where the interactions included into it (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as '--max-msgs-ctx' (it does as '--max-msgs-tokens'). |
 |--image-file | string:NULL | Image file to attach to the query. |
-|--color-font-response | string:"00;00;00" | in ANSI format, set the color used for responses. |
-|--color-font-system | string:"00;00;00" | in ANSI format, set the color used for program's messages. |
-|--color-font-info | string:"00;00;00" | in ANSI format, set the color used for response's info ('--show-response-info'). |
-|--color-font-error | string:"00;00;00" | in ANSI format, set the color used for errors. |
-|--show-response-info | N/A:false | showing the responses' information, as tokens count, duration, etc. |
-|--show-thoughts | N/A:false | showing what the model is 'thinking' in reasoning models like 'deepseek-r1'. |
-|--show-models | N/A:false | show the models available. |
-|--show-loading-models | N/A:false | show a message when a model is loading. |
-|--stdout-parsed | N/A:false | parsing the output (useful for speeching/chatting). |
-|--stdout-chunked | N/A:false | chunking the output by paragraph (particularly useful for speeching). Set '--stdout-parsed', as well. |
-|--stdout-json | N/A:false | write stdout in JSON format. Output always no streamed and in RAW format. |
+|--color-font-response | string:"00;00;00" | in ANSI format, sets the color used for responses. |
+|--color-font-system | string:"00;00;00" | in ANSI format, sets the color used for program's messages. |
+|--color-font-info | string:"00;00;00" | in ANSI format, sets the color used for response's info ('--show-response-info'). |
+|--color-font-error | string:"00;00;00" | in ANSI format, sets the color used for errors. |
+|--show-response-info | N/A:false | shows the responses' information, as tokens count, duration, etc. |
+|--show-thoughts | N/A:false | shows what the model is 'thinking' in reasoning models like 'deepseek-r1'. |
+|--show-models | N/A:false | shows the models available. |
+|--show-loading-models | N/A:false | shows a message when a model is loading. |
+|--stdout-parsed | N/A:false | parses the output (useful for speeching/chatting). |
+|--stdout-chunked | N/A:false | chunks the output by paragraph (particularly useful for speeching). sets '--stdout-parsed', as well. |
+|--stdout-json | N/A:false | writes stdout in JSON format. Output always no streamed and in RAW format. |
 
 ###### Note: all options are optional (really?!).
 
@@ -149,7 +149,7 @@ cat prompt.txt | ./ollama-c-lient --server-addr 192.168.43.21 --server-port 4433
 (echo 'What can you tell me about the content of this file?: ' && cat /home/user/file.txt) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --stdout-parsed < prompt.txt
 ```
 ```
-(echo -n 'At ' && date +"%Y-%m-%d %H:%M:%S" && echo 'What can you tell me about current processes?: ' && ps ax) | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral --stdout-parsed --stdout-chunked | grep 'Ollama-C-lient'
+(echo -n 'At ' && date +"%Y-%m-%d %H:%M:%S" && echo 'What can you tell me about current processes?: ' && ps ax) | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral --stdout-chunked | grep 'Ollama-C-lient'
 ```
 ```
 (echo 'Tell me a prompt about whatever: ' && cat whatever.txt) | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model deepseek-r1:14b --stdout-parsed

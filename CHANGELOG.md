@@ -5,12 +5,13 @@
 #### bugs-fixed:
 - fixed --response-speed when --stdout-parsed wasn't set.
 - fixed program blocking when --response-speed < 0.
+- fixed showing thoughts when --stdout-chunked was set, and --show-thoughts was not.
 #### new-features:
 - added parameter: --no-think. Alignment with [Ollama v0.9.0 changes](https://github.com/ollama/ollama/releases/tag/v0.9.0)
 - added parameters: --repeat-last-n, --repeat-penalty, --top-k, --top-p, --min-p. 
 - added parameter: --stdout-json.
 #### improvements:
-- --stdout-chunked set --stdout-parsed, as well.
+- --stdout-chunked sets --stdout-parsed, as well.
 #### others:
 - potential memory leak fixed
 
