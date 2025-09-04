@@ -1,6 +1,5 @@
-### ollama-c-lient-v0.0.2 - Under Dev./Testing
-
-#### date: 
+### ollama-c-lient-v0.0.2
+#### date: 2025/09/04
 #### severity: medium
 #### bugs-fixed:
 - fixed --response-speed when --stdout-parsed wasn't set.
@@ -16,7 +15,6 @@
 - potential memory leak fixed
 
 ### ollama-c-lient-v0.0.1
-
 #### date: 2025/05/18
 #### severity: N/A
 #### bugs-fixed:
