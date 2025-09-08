@@ -3,6 +3,7 @@
 #### severity: low
 #### bugs-fixed:
 - fixed mis-assigned realloc(), potential buffer overflow.
+- fixed 'keep alive' value when requests
 #### new-features:
 - added parameter: --api-key.
 - added parameter: --tools-file.

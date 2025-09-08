@@ -408,16 +408,16 @@ void create_json(){
 			,response
 			,tools
 			,(toolResultParsed)?(toolResultParsed):("")
-			,strTimeStamp
-			,OCL_get_response_load_duration(ocl)
-			,OCL_get_response_prompt_eval_duration(ocl)
-			,OCL_get_response_eval_duration(ocl)
-			,OCL_get_response_total_duration(ocl)
-			,OCL_get_response_prompt_eval_count(ocl)
-			,OCL_get_response_eval_count(ocl)
-			,OCL_get_response_tokens_per_sec(ocl)
-			,OCL_get_response_chars_content(ocl)
-			,OCL_get_response_size(ocl)/1024.0
+					,strTimeStamp
+					,OCL_get_response_load_duration(ocl)
+					,OCL_get_response_prompt_eval_duration(ocl)
+					,OCL_get_response_eval_duration(ocl)
+					,OCL_get_response_total_duration(ocl)
+					,OCL_get_response_prompt_eval_count(ocl)
+					,OCL_get_response_eval_count(ocl)
+					,OCL_get_response_tokens_per_sec(ocl)
+					,OCL_get_response_chars_content(ocl)
+					,OCL_get_response_size(ocl)/1024.0
 	);
 	fputs(jsonTemplate, stdout);
 	fflush(stdout);
@@ -760,45 +760,43 @@ int main(int argc, char *argv[]) {
 	if(po.stdoutJson) po.responseSpeed=0;
 	if(po.stdoutChunked) po.stdoutParsed=true;
 	if(sm.input){
-		if(check_model_loaded()){
-			pthread_t tSendingMessage;
-			pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
-			pthread_join(tSendingMessage,NULL);
-			if(po.responseSpeed==0 && !oclCanceled){
-				if(po.stdoutJson){
-					create_json();
+		pthread_t tSendingMessage;
+		pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
+		pthread_join(tSendingMessage,NULL);
+		if(po.responseSpeed==0 && !oclCanceled){
+			if(po.stdoutJson){
+				create_json();
+			}else{
+				if(!po.stdoutParsed){
+					if(po.showThoughts){
+						fputs("<thinking>", stdout);
+						fputs(OCL_get_response_thoughts(ocl), stdout);
+						fputs("</thinking>\n", stdout);
+					}
+					fputs(OCL_get_response(ocl), stdout);
+					fflush(stdout);
 				}else{
-					if(!po.stdoutParsed){
+					if(!po.stdoutChunked){
+						char *out=NULL;
 						if(po.showThoughts){
 							fputs("<thinking>", stdout);
-							fputs(OCL_get_response_thoughts(ocl), stdout);
+							out=parse_output(OCL_get_response_thoughts(ocl));
+							fputs(out, stdout);
 							fputs("</thinking>\n", stdout);
 						}
-						fputs(OCL_get_response(ocl), stdout);
+						out=parse_output(OCL_get_response(ocl));
+						fputs(out, stdout);
 						fflush(stdout);
-					}else{
-						if(!po.stdoutChunked){
-							char *out=NULL;
-							if(po.showThoughts){
-								fputs("<thinking>", stdout);
-								out=parse_output(OCL_get_response_thoughts(ocl));
-								fputs(out, stdout);
-								fputs("</thinking>\n", stdout);
-							}
-							out=parse_output(OCL_get_response(ocl));
-							fputs(out, stdout);
-							fflush(stdout);
-							free(out);
-							out=NULL;
-						}
+						free(out);
+						out=NULL;
 					}
 				}
 			}
-			if(po.showResponseInfo && !po.stdoutJson && !oclCanceled) print_response_info();
-			free(sm.input);
-			sm.input=NULL;
-			printf("\n");
 		}
+		if(po.showResponseInfo && !po.stdoutJson && !oclCanceled) print_response_info();
+		free(sm.input);
+		sm.input=NULL;
+		printf("\n");
 	}
 	close_program(false);
 }

@@ -1134,6 +1134,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"%s""{\"role\": \"user\",\"content\": \"%s\",\"images\": [\"%s\"]}],"
 				"\"tools\": [%s],"
 				"\"think\": %s,"
+				"\"keep_alive\": %d,"
 				"\"options\": {"
 				"\"temperature\": %f,"
 				"\"repeat_last_n\": %d,"
@@ -1144,7 +1145,6 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"min_p\": %f,"
 				"\"num_ctx\": %d,"
 				"\"stream\": %s,"
-				"\"keep_alive\": %d,"
 				"\"stop\": null}}",
 				ocl->model,
 				ocl->systemRole,
@@ -1153,6 +1153,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				imageFileBase64,
 				ocl->tools,
 				(ocl->noThink)?("false"):("true"),
+						ocl->keepalive,
 						ocl->temp,
 						ocl->repeat_last_n,
 						ocl->repeat_penalty,
@@ -1161,8 +1162,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 						ocl->top_p,
 						ocl->min_p,
 						ocl->maxTokensCtx,
-						"true",
-						ocl->keepalive);
+						"true");
 	}else{
 		snprintf(body,len,
 				"{\"model\":\"%s\","
@@ -1171,6 +1171,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"%s""{\"role\": \"user\",\"content\": \"%s\"}],"
 				"\"tools\": [%s],"
 				"\"think\": %s,"
+				"\"keep_alive\": %d,"
 				"\"options\": {"
 				"\"temperature\": %f,"
 				"\"repeat_last_n\": %d,"
@@ -1181,7 +1182,6 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"min_p\": %f,"
 				"\"num_ctx\": %d,"
 				"\"stream\": %s,"
-				"\"keep_alive\": %d,"
 				"\"stop\": null}}",
 				ocl->model,
 				ocl->systemRole,
@@ -1189,6 +1189,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				messageParsed,
 				ocl->tools,
 				(ocl->noThink)?("false"):("true"),
+						ocl->keepalive,
 						ocl->temp,
 						ocl->repeat_last_n,
 						ocl->repeat_penalty,
@@ -1197,8 +1198,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 						ocl->top_p,
 						ocl->min_p,
 						ocl->maxTokensCtx,
-						"true",
-						ocl->keepalive);
+						"true");
 	}
 	sfree(context);
 	len=strlen(ocl->srvAddr)+sizeof(ocl->srvPort)+sizeof((int) strlen(body))+strlen(body)+512;
