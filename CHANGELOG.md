@@ -1,3 +1,18 @@
+### ollama-c-lient-v0.0.3 Dev./Testing
+#### date: 
+#### severity: low
+#### bugs-fixed:
+- fixed mis-assigned realloc(), potential buffer overflow.
+#### new-features:
+- added parameter: --api-key.
+- added parameter: --tools-file.
+- added parameter: --execute-tools (***experimental***).
+#### improvements:
+- N/A
+#### others:
+- fixed OCL_VERSION define error.
+- minor changes & code cleaned up.
+
 ### ollama-c-lient-v0.0.2
 #### date: 2025/09/04
 #### severity: medium

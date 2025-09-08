@@ -5,6 +5,7 @@ C program for interacting with [Ollama](https://github.com/ollama/ollama) server
 ### Disclaimer
 
 - supports only SSL/TLS (sorry, security by design, baby)
+- '--execute-tools' parameter, and tools in general are under ***experimental*** status. So, the scope, way to use, etc. could change at any time, and bugs could be found.
 
 ###### Note: self signed certs are allowed.
 
@@ -51,6 +52,7 @@ The options supported are:
 |--socket-conn-to | int:5 _[>=0]_ | in seconds, sets up the connection time out. |
 |--socket-send-to | int:5 _[>=0]_ | in seconds, sets up the sending time out. |
 |--socket-recv-to | int:15 _[>=0]_ | in seconds, sets up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting. |
+|--api-key | string:NULL | sets the API key. Obsolete except you are using a kind of proxy.|
 |--model | string:NULL | model to use. |
 |--no-think | N/A:false | sets a no-thinking status for the model. |
 |--temperature | double:0.5 _[>=0]_ | sets the temperature parameter. |
@@ -67,6 +69,7 @@ The options supported are:
 |--system-role-file | string:NULL | sets the path to the file that include the system role. |
 |--context-file | string:NULL | file where the interactions (except the queries ended with ';') will be stored. |
 |--static-context-file | string:NULL | file where the interactions included into it (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as '--max-msgs-ctx' (it does as '--max-msgs-tokens'). |
+|--tools-file | string:NULL | file where the tools to be incorporated to the interactions are included with the following format: |
 |--image-file | string:NULL | Image file to attach to the query. |
 |--color-font-response | string:"00;00;00" | in ANSI format, sets the color used for responses. |
 |--color-font-system | string:"00;00;00" | in ANSI format, sets the color used for program's messages. |
@@ -79,6 +82,7 @@ The options supported are:
 |--stdout-parsed | N/A:false | parses the output (useful for speeching/chatting). |
 |--stdout-chunked | N/A:false | chunks the output by paragraph (particularly useful for speeching). sets '--stdout-parsed', as well. |
 |--stdout-json | N/A:false | writes stdout in JSON format. Output always no streamed and in RAW format. |
+|--execute-tools | N/A:false | (***experimental***) execute the tools (function) with the arguments. |
 
 ###### Note: all options are optional (really?!).
 
@@ -90,9 +94,10 @@ The options supported are:
 - So, if '--max-msgs-ctx' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions. (1)
 - If '--max-msgs-ctx' == 0, the interactions won't be recorded into context file.
 - If '--stdout-chunked', '--response-speed' is deprecated.
-- the font format in '--font-...' must be ANSI ("XX;XX;XX").
+- The font format in '--font-...' must be ANSI ("XX;XX;XX").
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ('--max-msgs-ctx') and won't be written to the context file,
 - If the entered **prompt finish with ';'**, the query/response won't be part of subsequent context messages. (1)
+- '--stdout-json' will incorporate the output of the tool if '--execute-tools' is set.
 - Crl-C cancel the responses.
 
 ###### (1) only relevant for developing purposes using the library.
@@ -158,3 +163,50 @@ cat prompt.txt | ./ollama-c-lient --server-addr 192.168.43.21 --server-port 4433
 (echo 'What can you tell me about about this paint? ') | ./ollama-c-lient --model gemma3:12b --stdout-parsed --response-speed 15000 --color-font-response "0;0;90" --image-file ~/paints/van-gogh.jpg
 ```
 ###### Note: since the incorporation of reasoning models, is not recommended incorporating a 'system-role'. Instead, just leave it blank and incorporate the instructions as part of the 'user-role'.
+
+#### Scripting/Agents (with tools)
+```
+echo 'Listing /home' | ./ollama-c-lient --server-addr 192.168.12.34 --server-port 4433 --model mistral-nemo --no-think --response-speed 15000 --context-file /home/user/ocl/context.ocl --tools-file /home/user/ocl/tools.ocl --execute-tools
+```
+
+... with a tool file like:
+
+```
+{
+	"type": "function",
+  	"function": {
+  		"name": "/home/user/ocl/ls.sh",
+	    "description": "List a directory",
+    	"parameters": {
+    		"type": "object",
+	      	"properties": {
+    	    	"path": {
+        	  		"type": "string",
+          			"description": "The path directory to list"
+          		}
+	      	},
+      		"required": ["path"]
+    	}
+  	}
+}
+```
+###### Note: for adding more tools, just adding them separated by comma.
+
+... and a script file like:
+
+```
+#!/bin/bash
+CMD="/home/user/ocl/ollama-c-lient
+    --server-addr 192.168.12.34
+    --server-port 4433
+    --model mistral-nemo
+    --no-think
+    --temperature 0.6
+    --stdout-parsed
+    --response-speed 1
+    --context-file /home/user/ocl/context.ocl"
+(echo "Pls, tell me about the following output:\n" && ls -la $1) | $CMD
+exit 0
+```
+
+

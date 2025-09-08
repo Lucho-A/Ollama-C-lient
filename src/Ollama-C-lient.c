@@ -17,7 +17,7 @@
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.2"
+#define PROGRAM_VERSION					"0.0.3"
 
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
@@ -31,6 +31,7 @@ struct OclParams{
 	char socketConnTo[8];
 	char socketSendTo[8];
 	char socketRecvTo[8];
+	char apiKey[1024];
 	char model[128];
 	bool noThink;
 	char temp[8];
@@ -44,8 +45,10 @@ struct OclParams{
 	char maxMsgCtx[8];
 	char maxTokensCtx[8];
 	char *systemRole;
+	char *systemRoleFile;
 	char *contextFile;
 	char *staticContextFile;
+	char *toolsFile;
 };
 
 struct Colors{
@@ -58,6 +61,7 @@ struct Colors{
 struct ProgramOpts{
 	struct OclParams ocl;
 	long int responseSpeed;
+	bool executeTools;
 	bool showThoughts;
 	bool showResponseInfo;
 	bool showModels;
@@ -77,6 +81,7 @@ struct ProgramOpts po={0};
 struct SendingMessage sm={0};
 bool thinking=false;
 char chunkings[8196]="";
+char *toolsResponse=NULL;
 
 static void show_help(char *programName){
 	BANNER
@@ -90,6 +95,7 @@ static void show_help(char *programName){
 	printf("--socket-conn-to \t\t int:5 [>=0] \t\t in seconds, sets up the connection time out.\n");
 	printf("--socket-send-to \t\t int:5 [>=0] \t\t in seconds, sets up the sending time out.\n");
 	printf("--socket-recv-to \t\t int:15 [>=0] \t\t in seconds, sets up the receiving time out.\n");
+	printf("--api-key \t\t\t string:NULL \t\t sets the API key.\n");
 	printf("--model \t\t\t string:NULL \t\t model to use.\n");
 	printf("--no-think \t\t\t N/A:false \t\t sets a no-thinking status for the model.\n");
 	printf("--temperature \t\t\t double:0.5 [>=0] \t sets the temperature parameter.\n");
@@ -106,6 +112,7 @@ static void show_help(char *programName){
 	printf("--system-role-file \t\t string:NULL \t\t sets the path to the file that include the system role.\n");
 	printf("--context-file \t\t\t string:NULL \t\t file where the interactions (except the queries ended with ';') will be stored.\n");
 	printf("--static-context-file \t\t string:NULL \t\t file where the interactions included into it (separated by '\\t') will be include (statically) as interactions in every query.\n");
+	printf("--tools-file \t\t\t string:NULL \t\t file where the tools to be incorporated to the interactions are included.\n");
 	printf("--image-file \t\t\t string:NULL \t\t Image file to attach to the query.\n");
 	printf("--color-font-response \t\t string:'00;00;00' \t in ANSI format, set the color used for responses.\n");
 	printf("--color-font-system \t\t string:'00;00;00' \t in ANSI format, set the color used for program's messages.\n");
@@ -117,7 +124,8 @@ static void show_help(char *programName){
 	printf("--show-loading-models \t\t N/A:false \t\t shows a message when a model is loading.\n");
 	printf("--stdout-parsed \t\t N/A:false \t\t parses the output (useful for speeching/chatting).\n");
 	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). Sets '--stdout-parsed', as well. \n");
-	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n\n");
+	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n");
+	printf("--execute-tools \t\t N/A:false \t\t execute the tools (function) with the arguments.\n\n");
 	printf("Example: \n\n");
 	printf("$ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --model deepseek-r1 --stdout-parsed --response-speed 1\n");
 	printf("\nSee https://github.com/lucho-a/ollama-c-lient for a full description & more examples.\n\n");
@@ -134,7 +142,10 @@ static int close_program(bool finishWithErrors){
 	free(po.ocl.systemRole);
 	po.ocl.systemRole=NULL;
 	free(sm.input);
+	free(po.ocl.toolsFile);
+	po.ocl.toolsFile=NULL;
 	sm.input=NULL;
+	free(toolsResponse);
 	if(isatty(fileno(stdout))) fputs("\x1b[0m",stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
 	exit(EXIT_SUCCESS);
@@ -242,9 +253,70 @@ char *parse_output(const char *in){
 	return buff;
 }
 
-static void print_response(char const *token, bool done, bool isThinking){
+static void print_response(char const *token, bool done, int responseType){
+	if(responseType==OCL_TOOL_TYPE){
+		if(po.executeTools){
+			char cmd[1024]="", args[1024]="";
+			char const *contentCmd=strstr(token, "\"name\":");
+			if(contentCmd!=NULL){
+				size_t i=0, len=strlen("\"name\":");
+				for(i=len+1;(contentCmd[i-1]=='\\' || contentCmd[i]!='"');i++) cmd[i-len-1]=contentCmd[i];
+				cmd[i-len-1]=0;
+			}
+			char const *contentArg=strstr(token, "\"arguments\":{");
+			if(contentArg!=NULL){
+				size_t i=0, len=strlen("\"arguments\":{");
+				for(i=len;(contentArg[i-1]=='\\' || contentArg[i]!='}');i++) args[i-len]=contentArg[i];
+				args[i-len]=0;
+			}
+			int argsLen=strlen(args);
+			bool semiColonFound=false;
+			char argums[1024][1024]={""};
+			int contArgs=0;
+			for(int i=0; i<argsLen;i++){
+				if(args[i]==':') semiColonFound=true;
+				if(semiColonFound){
+					int cont=0;
+					for(int j=i+1;args[j]!=',' && j<argsLen; j++){
+						argums[contArgs][cont++]=args[j];
+					}
+					semiColonFound=false;
+					contArgs++;
+				}
+			}
+			for(int i=0;i<contArgs;i++){
+				strcat(cmd," ");
+				strcat(cmd, argums[i]);
+			}
+			FILE *fp=popen(cmd, "r");
+			int cmdResultSize=32768;
+			char c=0;
+			toolsResponse=malloc(cmdResultSize);
+			memset(toolsResponse,0,cmdResultSize);
+			int cont=0;
+			while ((c=fgetc(fp)) != EOF && !oclCanceled) {
+				if(!po.stdoutJson){
+					usleep(po.responseSpeed);
+					fputc(c, stdout);
+					fflush(stdout);
+				}
+				if(cont>=cmdResultSize){
+					cmdResultSize*=2;
+					toolsResponse=realloc(toolsResponse, cmdResultSize);
+				}
+				toolsResponse[cont++]=c;
+			}
+			pclose(fp);
+			return;
+		}
+		if(!po.stdoutJson){
+			fputs(token, stdout);
+			fflush(stdout);
+		}
+		return;
+	}
 	if(po.stdoutChunked){
-		if(isThinking && !po.showThoughts) return;
+		if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
 		char *parsedOut=parse_output(token);
 		strncat(chunkings,parsedOut,8196-1);
 		if(strstr(parsedOut, "\n") || done){
@@ -257,17 +329,17 @@ static void print_response(char const *token, bool done, bool isThinking){
 		return;
 	}
 	if(po.responseSpeed==0) return;
-	if(isThinking && !thinking){
+	if(responseType==OCL_THINKING_TYPE && !thinking){
 		thinking=true;
 		fputs("(Thinking...)\n", stdout);
 		fflush(stdout);
 	}
-	if(!isThinking && thinking){
+	if(responseType!=OCL_THINKING_TYPE && thinking){
 		thinking=false;
 		fputs("(Stop thinking...)\n", stdout);
 		fflush(stdout);
 	}
-	if(isThinking && !po.showThoughts) return;
+	if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
 	if(po.stdoutParsed){
 		char *parsedOut=parse_output(token);
 		for(size_t i=0;i<strlen(parsedOut);i++){
@@ -290,9 +362,12 @@ void create_json(){
 	char *jsonTemplate=NULL;
 	char *inParsed=NULL;
 	OCl_parse_string(&inParsed, sm.input);
+	char *toolResultParsed=NULL;
+	OCl_parse_string(&toolResultParsed, toolsResponse);
 	char *thoughts=OCL_get_response_thoughts(ocl);
 	char *response=OCL_get_response(ocl);
-	size_t len=strlen(thoughts)+strlen(response)+strlen(inParsed)+2048;
+	char *tools=OCL_get_response_tools(ocl);
+	size_t len=strlen(thoughts)+strlen(response)+strlen(inParsed)+strlen(tools)+2048;
 	jsonTemplate=malloc(len);
 	memset(jsonTemplate,0,len);
 	time_t timestamp = time(NULL);
@@ -314,6 +389,8 @@ void create_json(){
 			"\"prompt\": \"%s\",\n"
 			"\"thoughts\": \"%s\",\n"
 			"\"response\": \"%s\",\n"
+			"\"tools\": \"%s\",\n"
+			"\"tool_response\": \"%s\",\n"
 			"\"timestamp\": \"%s\",\n"
 			"\"load_duration\": %.4f,\n"
 			"\"prompt_eval_duration\": %.4f,\n"
@@ -329,6 +406,8 @@ void create_json(){
 			,inParsed
 			,thoughts
 			,response
+			,tools
+			,(toolResultParsed)?(toolResultParsed):("")
 			,strTimeStamp
 			,OCL_get_response_load_duration(ocl)
 			,OCL_get_response_prompt_eval_duration(ocl)
@@ -447,6 +526,12 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
+		if(strcmp(argv[i],"--api-key")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			snprintf(po.ocl.apiKey,1024,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--model")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
 			snprintf(po.ocl.model,128,"%s",argv[i+1]);
@@ -529,22 +614,9 @@ int main(int argc, char *argv[]) {
 		}
 		if(strcmp(argv[i],"--system-role-file")==0){
 			if(!argv[i+1]) print_error_msg("Argument missing","",true);
-			if(po.ocl.systemRole==NULL){
-				FILE *f=fopen(argv[i+1],"r");
-				if(f==NULL)print_error_msg("System role file not found.","",true);
-				char *line=NULL;
-				size_t len=0;
-				long int chars=0;
-				po.ocl.systemRole=malloc(1);
-				po.ocl.systemRole[0]=0;
-				while((chars=getline(&line, &len, f))!=-1){
-					po.ocl.systemRole=realloc(po.ocl.systemRole,strlen(po.ocl.systemRole)+chars+1);
-					strcat(po.ocl.systemRole,line);
-				}
-				fclose(f);
-				free(line);
-				line=NULL;
-			}
+			po.ocl.systemRoleFile=malloc(strlen(argv[i+1])+1);
+			memset(po.ocl.systemRoleFile,0,strlen(argv[i+1])+1);
+			snprintf(po.ocl.systemRoleFile,strlen(argv[i+1])+1,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
@@ -567,6 +639,14 @@ int main(int argc, char *argv[]) {
 			po.ocl.contextFile=malloc(strlen(argv[i+1])+1);
 			memset(po.ocl.contextFile,0,strlen(argv[i+1])+1);
 			snprintf(po.ocl.contextFile,strlen(argv[i+1])+1,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--tools-file")==0){
+			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			po.ocl.toolsFile=malloc(strlen(argv[i+1])+1);
+			memset(po.ocl.toolsFile,0,strlen(argv[i+1])+1);
+			snprintf(po.ocl.toolsFile,strlen(argv[i+1])+1,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
@@ -630,6 +710,10 @@ int main(int argc, char *argv[]) {
 			po.showLoadingModels=true;
 			continue;
 		}
+		if(strcmp(argv[i],"--execute-tools")==0){
+			po.executeTools=true;
+			continue;
+		}
 		print_error_msg(argv[i],": argument not recognized",true);
 	}
 	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
@@ -640,10 +724,12 @@ int main(int argc, char *argv[]) {
 			po.ocl.socketConnTo,
 			po.ocl.socketSendTo,
 			po.ocl.socketRecvTo,
+			po.ocl.apiKey,
 			po.ocl.model,
 			po.ocl.noThink,
 			po.ocl.keepalive,
 			po.ocl.systemRole,
+			po.ocl.systemRoleFile,
 			po.ocl.maxMsgCtx,
 			po.ocl.temp,
 			po.ocl.repeat_last_n,
@@ -654,7 +740,8 @@ int main(int argc, char *argv[]) {
 			po.ocl.min_p,
 			po.ocl.maxTokensCtx,
 			po.ocl.contextFile,
-			po.ocl.staticContextFile))!=OCL_RETURN_OK)
+			po.ocl.staticContextFile,
+			po.ocl.toolsFile))!=OCL_RETURN_OK)
 		print_error_msg("",OCL_error_handling(ocl,retVal),true);
 	if(po.showModels){
 		char models[512][512]={""};
