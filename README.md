@@ -78,7 +78,6 @@ The options supported are:
 |--show-response-info | N/A:false | shows the responses' information, as tokens count, duration, etc. |
 |--show-thoughts | N/A:false | shows what the model is 'thinking' in reasoning models like 'deepseek-r1'. |
 |--show-models | N/A:false | shows the models available. |
-|--show-loading-models | N/A:false | shows a message when a model is loading. |
 |--stdout-parsed | N/A:false | parses the output (useful for speeching/chatting). |
 |--stdout-chunked | N/A:false | chunks the output by paragraph (particularly useful for speeching). sets '--stdout-parsed', as well. |
 |--stdout-json | N/A:false | writes stdout in JSON format. Output always no streamed and in RAW format. |
@@ -89,7 +88,7 @@ The options supported are:
 ### Considerations
 
 - The sent messages & the responses are written into the context file if '--context-file' is specified.
-- If **'--context-file'** is specified and it doesn't exit, it will be created if possible.
+- If **'--context-file'** is specified and it doesn't exist, it will be created if possible.
 - If **'--context-file'** is specified, the latest X messages/responses (parameter '--max-msgs-ctx') are read when the program starts as context.
 - So, if '--max-msgs-ctx' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions. (1)
 - If '--max-msgs-ctx' == 0, the interactions won't be recorded into context file.

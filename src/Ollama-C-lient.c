@@ -25,6 +25,11 @@
 
 OCl *ocl=NULL;
 
+enum msgTypes{
+	ERROR_MSG=0,
+	SYSTEM_MSG
+};
+
 struct OclParams{
 	char serverAddr[16];
 	char serverPort[6];
@@ -65,7 +70,6 @@ struct ProgramOpts{
 	bool showThoughts;
 	bool showResponseInfo;
 	bool showModels;
-	bool showLoadingModels;
 	bool stdoutParsed;
 	bool stdoutChunked;
 	bool stdoutJson;
@@ -121,7 +125,6 @@ static void show_help(char *programName){
 	printf("--show-response-info \t\t N/A:false \t\t shows the responses' information, as tokens count, duration, etc.\n");
 	printf("--show-thoughts \t\t N/A:false \t\t shows what the model is 'thinking' in reasoning models like 'deepseek-r1'.\n");
 	printf("--show-models \t\t\t N/A:false \t\t shows the models available.\n");
-	printf("--show-loading-models \t\t N/A:false \t\t shows a message when a model is loading.\n");
 	printf("--stdout-parsed \t\t N/A:false \t\t parses the output (useful for speeching/chatting).\n");
 	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). Sets '--stdout-parsed', as well. \n");
 	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n");
@@ -167,37 +170,34 @@ static void signal_handler(int signalType){
 	}
 }
 
-static void print_error_msg(char *msg, char *error, bool exitProgram){
-	char errMsg[1024]="";
-	if(isatty(fileno(stderr))){
-		snprintf(errMsg,1024,"%sERROR: %s %s\n",po.colors.colorFontError, msg,error);
-	}else{
-		snprintf(errMsg,1024,"ERROR: %s %s\n",msg,error);
+static void print_msg_to_stderr(char *msg, char *error, bool exitProgram, int msgType){
+	char sdterrMsg[1024]="";
+	switch(msgType){
+	case ERROR_MSG:
+		if(isatty(fileno(stderr))){
+			snprintf(sdterrMsg,1024,"%sERROR: %s %s\n",po.colors.colorFontError, msg,error);
+		}else{
+			snprintf(sdterrMsg,1024,"ERROR: %s %s\n",msg,error);
+		}
+		break;
+	case SYSTEM_MSG:
+		if(isatty(fileno(stderr))){
+			snprintf(sdterrMsg,1024,"%sSYSTEM: %s\n",po.colors.colorFontSystem, msg);
+		}else{
+			snprintf(sdterrMsg,1024,"SYSTEM: %s\n",msg);
+		}
+		break;
+	default:
+		break;
 	}
-	for(size_t i=0;i<strlen(errMsg);i++){
-		fputc(errMsg[i],stderr);
+	for(size_t i=0;i<strlen(sdterrMsg);i++){
+		fputc(sdterrMsg[i],stderr);
 		fflush(stderr);
 		usleep(po.responseSpeed);
 	}
 	if(isatty(fileno(stderr))) fputs("\x1b[0m",stderr);
 	if(exitProgram) close_program(true);
 }
-
-static void print_system_msg(char *msg){
-	char sysMsg[1024]="";
-	if(isatty(fileno(stdout))){
-		snprintf(sysMsg,1024,"%s%s\n",po.colors.colorFontSystem,msg);
-	}else{
-		snprintf(sysMsg,1024,"%s\n",msg);
-	}
-	for(size_t i=0;i<strlen(sysMsg);i++){
-		fputc(sysMsg[i],stdout);
-		fflush(stdout);
-		usleep(po.responseSpeed);
-	}
-	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
-}
-
 
 static void print_response_info(){
 	if(isatty(fileno(stdout))) printf("%s\n\n", po.colors.colorFontInfo);
@@ -431,25 +431,9 @@ void *start_sending_message(void *arg){
 	if(retVal!=OCL_RETURN_OK){
 		if(oclCanceled) printf("\n");
 		oclCanceled=true;
-		print_error_msg(OCL_error_handling(ocl, retVal),"",true);
+		print_msg_to_stderr(OCL_error_handling(ocl, retVal),"",true, ERROR_MSG);
 	}
 	pthread_exit(NULL);
-}
-
-bool check_model_loaded(){
-	int retVal=0;
-	if((retVal=OCl_check_model_loaded(ocl))<=0){
-		if(retVal<0){
-			print_error_msg(OCL_error_handling(ocl, retVal),"",false);
-			return false;
-		}
-		if(po.showLoadingModels) print_system_msg("Loading model..\n");
-		if((retVal=OCl_load_model(ocl, true))<0){
-			print_error_msg(OCL_error_handling(ocl,retVal),"",false);
-			return false;
-		}
-	}
-	return true;
 }
 
 int main(int argc, char *argv[]) {
@@ -475,7 +459,7 @@ int main(int argc, char *argv[]) {
 	}
 	int retVal=0;
 	if((retVal=OCl_init())!=OCL_RETURN_OK)
-		print_error_msg("OCl Init error. ", OCL_error_handling(ocl,retVal),true);
+		print_msg_to_stderr("OCl Init error. ", OCL_error_handling(ocl,retVal),true, ERROR_MSG);
 	for(int i=1;i<argc;i++){
 		if(strcmp(argv[i],"--version")==0){
 			BANNER
@@ -486,54 +470,54 @@ int main(int argc, char *argv[]) {
 			close_program(false);
 		}
 		if(strcmp(argv[i],"--server-addr")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.serverAddr,16,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--server-port")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.serverPort,6,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--response-speed")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			char *tail=NULL;
 			po.responseSpeed=strtol(argv[i+1], &tail, 10);
 			if(po.responseSpeed<0 || tail[0]!=0){
 				po.responseSpeed=RESPONSE_SPEED;
-				print_error_msg("Response speed not valid.","",true);
+				print_msg_to_stderr("Response speed not valid.","",true, ERROR_MSG);
 			}
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--socket-conn-to")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.socketConnTo,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--socket-send-to")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.socketSendTo,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--socket-recv-to")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.socketRecvTo,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--api-key")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.apiKey,1024,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--model")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.model,128,"%s",argv[i+1]);
 			i++;
 			continue;
@@ -543,67 +527,67 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--temperature")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.temp,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--seed")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.seed,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--repeat-last-n")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.repeat_last_n,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--repeat-penalty")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.repeat_penalty,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--top-k")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.top_k,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--top-p")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.top_p,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--min-p")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.min_p,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--keep-alive")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.keepalive,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--max-msgs-ctx")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.maxMsgCtx,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--max-msgs-tokens")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.maxTokensCtx,8,"%s",argv[i+1]);
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--system-role")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			free(po.ocl.systemRole);
 			po.ocl.systemRole=NULL;
 			po.ocl.systemRole=malloc(strlen(argv[i+1])+1);
@@ -613,7 +597,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--system-role-file")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			po.ocl.systemRoleFile=malloc(strlen(argv[i+1])+1);
 			memset(po.ocl.systemRoleFile,0,strlen(argv[i+1])+1);
 			snprintf(po.ocl.systemRoleFile,strlen(argv[i+1])+1,"%s",argv[i+1]);
@@ -621,13 +605,13 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--image-file")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			sm.imageFile=argv[i+1];
 			i++;
 			continue;
 		}
 		if(strcmp(argv[i],"--static-context-file")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			po.ocl.staticContextFile=malloc(strlen(argv[i+1])+1);
 			memset(po.ocl.staticContextFile,0,strlen(argv[i+1])+1);
 			snprintf(po.ocl.staticContextFile,strlen(argv[i+1])+1,"%s",argv[i+1]);
@@ -635,7 +619,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--context-file")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			po.ocl.contextFile=malloc(strlen(argv[i+1])+1);
 			memset(po.ocl.contextFile,0,strlen(argv[i+1])+1);
 			snprintf(po.ocl.contextFile,strlen(argv[i+1])+1,"%s",argv[i+1]);
@@ -643,7 +627,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--tools-file")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			po.ocl.toolsFile=malloc(strlen(argv[i+1])+1);
 			memset(po.ocl.toolsFile,0,strlen(argv[i+1])+1);
 			snprintf(po.ocl.toolsFile,strlen(argv[i+1])+1,"%s",argv[i+1]);
@@ -651,7 +635,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--color-font-response")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			int f1,f2,color;
 			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
 			snprintf(po.colors.colorFontResponse,16,"\e[%d;%d;%dm",f1, f2, color);
@@ -659,7 +643,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--color-font-system")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			int f1,f2,color;
 			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
 			snprintf(po.colors.colorFontSystem,16,"\e[%d;%d;%dm",f1, f2, color);
@@ -667,7 +651,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--color-font-info")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			int f1,f2,color;
 			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
 			snprintf(po.colors.colorFontInfo,16,"\e[%d;%d;%dm",f1, f2, color);
@@ -675,7 +659,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		if(strcmp(argv[i],"--color-font-error")==0){
-			if(!argv[i+1]) print_error_msg("Argument missing","",true);
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			int f1,f2,color;
 			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
 			snprintf(po.colors.colorFontError,16,"\e[%d;%d;%dm",f1, f2, color);
@@ -706,15 +690,13 @@ int main(int argc, char *argv[]) {
 			po.showModels=true;
 			continue;
 		}
-		if(strcmp(argv[i],"--show-loading-model")==0){
-			po.showLoadingModels=true;
-			continue;
-		}
+		//TODO just for legacy
+		if(strcmp(argv[i],"--show-loading-model")==0) continue;
 		if(strcmp(argv[i],"--execute-tools")==0){
 			po.executeTools=true;
 			continue;
 		}
-		print_error_msg(argv[i],": argument not recognized",true);
+		print_msg_to_stderr(argv[i],": argument not recognized",true, ERROR_MSG);
 	}
 	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 	if((retVal=OCl_get_instance(
@@ -742,11 +724,11 @@ int main(int argc, char *argv[]) {
 			po.ocl.contextFile,
 			po.ocl.staticContextFile,
 			po.ocl.toolsFile))!=OCL_RETURN_OK)
-		print_error_msg("",OCL_error_handling(ocl,retVal),true);
+		print_msg_to_stderr("",OCL_error_handling(ocl,retVal),true, ERROR_MSG);
 	if(po.showModels){
 		char models[512][512]={""};
 		int cantModels=OCl_get_models(ocl, models);
-		if(cantModels<0) print_error_msg(OCL_error_handling(ocl,cantModels),"",true);
+		if(cantModels<0) print_msg_to_stderr(OCL_error_handling(ocl,cantModels),"",true, ERROR_MSG);
 		for(int i=0;i<cantModels;i++){
 			printf("  - ");
 			for(size_t j=0;j<strlen(models[i]);j++){

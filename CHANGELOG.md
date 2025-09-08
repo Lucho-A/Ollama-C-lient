@@ -12,6 +12,7 @@
 - N/A
 #### others:
 - fixed OCL_VERSION define error.
+- '--show-loading-models' de-scoped (for this update, and for legacy, no errors arises in case of its inclusion).
 - minor changes & code cleaned up.
 
 ### ollama-c-lient-v0.0.2
