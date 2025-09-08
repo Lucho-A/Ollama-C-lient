@@ -69,7 +69,7 @@ The options supported are:
 |--system-role-file | string:NULL | sets the path to the file that include the system role. |
 |--context-file | string:NULL | file where the interactions (except the queries ended with ';') will be stored. |
 |--static-context-file | string:NULL | file where the interactions included into it (separated by '\t') will be include (statically) as interactions in every query sent to the server. This interactions cannot be flushed, and they don't count as '--max-msgs-ctx' (it does as '--max-msgs-tokens'). |
-|--tools-file | string:NULL | file where the tools to be incorporated to the interactions are included with the following format: |
+|--tools-file | string:NULL | file where the tools to be incorporated to the interactions are included. |
 |--image-file | string:NULL | Image file to attach to the query. |
 |--color-font-response | string:"00;00;00" | in ANSI format, sets the color used for responses. |
 |--color-font-system | string:"00;00;00" | in ANSI format, sets the color used for program's messages. |
