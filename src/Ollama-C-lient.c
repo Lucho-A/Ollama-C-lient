@@ -5,7 +5,7 @@
  Copyright   : GNU General Public License v3.0
  Description : Main file
  ============================================================================
- */
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -144,11 +144,14 @@ static int close_program(bool finishWithErrors){
 	po.ocl.contextFile=NULL;
 	free(po.ocl.systemRole);
 	po.ocl.systemRole=NULL;
-	free(sm.input);
+	free(po.ocl.systemRoleFile);
+	po.ocl.systemRoleFile=NULL;
 	free(po.ocl.toolsFile);
 	po.ocl.toolsFile=NULL;
+	free(sm.input);
 	sm.input=NULL;
 	free(toolsResponse);
+	toolsResponse=NULL;
 	if(isatty(fileno(stdout))) fputs("\x1b[0m",stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
 	exit(EXIT_SUCCESS);
@@ -431,7 +434,8 @@ void *start_sending_message(void *arg){
 	if(retVal!=OCL_RETURN_OK){
 		if(oclCanceled) printf("\n");
 		oclCanceled=true;
-		print_msg_to_stderr(OCL_error_handling(ocl, retVal),"",true, ERROR_MSG);
+		print_msg_to_stderr(OCL_error_handling(ocl, retVal),"",false, ERROR_MSG);
+		pthread_exit("-1");
 	}
 	pthread_exit(NULL);
 }
@@ -743,8 +747,10 @@ int main(int argc, char *argv[]) {
 	if(po.stdoutChunked) po.stdoutParsed=true;
 	if(sm.input){
 		pthread_t tSendingMessage;
+		void *tRetVal=NULL;
 		pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
-		pthread_join(tSendingMessage,NULL);
+		pthread_join(tSendingMessage,&tRetVal);
+		if(tRetVal!=NULL) close_program(true);
 		if(po.responseSpeed==0 && !oclCanceled){
 			if(po.stdoutJson){
 				create_json();
@@ -776,8 +782,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		if(po.showResponseInfo && !po.stdoutJson && !oclCanceled) print_response_info();
-		free(sm.input);
-		sm.input=NULL;
 		printf("\n");
 	}
 	close_program(false);

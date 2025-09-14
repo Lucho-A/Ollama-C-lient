@@ -1052,7 +1052,11 @@ int base64_encode(const char* fileName, size_t *outLen, char **encodedData) {
 	}
 	*outLen = 4*((inLen+2)/3);
 	*encodedData = malloc(*outLen);
-	if(*encodedData == NULL) return OCL_ERR_IMAGE_FILE;
+	if(*encodedData==NULL){
+		fclose(f);
+		sfree(data);
+		return OCL_ERR_IMAGE_FILE;
+	}
 	for(size_t i=0, j=0; i<inLen;) {
 		uint32_t octetA=i<inLen ? (unsigned char)data[i++] : 0;
 		uint32_t octetB=i<inLen ? (unsigned char)data[i++] : 0;
@@ -1064,6 +1068,8 @@ int base64_encode(const char* fileName, size_t *outLen, char **encodedData) {
 		(*encodedData)[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
 	}
 	for(int i=0; i<mod_table[inLen % 3]; i++) (*encodedData)[*outLen-1-i]='=';
+	fclose(f);
+	sfree(data);
 	return OCL_RETURN_OK;
 }
 
@@ -1071,8 +1077,11 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 	char *imageFileBase64=NULL;
 	size_t imageFileSize=0;
 	if(imageFile!=NULL){
-		int retVal=base64_encode(imageFile, &imageFileSize,&imageFileBase64);
-		if(retVal!=OCL_RETURN_OK) return retVal;
+		int retVal=base64_encode(imageFile, &imageFileSize, &imageFileBase64);
+		if(retVal!=OCL_RETURN_OK){
+			sfree(imageFileBase64);
+			return retVal;
+		}
 	}
 	char *messageParsed=NULL;
 	OCl_parse_string(&messageParsed, message);
@@ -1085,6 +1094,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 		len=strlen(contextTemplate)+strlen(temp->userMessage)+strlen(temp->assistantMessage);
 		buf=malloc(len);
 		if(buf==NULL){
+			sfree(imageFileBase64);
 			sfree(messageParsed);
 			sfree(context);
 			return OCL_ERR_MALLOC;
@@ -1102,6 +1112,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 			len=strlen(contextTemplate)+strlen(temp->userMessage)+strlen(temp->assistantMessage);
 			buf=malloc(len);
 			if(buf==NULL){
+				sfree(imageFileBase64);
 				sfree(messageParsed);
 				sfree(context);
 				return OCL_ERR_MALLOC;
@@ -1200,6 +1211,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 						ocl->maxTokensCtx,
 						"true");
 	}
+	sfree(imageFileBase64);
 	sfree(context);
 	len=strlen(ocl->srvAddr)+sizeof(ocl->srvPort)+sizeof((int) strlen(body))+strlen(body)+512;
 	char *msg=malloc(len);
@@ -1212,8 +1224,8 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 			"Content-Type: application/json; charset=utf-8\r\n"
 			"Authorization: Bearer %s\r\n"
 			"Content-Length: %d\r\n\r\n"
-			"%s",
-			OCL_ENDPOINT
+			"%s"
+			,OCL_ENDPOINT
 			,ocl->srvAddr
 			,OCL_VERSION
 			,ocl->apiKey
