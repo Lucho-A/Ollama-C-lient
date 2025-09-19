@@ -5,7 +5,7 @@
  Copyright   : GNU General Public License v3.0
  Description : Main file
  ============================================================================
-*/
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,6 +153,7 @@ static int close_program(bool finishWithErrors){
 	free(toolsResponse);
 	toolsResponse=NULL;
 	if(isatty(fileno(stdout))) fputs("\x1b[0m",stdout);
+	fflush(stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
 	exit(EXIT_SUCCESS);
 }
@@ -178,14 +179,14 @@ static void print_msg_to_stderr(char *msg, char *error, bool exitProgram, int ms
 	switch(msgType){
 	case ERROR_MSG:
 		if(isatty(fileno(stderr))){
-			snprintf(sdterrMsg,1024,"%sERROR: %s %s\n",po.colors.colorFontError, msg,error);
+			snprintf(sdterrMsg,1024,"%sERROR: %s %s\x1b[0m\n",po.colors.colorFontError, msg,error);
 		}else{
 			snprintf(sdterrMsg,1024,"ERROR: %s %s\n",msg,error);
 		}
 		break;
 	case SYSTEM_MSG:
 		if(isatty(fileno(stderr))){
-			snprintf(sdterrMsg,1024,"%sSYSTEM: %s\n",po.colors.colorFontSystem, msg);
+			snprintf(sdterrMsg,1024,"%sSYSTEM: %s\x1b[0m\n",po.colors.colorFontSystem, msg);
 		}else{
 			snprintf(sdterrMsg,1024,"SYSTEM: %s\n",msg);
 		}
@@ -198,7 +199,6 @@ static void print_msg_to_stderr(char *msg, char *error, bool exitProgram, int ms
 		fflush(stderr);
 		usleep(po.responseSpeed);
 	}
-	if(isatty(fileno(stderr))) fputs("\x1b[0m",stderr);
 	if(exitProgram) close_program(true);
 }
 
@@ -485,17 +485,6 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
-		if(strcmp(argv[i],"--response-speed")==0){
-			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
-			char *tail=NULL;
-			po.responseSpeed=strtol(argv[i+1], &tail, 10);
-			if(po.responseSpeed<0 || tail[0]!=0){
-				po.responseSpeed=RESPONSE_SPEED;
-				print_msg_to_stderr("Response speed not valid.","",true, ERROR_MSG);
-			}
-			i++;
-			continue;
-		}
 		if(strcmp(argv[i],"--socket-conn-to")==0){
 			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.socketConnTo,8,"%s",argv[i+1]);
@@ -511,6 +500,17 @@ int main(int argc, char *argv[]) {
 		if(strcmp(argv[i],"--socket-recv-to")==0){
 			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			snprintf(po.ocl.socketRecvTo,8,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--response-speed")==0){
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
+			char *tail=NULL;
+			po.responseSpeed=strtol(argv[i+1], &tail, 10);
+			if(po.responseSpeed<0 || tail[0]!=0){
+				po.responseSpeed=RESPONSE_SPEED;
+				print_msg_to_stderr("Response speed not valid.","",true, ERROR_MSG);
+			}
 			i++;
 			continue;
 		}
@@ -638,10 +638,20 @@ int main(int argc, char *argv[]) {
 			i++;
 			continue;
 		}
+		if(strcmp(argv[i],"--color-font-error")==0){
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
+			int f1,f2,color;
+			int retVal=sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
+			if(retVal!=3) print_msg_to_stderr("--color-font-error: argument not valid: ",argv[i+1],true, ERROR_MSG);
+			snprintf(po.colors.colorFontError,16,"\e[%d;%d;%dm",f1, f2, color);
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--color-font-response")==0){
 			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			int f1,f2,color;
-			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
+			int retVal=sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
+			if(retVal!=3) print_msg_to_stderr("--color-font-response: argument not valid: ",argv[i+1],true, ERROR_MSG);
 			snprintf(po.colors.colorFontResponse,16,"\e[%d;%d;%dm",f1, f2, color);
 			i++;
 			continue;
@@ -649,7 +659,8 @@ int main(int argc, char *argv[]) {
 		if(strcmp(argv[i],"--color-font-system")==0){
 			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			int f1,f2,color;
-			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
+			int retVal=sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
+			if(retVal!=3) print_msg_to_stderr("--color-font-system: argument not valid: ",argv[i+1],true, ERROR_MSG);
 			snprintf(po.colors.colorFontSystem,16,"\e[%d;%d;%dm",f1, f2, color);
 			i++;
 			continue;
@@ -657,16 +668,9 @@ int main(int argc, char *argv[]) {
 		if(strcmp(argv[i],"--color-font-info")==0){
 			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 			int f1,f2,color;
-			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
+			int retVal=sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
+			if(retVal!=3) print_msg_to_stderr("--color-font-info: argument not valid: ",argv[i+1],true, ERROR_MSG);
 			snprintf(po.colors.colorFontInfo,16,"\e[%d;%d;%dm",f1, f2, color);
-			i++;
-			continue;
-		}
-		if(strcmp(argv[i],"--color-font-error")==0){
-			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
-			int f1,f2,color;
-			sscanf(argv[i+1], "%d;%d;%d", &f1, &f2, &color);
-			snprintf(po.colors.colorFontError,16,"\e[%d;%d;%dm",f1, f2, color);
 			i++;
 			continue;
 		}
@@ -702,7 +706,6 @@ int main(int argc, char *argv[]) {
 		}
 		print_msg_to_stderr(argv[i],": argument not recognized",true, ERROR_MSG);
 	}
-	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 	if((retVal=OCl_get_instance(
 			&ocl,
 			po.ocl.serverAddr,
@@ -729,6 +732,7 @@ int main(int argc, char *argv[]) {
 			po.ocl.staticContextFile,
 			po.ocl.toolsFile))!=OCL_RETURN_OK)
 		print_msg_to_stderr("",OCL_error_handling(ocl,retVal),true, ERROR_MSG);
+	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 	if(po.showModels){
 		char models[512][512]={""};
 		int cantModels=OCl_get_models(ocl, models);
@@ -736,9 +740,9 @@ int main(int argc, char *argv[]) {
 		for(int i=0;i<cantModels;i++){
 			printf("  - ");
 			for(size_t j=0;j<strlen(models[i]);j++){
+				usleep(po.responseSpeed);
 				fputc(models[i][j], stdout);
 				fflush(stdout);
-				usleep(po.responseSpeed);
 			}
 			printf("\n");
 		}

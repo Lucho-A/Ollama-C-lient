@@ -9,7 +9,7 @@
 - added parameter: --tools-file.
 - added parameter: --execute-tools (***experimental***).
 #### improvements:
-- N/A
+- color format validation
 #### others:
 - fixed OCL_VERSION define error.
 - '--show-loading-models' de-scoped (for this update, and for legacy, no errors arises in case of its inclusion).
