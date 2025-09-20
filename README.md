@@ -5,6 +5,7 @@ C program for interacting with [Ollama](https://github.com/ollama/ollama) server
 ### Disclaimer
 
 - supports only SSL/TLS (sorry, security by design, baby)
+- supports only '/api/chat' endpoint
 - '--execute-tools' parameter, and tools in general are under ***experimental*** status. So, the scope, way to use, etc. could change at any time, and bugs could be found.
 
 ###### Note: self signed certs are allowed.
@@ -79,7 +80,7 @@ The options supported are:
 |--show-thoughts | N/A:false | shows what the model is 'thinking' in reasoning models like 'deepseek-r1'. |
 |--show-models | N/A:false | shows the models available. |
 |--stdout-parsed | N/A:false | parses the output (useful for speeching/chatting). |
-|--stdout-chunked | N/A:false | chunks the output by paragraph (particularly useful for speeching). sets '--stdout-parsed', as well. |
+|--stdout-chunked | N/A:false | chunks the output by paragraph (particularly useful for speeching). It sets '--stdout-parsed', as well. |
 |--stdout-json | N/A:false | writes stdout in JSON format. Output always no streamed and in RAW format. |
 |--execute-tools | N/A:false | (***experimental***) execute the tools (function) with the arguments. |
 
@@ -97,7 +98,7 @@ The options supported are:
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ('--max-msgs-ctx') and won't be written to the context file,
 - If the entered **prompt finish with ';'**, the query/response won't be part of subsequent context messages. (1)
 - '--stdout-json' will incorporate the output of the tool if '--execute-tools' is set.
-- '--response-speed' delays the output even whether is not a tty.
+- '--response-speed' delays the output even whether is not a tty (except when '--stdout-json' or '--stdout-chunked' is set).
 - Crl-C cancel the responses.
 
 ###### (1) only relevant for developing purposes using the library.
