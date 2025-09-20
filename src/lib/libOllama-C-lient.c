@@ -805,14 +805,17 @@ char * OCL_error_handling(OCl *ocl, int error){
 }
 
 static bool get_string_from_token(char const *text, char const *token, char *result, char endChar){
-	char const *content=strstr(text,token);
-	if(content!=NULL){
+	memset(result, 0,1024);
+	char *content=strstr(text,token);
+	if(!content) return false;
+	int cont=0;
+	while(content!=NULL){
 		size_t i=0, len=strlen(token);
-		for(i=len;(content[i-1]=='\\' || content[i]!=endChar);i++) result[i-len]=content[i];
-		result[i-len]=0;
-		return true;
+		for(i=len;(content[i-1]=='\\' || (content[i]!=endChar && content[i]!='}') );i++) result[cont++]=content[i];
+		content[0]='X';
+		content=strstr(content,token);
 	}
-	return false;
+	return true;
 }
 
 static int create_connection(const char *srvAddr, int srvPort, int socketConnectTimeout){
@@ -943,7 +946,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 				}
 			}
 			strncat(ocl->ocl_resp->response,buffer, bufferAssigned-1);
-			char token[128]="";
+			char token[1024]="";
 			if(get_string_from_token(buffer, "\"thinking\":\"", token, '"')){
 				char const *b=strstr(token,"\\\"},");
 				if(b){
@@ -1001,12 +1004,14 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			char httpResponse[128]="";
 			for(int i=0;buffer[i]!='\r' && buffer[i]!='\n';i++) httpResponse[i]=buffer[i];
 			if(strcmp(httpResponse,"HTTP/1.1 200 OK")==0) return OCL_RETURN_OK;
-			char *err=NULL;
-			if((err=strstr(buffer,"{\"error\":\""))!=NULL){
-				snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s: %s", httpResponse, err);
-				close(socketConn);
-				clean_ssl(sslConn);
-				return OCL_ERR_MSG_FOUND;
+			if(strstr(httpResponse,"HTTP/1.1 40")){
+				char err[512]="";
+				if(get_string_from_token(buffer,"{\"error\":", err,'}') || get_string_from_token(buffer,"\r\n\r\n", err,'\n')){
+					snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s: %s", httpResponse, err);
+					close(socketConn);
+					clean_ssl(sslConn);
+					return OCL_ERR_MSG_FOUND;
+				}
 			}
 			snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s", httpResponse);
 			close(socketConn);
@@ -1146,6 +1151,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"tools\": [%s],"
 				"\"think\": %s,"
 				"\"keep_alive\": %d,"
+				"\"stream\": %s,"
 				"\"options\": {"
 				"\"temperature\": %f,"
 				"\"repeat_last_n\": %d,"
@@ -1155,7 +1161,6 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"top_p\": %f,"
 				"\"min_p\": %f,"
 				"\"num_ctx\": %d,"
-				"\"stream\": %s,"
 				"\"stop\": null}}",
 				ocl->model,
 				ocl->systemRole,
@@ -1165,6 +1170,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				ocl->tools,
 				(ocl->noThink)?("false"):("true"),
 						ocl->keepalive,
+						"true",
 						ocl->temp,
 						ocl->repeat_last_n,
 						ocl->repeat_penalty,
@@ -1172,8 +1178,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 						ocl->top_k,
 						ocl->top_p,
 						ocl->min_p,
-						ocl->maxTokensCtx,
-						"true");
+						ocl->maxTokensCtx);
 	}else{
 		snprintf(body,len,
 				"{\"model\":\"%s\","
@@ -1183,6 +1188,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"tools\": [%s],"
 				"\"think\": %s,"
 				"\"keep_alive\": %d,"
+				"\"stream\": %s,"
 				"\"options\": {"
 				"\"temperature\": %f,"
 				"\"repeat_last_n\": %d,"
@@ -1192,7 +1198,6 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"top_p\": %f,"
 				"\"min_p\": %f,"
 				"\"num_ctx\": %d,"
-				"\"stream\": %s,"
 				"\"stop\": null}}",
 				ocl->model,
 				ocl->systemRole,
@@ -1201,6 +1206,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				ocl->tools,
 				(ocl->noThink)?("false"):("true"),
 						ocl->keepalive,
+						"true",
 						ocl->temp,
 						ocl->repeat_last_n,
 						ocl->repeat_penalty,
@@ -1208,8 +1214,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 						ocl->top_k,
 						ocl->top_p,
 						ocl->min_p,
-						ocl->maxTokensCtx,
-						"true");
+						ocl->maxTokensCtx);
 	}
 	sfree(imageFileBase64);
 	sfree(context);

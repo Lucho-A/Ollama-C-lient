@@ -48,11 +48,11 @@ The options supported are:
 |--help | N/A:N/A | |
 |--server-addr | string:"127.0.0.1" | URL or IP of the server |
 |--server-port | int:443 _[1-65535]_ | listening port. Must be SSL/TLS. |
-|--response-speed | int:0 _[>=0]_ | in microseconds, if > 0, the responses will be sending out to stdout at the interval set up. |
+|--response-speed | int:0 _[>=0]_ | in microseconds, if > 0, the responses will be sending out to stdout at the interval set up.|
 |--socket-conn-to | int:5 _[>=0]_ | in seconds, sets up the connection time out. |
 |--socket-send-to | int:5 _[>=0]_ | in seconds, sets up the sending time out. |
 |--socket-recv-to | int:15 _[>=0]_ | in seconds, sets up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting. |
-|--api-key | string:NULL | sets the API key. Obsolete except you are using a kind of proxy.|
+|--api-key | string:NULL | sets the API key.|
 |--model | string:NULL | model to use. |
 |--no-think | N/A:false | sets a no-thinking status for the model. |
 |--temperature | double:0.5 _[>=0]_ | sets the temperature parameter. |
@@ -97,6 +97,7 @@ The options supported are:
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ('--max-msgs-ctx') and won't be written to the context file,
 - If the entered **prompt finish with ';'**, the query/response won't be part of subsequent context messages. (1)
 - '--stdout-json' will incorporate the output of the tool if '--execute-tools' is set.
+- '--response-speed' delays the output even whether is not a tty.
 - Crl-C cancel the responses.
 
 ###### (1) only relevant for developing purposes using the library.

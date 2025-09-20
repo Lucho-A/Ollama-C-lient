@@ -12,9 +12,13 @@
 - color format validation
 #### others:
 - fixed OCL_VERSION define error.
+- added compatibility with Ollama Cloud [Ollama v0.12.0 changes](https://github.com/ollama/ollama/releases/tag/v0.12.0) (1) (2)
 - '--show-loading-models' de-scoped (for this update, and for legacy, no errors arises in case of its inclusion).
 - potential memory leak fixed
 - minor changes & code cleaned up.
+
+(1) for some reason, models other than gpt don't support 'system' role, returning: "upstream error". Assumed by now that this is not intentional and will be fixed in future Ollama updates. 
+(2) for some reason, the responses don't included: 'load_duration', 'prompt_eval_duration', nor 'eval_duration'. Therefore, 'Tokens per sec.' = inf.
 
 ### ollama-c-lient-v0.0.2
 #### date: 2025/09/04

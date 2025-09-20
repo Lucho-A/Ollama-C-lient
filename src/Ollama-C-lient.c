@@ -345,7 +345,7 @@ static void print_response(char const *token, bool done, int responseType){
 	if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
 	if(po.stdoutParsed){
 		char *parsedOut=parse_output(token);
-		for(size_t i=0;i<strlen(parsedOut);i++){
+		for(size_t i=0;i<strlen(parsedOut) && !oclCanceled;i++){
 			usleep(po.responseSpeed);
 			fputc(parsedOut[i], stdout);
 			fflush(stdout);
@@ -353,7 +353,7 @@ static void print_response(char const *token, bool done, int responseType){
 		free(parsedOut);
 		parsedOut=NULL;
 	}else{
-		for(size_t i=0;i<strlen(token);i++){
+		for(size_t i=0;i<strlen(token) && !oclCanceled;i++){
 			usleep(po.responseSpeed);
 			fputc(token[i], stdout);
 			fflush(stdout);
