@@ -995,7 +995,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 					if(get_string_from_token(buffer, "\"total_duration\":", result, ',')) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
 					if(get_string_from_token(buffer, "\"prompt_eval_count\":", result, ',')) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
 					if(get_string_from_token(buffer, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
-					ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
+					if(ocl->ocl_resp->evalDuration!=0) ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 					break;
 				}
 				continue;
