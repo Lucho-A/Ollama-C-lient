@@ -12,7 +12,7 @@
 - color format validation
 #### others:
 - fixed OCL_VERSION define error.
-- added compatibility with Ollama Cloud ([Ollama v0.12.0 changes])(https://github.com/ollama/ollama/releases/tag/v0.12.0) (1) (2)
+- added compatibility with Ollama Cloud ([Ollama v0.12.0 changes](https://github.com/ollama/ollama/releases/tag/v0.12.0)) (1) (2)
 - '--show-loading-models' de-scoped (for this update, and for legacy, no errors arises in case of its inclusion).
 - potential memory leak fixed
 - minor changes & code cleaned up.
