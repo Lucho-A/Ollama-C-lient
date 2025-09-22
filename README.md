@@ -92,7 +92,6 @@ The options supported are:
 - If **'--context-file'** is specified and it doesn't exist, it will be created if possible.
 - If **'--context-file'** is specified, the latest X messages/responses (parameter '--max-msgs-ctx') are read when the program starts as context.
 - So, if '--max-msgs-ctx' > 0, and '--context-file' is not set up, the program will start without any context. Nevertheless, as long as chats succeed, they will be stored in RAM and taken into account in the successive interactions. (1)
-- If '--max-msgs-ctx' == 0, the interactions won't be recorded into context file.
 - If '--stdout-chunked', '--response-speed' is deprecated.
 - The font format in '--font-...' must be ANSI ("XX;XX;XX").
 - If the entered **prompt finish with ';'**, the query/response won't take into account the current context ('--max-msgs-ctx') and won't be written to the context file,

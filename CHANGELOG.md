@@ -4,12 +4,14 @@
 #### bugs-fixed:
 - fixed mis-assigned realloc(), potential buffer overflow.
 - fixed 'keep alive' value when requests
+- fixed un-inclusion of message as context when first interaction was created. 
 #### new-features:
 - added parameter: --api-key.
 - added parameter: --tools-file.
 - added parameter: --execute-tools (***experimental***).
 #### improvements:
 - color format validation
+- '--max-msgs-ctx' == 0, save the interaction into context file.
 #### others:
 - fixed OCL_VERSION define error.
 - added compatibility with Ollama Cloud ([Ollama v0.12.0 changes](https://github.com/ollama/ollama/releases/tag/v0.12.0)) (1) (2)

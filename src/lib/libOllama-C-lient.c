@@ -453,7 +453,7 @@ static int OCl_import_context(OCl *ocl){
 		rewind(f);
 		int contRows=0;
 		while((chars=getline(&line, &len, f))!=-1){
-			if(rows>1){
+			if(rows>0){
 				if(strstr(line,"\t")==NULL){
 					sfree(line);
 					fclose(f);
@@ -1003,16 +1003,20 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			if(strstr(buffer,"{\"models\":[{\"")!=NULL) break;
 			char httpResponse[128]="";
 			for(int i=0;buffer[i]!='\r' && buffer[i]!='\n';i++) httpResponse[i]=buffer[i];
-			if(strcmp(httpResponse,"HTTP/1.1 200 OK")==0) return OCL_RETURN_OK;
-			if(strstr(httpResponse,"HTTP/1.1 40")){
-				char err[512]="";
-				if(get_string_from_token(buffer,"{\"error\":", err,'}') || get_string_from_token(buffer,"\r\n\r\n", err,'\n')){
-					snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s: %s", httpResponse, err);
-					close(socketConn);
-					clean_ssl(sslConn);
-					return OCL_ERR_MSG_FOUND;
-				}
+			if(strstr(httpResponse, "HTTP/1.1 5")){
+				snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s", httpResponse);
+				close(socketConn);
+				clean_ssl(sslConn);
+				return OCL_ERR_SERVICE_UNAVAILABLE;
 			}
+			char err[512]="";
+			if(get_string_from_token(buffer,"{\"error\":", err,'}') || get_string_from_token(buffer,"\r\n\r\n", err,'\n')){
+				snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s: %s", httpResponse, err);
+				close(socketConn);
+				clean_ssl(sslConn);
+				return OCL_ERR_MSG_FOUND;
+			}
+			if(strcmp(httpResponse,"HTTP/1.1 200 OK")==0) return OCL_RETURN_OK;
 			snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s", httpResponse);
 			close(socketConn);
 			clean_ssl(sslConn);
@@ -1253,7 +1257,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 	if(!oclCanceled && retVal>0){
 		if(message[strlen(message)-1]!=';' && strcmp(ocl->ocl_resp->content,"")!=0){
 			create_new_context_message(ocl, messageParsed, ocl->ocl_resp->content);
-			if(ocl->maxHistoryCtx>0) OCl_save_message(ocl, messageParsed, ocl->ocl_resp->content);
+			if(ocl->maxHistoryCtx>=0) OCl_save_message(ocl, messageParsed, ocl->ocl_resp->content);
 		}
 	}
 	sfree(messageParsed);
