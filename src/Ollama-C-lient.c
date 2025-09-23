@@ -22,6 +22,7 @@
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
 #define	RESPONSE_SPEED					0
+#define	MIN_STDOUT_BUFFER_SIZE			50
 
 OCl *ocl=NULL;
 
@@ -72,8 +73,10 @@ struct ProgramOpts{
 	bool showModels;
 	bool stdoutParsed;
 	bool stdoutChunked;
+	int stdoutBufferSize;
 	bool stdoutJson;
 	struct Colors colors;
+	char charsToExclude[1024];
 };
 
 struct SendingMessage{
@@ -127,6 +130,8 @@ static void show_help(char *programName){
 	printf("--show-models \t\t\t N/A:false \t\t shows the models available.\n");
 	printf("--stdout-parsed \t\t N/A:false \t\t parses the output (useful for speeching/chatting).\n");
 	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). Sets '--stdout-parsed', as well. \n");
+	printf("--stdout-buffer-size \t\t int:50 \t\t Set the minimum char length of the stream before to stdout. \n");
+	printf("--exclude-chars \t\t string:NULL \t\t Chars to exclude from the responses. \n");
 	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n");
 	printf("--execute-tools \t\t N/A:false \t\t execute the tools (function) with the arguments.\n\n");
 	printf("Example: \n\n");
@@ -216,41 +221,54 @@ static void print_response_info(){
 	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
 }
 
-char *parse_output(const char *in){
+char *parse_output(const char *in, bool parse, bool removeChars){
 	char buffer[5]="";
 	char *buff=malloc(strlen(in)+1);
 	memset(buff,0,strlen(in)+1);
 	int cont=0;
-	for(size_t i=0;i<strlen(in);i++,cont++){
-		if(in[i]=='\\'){
-			switch(in[i+1]){
-			case 'n':
-				buff[cont]='\n';
-				break;
-			case 'r':
-				buff[cont]='\r';
-				break;
-			case 't':
-				buff[cont]='\r';
-				break;
-			case '\\':
-				buff[cont]='\\';
-				break;
-			case '"':
-				buff[cont]='\"';
-				break;
-			case 'u':
-				snprintf(buffer,5,"%c%c%c%c",in[i+2],in[i+3],in[i+4],in[i+5]);
-				buff[cont]=(int)strtol(buffer,NULL,16);
-				i+=4;
-				break;
-			default:
-				break;
+	for(size_t i=0;i<strlen(in);i++){
+		if(parse){
+			if(in[i]=='\\'){
+				switch(in[i+1]){
+				case 'n':
+					buff[cont++]='\n';
+					break;
+				case 'r':
+					buff[cont++]='\r';
+					break;
+				case 't':
+					buff[cont++]='\r';
+					break;
+				case '\\':
+					buff[cont++]='\\';
+					break;
+				case '"':
+					buff[cont++]='\"';
+					break;
+				case 'u':
+					snprintf(buffer,5,"%c%c%c%c",in[i+2],in[i+3],in[i+4],in[i+5]);
+					buff[cont++]=(int)strtol(buffer,NULL,16);
+					i+=4;
+					break;
+				default:
+					break;
+				}
+				i++;
+				continue;
 			}
-			i++;
+		}
+		if(removeChars){
+			bool ok=true;
+			for(size_t j=0;j<strlen(po.charsToExclude);j++){
+				if(in[i]==po.charsToExclude[j]){
+					ok=false;
+					break;
+				}
+			}
+			if(ok) buff[cont++]=in[i];
 			continue;
 		}
-		buff[cont]=in[i];
+		buff[cont++]=in[i];
 	}
 	buff[cont]=0;
 	return buff;
@@ -318,20 +336,6 @@ static void print_response(char const *token, bool done, int responseType){
 		}
 		return;
 	}
-	if(po.stdoutChunked){
-		if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
-		char *parsedOut=parse_output(token);
-		strncat(chunkings,parsedOut,8196-1);
-		if(strstr(parsedOut, "\n") || done){
-			fputs(chunkings, stdout);
-			fflush(stdout);
-			memset(chunkings,0,8196);
-		}
-		free(parsedOut);
-		parsedOut=NULL;
-		return;
-	}
-	if(po.responseSpeed==0) return;
 	if(responseType==OCL_THINKING_TYPE && !thinking){
 		thinking=true;
 		fputs("(Thinking...)\n", stdout);
@@ -342,22 +346,43 @@ static void print_response(char const *token, bool done, int responseType){
 		fputs("(Stop thinking...)\n", stdout);
 		fflush(stdout);
 	}
+	if(po.stdoutChunked){
+		if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
+		strncat(chunkings,token,8196-1);
+		if((strstr(token, "\\n") && ((int) strlen(chunkings))>po.stdoutBufferSize) || done){
+			char *parsedOut=parse_output(chunkings, true, true);
+			fputs(parsedOut, stdout);
+			fflush(stdout);
+			memset(chunkings,0,8196);
+			free(parsedOut);
+			parsedOut=NULL;
+		}
+		return;
+	}
+	if(po.responseSpeed==0) return;
 	if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
-	if(po.stdoutParsed){
-		char *parsedOut=parse_output(token);
-		for(size_t i=0;i<strlen(parsedOut) && !oclCanceled;i++){
-			usleep(po.responseSpeed);
-			fputc(parsedOut[i], stdout);
-			fflush(stdout);
+	strncat(chunkings,token,8196-1);
+	if((int)strlen(chunkings)>po.stdoutBufferSize){
+		if(po.stdoutParsed){
+			char *parsedOut=parse_output(chunkings, true, true);
+			for(size_t i=0;i<strlen(parsedOut) && !oclCanceled;i++){
+				usleep(po.responseSpeed);
+				fputc(parsedOut[i], stdout);
+				fflush(stdout);
+			}
+			free(parsedOut);
+			parsedOut=NULL;
+		}else{
+			char *parsedOut=parse_output(chunkings, false, true);
+			for(size_t i=0;i<strlen(parsedOut) && !oclCanceled;i++){
+				usleep(po.responseSpeed);
+				fputc(parsedOut[i], stdout);
+				fflush(stdout);
+			}
+			free(parsedOut);
+			parsedOut=NULL;
 		}
-		free(parsedOut);
-		parsedOut=NULL;
-	}else{
-		for(size_t i=0;i<strlen(token) && !oclCanceled;i++){
-			usleep(po.responseSpeed);
-			fputc(token[i], stdout);
-			fflush(stdout);
-		}
+		memset(chunkings,0,8196);
 	}
 }
 
@@ -447,6 +472,7 @@ int main(int argc, char *argv[]) {
 	signal(SIGHUP, signal_handler);
 	signal(SIGSEGV, signal_handler);
 	po.responseSpeed=RESPONSE_SPEED;
+	if(!po.stdoutBufferSize) po.stdoutBufferSize=MIN_STDOUT_BUFFER_SIZE;
 	if(!isatty(fileno(stdin))){
 		char *line=NULL;
 		size_t len=0;
@@ -690,6 +716,23 @@ int main(int argc, char *argv[]) {
 			po.stdoutChunked=true;
 			continue;
 		}
+		if(strcmp(argv[i],"--stdout-buffer-size")==0){
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
+			char *tail=NULL;
+			po.stdoutBufferSize=strtol(argv[i+1], &tail, 10);
+			if(po.stdoutBufferSize<0 || tail[0]!=0){
+				po.stdoutBufferSize=MIN_STDOUT_BUFFER_SIZE;
+				print_msg_to_stderr("Min. chunk size not valid.","",true, ERROR_MSG);
+			}
+			i++;
+			continue;
+		}
+		if(strcmp(argv[i],"--exclude-chars")==0){
+			if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
+			snprintf(po.charsToExclude,1024,"%s",argv[i+1]);
+			i++;
+			continue;
+		}
 		if(strcmp(argv[i],"--stdout-json")==0){
 			po.stdoutJson=true;
 			continue;
@@ -772,11 +815,11 @@ int main(int argc, char *argv[]) {
 						char *out=NULL;
 						if(po.showThoughts){
 							fputs("<thinking>", stdout);
-							out=parse_output(OCL_get_response_thoughts(ocl));
+							out=parse_output(OCL_get_response_thoughts(ocl),false, true);
 							fputs(out, stdout);
 							fputs("</thinking>\n", stdout);
 						}
-						out=parse_output(OCL_get_response(ocl));
+						out=parse_output(OCL_get_response(ocl),false, true);
 						fputs(out, stdout);
 						fflush(stdout);
 						free(out);

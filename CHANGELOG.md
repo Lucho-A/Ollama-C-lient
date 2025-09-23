@@ -6,9 +6,11 @@
 - fixed 'keep alive' value when requests
 - fixed un-inclusion of message as context when first interaction was created. 
 #### new-features:
-- added parameter: --api-key.
-- added parameter: --tools-file.
-- added parameter: --execute-tools (***experimental***).
+- added parameter: '--api-key'.
+- added parameter: '--tools-file'.
+- added parameter: '--execute-tools' (***experimental***).
+- added parameter: '--stdout-buffer-size'. Set the minimum char length of the stream before to stdout.
+- added parameter: '--exclude-chars' (***experimental***). It sets the chars to be excluded from response (vgr. --exclude-chars '*-_'). At the moment chars with escape sequence are not supported. 
 #### improvements:
 - color format validation
 - '--max-msgs-ctx' == 0, save the interaction into context file.

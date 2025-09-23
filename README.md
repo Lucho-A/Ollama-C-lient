@@ -7,6 +7,7 @@ C program for interacting with [Ollama](https://github.com/ollama/ollama) server
 - supports only SSL/TLS (sorry, security by design, baby)
 - supports only '/api/chat' endpoint
 - '--execute-tools' parameter, and tools in general are under ***experimental*** status. So, the scope, way to use, etc. could change at any time, and bugs could be found.
+- previous comment also applies for '--stdout-buffer-size', and '--exclude-chars' parameters.
 
 ###### Note: self signed certs are allowed.
 
@@ -81,8 +82,10 @@ The options supported are:
 |--show-models | N/A:false | shows the models available. |
 |--stdout-parsed | N/A:false | parses the output (useful for speeching/chatting). |
 |--stdout-chunked | N/A:false | chunks the output by paragraph (particularly useful for speeching). It sets '--stdout-parsed', as well. |
+|--stdout-buffer-size' | int:50 | Set the minimum char length of the stream before starting stdout. |
 |--stdout-json | N/A:false | writes stdout in JSON format. Output always no streamed and in RAW format. |
 |--execute-tools | N/A:false | (***experimental***) execute the tools (function) with the arguments. |
+|--exclude-chars | string:NULL | (***experimental***). It sets the chars to be excluded from response (vgr. --exclude-chars '*-_'). At the moment chars with escape sequence are not supported. |
 
 ###### Note: all options are optional (really?!).
 
@@ -98,6 +101,7 @@ The options supported are:
 - If the entered **prompt finish with ';'**, the query/response won't be part of subsequent context messages. (1)
 - '--stdout-json' will incorporate the output of the tool if '--execute-tools' is set.
 - '--response-speed' delays the output even whether is not a tty (except when '--stdout-json' or '--stdout-chunked' is set).
+- '--exclude-chars' at the moment, chars with escape sequence are not supported.
 - Crl-C cancel the responses.
 
 ###### (1) only relevant for developing purposes using the library.
