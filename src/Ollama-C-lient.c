@@ -22,7 +22,7 @@
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
 #define	RESPONSE_SPEED					0
-#define	MIN_STDOUT_BUFFER_SIZE			50
+#define	MIN_STDOUT_BUFFER_SIZE			0
 
 OCl *ocl=NULL;
 
@@ -130,7 +130,7 @@ static void show_help(char *programName){
 	printf("--show-models \t\t\t N/A:false \t\t shows the models available.\n");
 	printf("--stdout-parsed \t\t N/A:false \t\t parses the output (useful for speeching/chatting).\n");
 	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). Sets '--stdout-parsed', as well. \n");
-	printf("--stdout-buffer-size \t\t int:50 \t\t Set the minimum char length of the stream before to stdout. \n");
+	printf("--stdout-buffer-size \t\t int:0 \t\t Set the minimum char length of the stream before to stdout. \n");
 	printf("--exclude-chars \t\t string:NULL \t\t Chars to exclude from the responses. \n");
 	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n");
 	printf("--execute-tools \t\t N/A:false \t\t execute the tools (function) with the arguments.\n\n");
@@ -372,6 +372,7 @@ static void print_response(char const *token, bool done, int responseType){
 			}
 			free(parsedOut);
 			parsedOut=NULL;
+
 		}else{
 			char *parsedOut=parse_output(chunkings, false, true);
 			for(size_t i=0;i<strlen(parsedOut) && !oclCanceled;i++){
@@ -722,7 +723,7 @@ int main(int argc, char *argv[]) {
 			po.stdoutBufferSize=strtol(argv[i+1], &tail, 10);
 			if(po.stdoutBufferSize<0 || tail[0]!=0){
 				po.stdoutBufferSize=MIN_STDOUT_BUFFER_SIZE;
-				print_msg_to_stderr("Min. chunk size not valid.","",true, ERROR_MSG);
+				print_msg_to_stderr("Min. stdout buffer size not valid.","",true, ERROR_MSG);
 			}
 			i++;
 			continue;

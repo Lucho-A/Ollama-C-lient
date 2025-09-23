@@ -82,7 +82,7 @@ The options supported are:
 |--show-models | N/A:false | shows the models available. |
 |--stdout-parsed | N/A:false | parses the output (useful for speeching/chatting). |
 |--stdout-chunked | N/A:false | chunks the output by paragraph (particularly useful for speeching). It sets '--stdout-parsed', as well. |
-|--stdout-buffer-size' | int:50 | Set the minimum char length of the stream before starting stdout. |
+|--stdout-buffer-size' | int:0 | Set the minimum char length of the stream before starting stdout. |
 |--stdout-json | N/A:false | writes stdout in JSON format. Output always no streamed and in RAW format. |
 |--execute-tools | N/A:false | (***experimental***) execute the tools (function) with the arguments. |
 |--exclude-chars | string:NULL | (***experimental***). It sets the chars to be excluded from response (vgr. --exclude-chars '*-_'). At the moment chars with escape sequence are not supported. |
