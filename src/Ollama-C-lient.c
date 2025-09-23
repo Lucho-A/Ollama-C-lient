@@ -362,7 +362,7 @@ static void print_response(char const *token, bool done, int responseType){
 	if(po.responseSpeed==0) return;
 	if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
 	strncat(chunkings,token,8196-1);
-	if((int)strlen(chunkings)>po.stdoutBufferSize){
+	if((int)strlen(chunkings)>po.stdoutBufferSize || done){
 		if(po.stdoutParsed){
 			char *parsedOut=parse_output(chunkings, true, true);
 			for(size_t i=0;i<strlen(parsedOut) && !oclCanceled;i++){
