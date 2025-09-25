@@ -22,7 +22,7 @@
 #define OCL_VERSION								OCL_MAJOR_VERSION "." OCL_MINOR_VERSION "." OCL_MICRO_VERSION
 #define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
-#define OCL_DBG									printf("\nWTFFF?!?!\n");
+#define OCL_DBG									fputs("\nWTFFF?!?!\n",stderr);
 
 #define OCL_OLLAMA_SERVER_ADDR					"127.0.0.1"
 #define OCL_OLLAMA_SERVER_PORT					"443"

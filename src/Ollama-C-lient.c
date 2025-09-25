@@ -130,7 +130,7 @@ static void show_help(char *programName){
 	printf("--show-models \t\t\t N/A:false \t\t shows the models available.\n");
 	printf("--stdout-parsed \t\t N/A:false \t\t parses the output (useful for speeching/chatting).\n");
 	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). Sets '--stdout-parsed', as well. \n");
-	printf("--stdout-buffer-size \t\t int:0 \t\t Set the minimum char length of the stream before to stdout. \n");
+	printf("--stdout-buffer-size \t\t int:0 \t\t Set the minimum char length of the stream before starting stdout. \n");
 	printf("--exclude-chars \t\t string:NULL \t\t Chars to exclude from the responses. \n");
 	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n");
 	printf("--execute-tools \t\t N/A:false \t\t execute the tools (function) with the arguments.\n\n");
