@@ -6,6 +6,7 @@
 - fixed showing response when set --stdout-parsed && --stdout-json 
 #### others:
 - '--show-loading-model' removed.
+- '--show-response-info' write in stderr.
 
 ### ollama-c-lient-v0.0.3
 #### date: 2025/09/25

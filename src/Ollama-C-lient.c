@@ -28,7 +28,8 @@ OCl *ocl=NULL;
 
 enum msgTypes{
 	ERROR_MSG=0,
-	SYSTEM_MSG
+	SYSTEM_MSG,
+	INFO_MSG
 };
 
 struct OclParams{
@@ -89,7 +90,7 @@ struct SendingMessage sm={0};
 bool thinking=false;
 char chunkings[8196]="";
 int toolsRecv=0;
-char toolsResponses[512][512]={""};
+char *toolsResponses[128]={NULL};
 
 static void show_help(char *programName){
 	BANNER
@@ -156,6 +157,7 @@ static int close_program(bool finishWithErrors){
 	po.ocl.toolsFile=NULL;
 	free(sm.input);
 	sm.input=NULL;
+	for(int i=0;i<toolsRecv;i++) free(toolsResponses[i]);
 	if(isatty(fileno(stdout))) fputs("\x1b[0m",stdout);
 	fflush(stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
@@ -178,14 +180,14 @@ static void signal_handler(int signalType){
 	}
 }
 
-static void print_msg_to_stderr(char *msg, char *error, bool exitProgram, int msgType){
+static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int msgType){
 	char sdterrMsg[1024]="";
 	switch(msgType){
 	case ERROR_MSG:
 		if(isatty(fileno(stderr))){
-			snprintf(sdterrMsg,1024,"%sERROR: %s %s\x1b[0m\n",po.colors.colorFontError, msg,error);
+			snprintf(sdterrMsg,1024,"%sERROR: %s %s\x1b[0m\n",po.colors.colorFontError, msg,extraMsg);
 		}else{
-			snprintf(sdterrMsg,1024,"ERROR: %s %s\n",msg,error);
+			snprintf(sdterrMsg,1024,"ERROR: %s %s\n",msg,extraMsg);
 		}
 		break;
 	case SYSTEM_MSG:
@@ -193,6 +195,13 @@ static void print_msg_to_stderr(char *msg, char *error, bool exitProgram, int ms
 			snprintf(sdterrMsg,1024,"%sSYSTEM: %s\x1b[0m\n",po.colors.colorFontSystem, msg);
 		}else{
 			snprintf(sdterrMsg,1024,"SYSTEM: %s\n",msg);
+		}
+		break;
+	case INFO_MSG:
+		if(isatty(fileno(stderr))){
+			snprintf(sdterrMsg,1024,"%s%s\x1b[0m\n",po.colors.colorFontInfo, msg);
+		}else{
+			snprintf(sdterrMsg,1024,"%s\n",msg);
 		}
 		break;
 	default:
@@ -207,17 +216,24 @@ static void print_msg_to_stderr(char *msg, char *error, bool exitProgram, int ms
 }
 
 static void print_response_info(){
-	if(isatty(fileno(stdout))) printf("%s\n\n", po.colors.colorFontInfo);
-	printf("- Time spent loading the model (load_duration): %.4fs\n",OCL_get_response_load_duration(ocl));
-	printf("- Time spent evaluating the prompt (prompt_eval_duration): %.4fs\n",OCL_get_response_prompt_eval_duration(ocl));
-	printf("- Time spent evaluating the response (eval_duration): %.4fs\n",OCL_get_response_eval_duration(ocl));
-	printf("- Time spent generating the response (total_duration): %.4fs\n",OCL_get_response_total_duration(ocl));
-	printf("- Number of tokens in the prompt (prompt_eval_count): %d\n",OCL_get_response_prompt_eval_count(ocl));
-	printf("- Number of tokens in the response (eval_count): %d\n",OCL_get_response_eval_count(ocl));
-	printf("- Tokens per sec.: %.4f\n",OCL_get_response_tokens_per_sec(ocl));
-	printf("- Characters in content: %d\n",OCL_get_response_chars_content(ocl));
-	printf("- Response size: %.2f kb",OCL_get_response_size(ocl)/1024.0);
-	if(isatty(fileno(stdout))) printf("%s",po.colors.colorFontResponse);
+	char buffer[1024]="";
+	snprintf(buffer,1024,"\n\n- Time spent loading the model (load_duration): %.4fs",OCL_get_response_load_duration(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Time spent evaluating the prompt (prompt_eval_duration): %.4fs",OCL_get_response_prompt_eval_duration(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Time spent evaluating the response (eval_duration): %.4fs",OCL_get_response_eval_duration(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Time spent generating the response (total_duration): %.4fs",OCL_get_response_total_duration(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Number of tokens in the prompt (prompt_eval_count): %d",OCL_get_response_prompt_eval_count(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Number of tokens in the response (eval_count): %d",OCL_get_response_eval_count(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Tokens per sec.: %.4f",OCL_get_response_tokens_per_sec(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Characters in content: %d",OCL_get_response_chars_content(ocl));
+	print_msg_to_stderr(buffer,"",false,INFO_MSG);
+	snprintf(buffer,1024,"- Response size: %.2f kb",OCL_get_response_size(ocl)/1024.0);
 }
 
 char *parse_output(const char *in, bool parse, bool removeChars){
@@ -310,8 +326,11 @@ static void print_response(char const *token, bool done, int responseType){
 			}
 			FILE *fp=popen(cmd, "r");
 			char c=0;
-			int cont=0;
+			int cont=0, initialBuffer=1024*10;
+			toolsResponses[toolsRecv]=malloc(initialBuffer);
+			memset(toolsResponses[toolsRecv],0,initialBuffer);
 			while ((c=fgetc(fp)) != EOF && !oclCanceled) {
+				if(cont>=initialBuffer) toolsResponses[toolsRecv]=realloc(toolsResponses[toolsRecv],initialBuffer*=2);
 				if(!po.stdoutJson){
 					usleep(po.responseSpeed);
 					fputc(c, stdout);
@@ -483,7 +502,11 @@ int main(int argc, char *argv[]) {
 	signal(SIGHUP, signal_handler);
 	signal(SIGSEGV, signal_handler);
 	po.responseSpeed=RESPONSE_SPEED;
-	if(!po.stdoutBufferSize) po.stdoutBufferSize=MIN_STDOUT_BUFFER_SIZE;
+	po.stdoutBufferSize=MIN_STDOUT_BUFFER_SIZE;
+	snprintf(po.colors.colorFontResponse,16,"\x1b[0m");
+	snprintf(po.colors.colorFontError,16,"\x1b[0m");
+	snprintf(po.colors.colorFontSystem,16,"\x1b[0m");
+	snprintf(po.colors.colorFontInfo,16,"\x1b[0m");
 	if(!isatty(fileno(stdin))){
 		char *line=NULL;
 		size_t len=0;
