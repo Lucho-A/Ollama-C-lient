@@ -69,7 +69,8 @@ struct _ocl_response{
 	char *thoughts;
 	char *content;
 	char *response;
-	char *toolCalls;
+	int contTools;
+	char toolCalls[512][512];
 	char error[BUFFER_SIZE_1K];
 	double loadDuration;
 	double promptEvalDuration;
@@ -138,7 +139,17 @@ int OCl_parse_string(char **stringTo, char const *stringFrom){
 
 char * OCL_get_response(OCl *ocl){ return ocl->ocl_resp->content;}
 char * OCL_get_response_thoughts(OCl *ocl){ return ocl->ocl_resp->thoughts;}
-char * OCL_get_response_tools(OCl *ocl){ return ocl->ocl_resp->toolCalls;}
+int OCL_get_response_tools(OCl *ocl, char ***tools){
+	if(ocl->ocl_resp->contTools==0) return 0;
+	*tools=(char **) malloc(ocl->ocl_resp->contTools * sizeof(char *));
+	memset(*tools, 0, ocl->ocl_resp->contTools * sizeof(char *));
+	for(int i=0;i<ocl->ocl_resp->contTools;i++){
+		(*tools)[i]=malloc(512);
+		memset((*tools)[i],0,512);
+		snprintf((*tools)[i],512-1,ocl->ocl_resp->toolCalls[i]);
+	}
+	return ocl->ocl_resp->contTools;
+}
 double OCL_get_response_load_duration(const OCl *ocl){ return ocl->ocl_resp->loadDuration;}
 double OCL_get_response_prompt_eval_duration(const OCl *ocl){ return ocl->ocl_resp->promptEvalDuration;}
 double OCL_get_response_eval_duration(const OCl *ocl){ return ocl->ocl_resp->evalDuration;}
@@ -360,7 +371,6 @@ int OCl_free(OCl *ocl){
 	sfree(ocl->ocl_resp->thoughts);
 	sfree(ocl->ocl_resp->content);
 	sfree(ocl->ocl_resp->response);
-	sfree(ocl->ocl_resp->toolCalls);
 	sfree(ocl->ocl_resp);
 	sfree(ocl);
 	return OCL_RETURN_OK;
@@ -545,8 +555,8 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	(*ocl)->ocl_resp->content[0]=0;
 	(*ocl)->ocl_resp->response=malloc(BUFFER_SIZE_1M);
 	(*ocl)->ocl_resp->response[0]=0;
-	(*ocl)->ocl_resp->toolCalls=malloc(BUFFER_SIZE_1K);
-	(*ocl)->ocl_resp->toolCalls[0]=0;
+	(*ocl)->ocl_resp->contTools=0;
+	for(int i=0;i<512;i++) memset((*ocl)->ocl_resp->toolCalls[i],0,512);
 	memset((*ocl)->ocl_resp->error,0,BUFFER_SIZE_1K);
 	(*ocl)->contContextMessages=0;
 	OCl_set_server_addr(*ocl, OCL_OLLAMA_SERVER_ADDR);
@@ -905,7 +915,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	ocl->ocl_resp->thoughts[0]=0;
 	ocl->ocl_resp->content[0]=0;
 	ocl->ocl_resp->response[0]=0;
-	ocl->ocl_resp->toolCalls[0]=0;
+	for(int i=0;i<512;i++) memset(ocl->ocl_resp->toolCalls[i],0,512);
 	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
 	ocl->ocl_resp->done=false;
 	long int bufferAssigned=BUFFER_SIZE_1M;
@@ -966,8 +976,10 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 				continue;
 			}
 			if(get_string_from_token(buffer, "\"tool_calls\":\[", token, ']')){
-				strncat(ocl->ocl_resp->toolCalls,token,BUFFER_SIZE_1K-1);
-				if(callback!=NULL) callback(token, ocl->ocl_resp->done, OCL_TOOL_TYPE);
+				strncat(ocl->ocl_resp->toolCalls[ocl->ocl_resp->contTools],token,BUFFER_SIZE_1K-1);
+				strncat(ocl->ocl_resp->toolCalls[ocl->ocl_resp->contTools],"}}}",BUFFER_SIZE_1K-1);
+				ocl->ocl_resp->contTools++;
+				if(callback!=NULL) callback(ocl->ocl_resp->toolCalls[ocl->ocl_resp->contTools-1], ocl->ocl_resp->done, OCL_TOOL_TYPE);
 				continue;
 			}
 			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){

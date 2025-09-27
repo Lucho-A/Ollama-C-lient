@@ -17,7 +17,7 @@
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.3"
+#define PROGRAM_VERSION					"0.0.4"
 
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
@@ -88,7 +88,8 @@ struct ProgramOpts po={0};
 struct SendingMessage sm={0};
 bool thinking=false;
 char chunkings[8196]="";
-char *toolsResponse=NULL;
+int toolsRecv=0;
+char toolsResponses[512][512]={""};
 
 static void show_help(char *programName){
 	BANNER
@@ -155,8 +156,6 @@ static int close_program(bool finishWithErrors){
 	po.ocl.toolsFile=NULL;
 	free(sm.input);
 	sm.input=NULL;
-	free(toolsResponse);
-	toolsResponse=NULL;
 	if(isatty(fileno(stdout))) fputs("\x1b[0m",stdout);
 	fflush(stdout);
 	if(finishWithErrors) exit(EXIT_FAILURE);
@@ -310,10 +309,7 @@ static void print_response(char const *token, bool done, int responseType){
 				strcat(cmd, argums[i]);
 			}
 			FILE *fp=popen(cmd, "r");
-			int cmdResultSize=32768;
 			char c=0;
-			toolsResponse=malloc(cmdResultSize);
-			memset(toolsResponse,0,cmdResultSize);
 			int cont=0;
 			while ((c=fgetc(fp)) != EOF && !oclCanceled) {
 				if(!po.stdoutJson){
@@ -321,12 +317,9 @@ static void print_response(char const *token, bool done, int responseType){
 					fputc(c, stdout);
 					fflush(stdout);
 				}
-				if(cont>=cmdResultSize){
-					cmdResultSize*=2;
-					toolsResponse=realloc(toolsResponse, cmdResultSize);
-				}
-				toolsResponse[cont++]=c;
+				toolsResponses[toolsRecv][cont++]=c;
 			}
+			toolsRecv++;
 			pclose(fp);
 			return;
 		}
@@ -346,7 +339,7 @@ static void print_response(char const *token, bool done, int responseType){
 		fputs("(Stop thinking...)\n", stdout);
 		fflush(stdout);
 	}
-	if(po.stdoutChunked){
+	if(po.stdoutChunked && !po.stdoutJson){
 		if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
 		strncat(chunkings,token,8196-1);
 		if((strstr(token, "\\n") && ((int) strlen(chunkings))>po.stdoutBufferSize) || done){
@@ -391,12 +384,27 @@ void create_json(){
 	char *jsonTemplate=NULL;
 	char *inParsed=NULL;
 	OCl_parse_string(&inParsed, sm.input);
-	char *toolResultParsed=NULL;
-	OCl_parse_string(&toolResultParsed, toolsResponse);
 	char *thoughts=OCL_get_response_thoughts(ocl);
 	char *response=OCL_get_response(ocl);
-	char *tools=OCL_get_response_tools(ocl);
-	size_t len=strlen(thoughts)+strlen(response)+strlen(inParsed)+strlen(tools)+2048;
+	char **tools=NULL;
+	int cTools=OCL_get_response_tools(ocl, &tools);
+	char toolsTemplate[1024]="";
+	char toolsRecvTemplate[1024*10]="";
+	for(int i=0;i<cTools;i++){
+		strcat(toolsTemplate, "[");
+		strcat(toolsTemplate, tools[i]);
+		strcat(toolsTemplate, "],");
+		char *toolResultParsed=NULL;
+		OCl_parse_string(&toolResultParsed, toolsResponses[i]);
+		strcat(toolsRecvTemplate, "[\"");
+		strcat(toolsRecvTemplate, toolResultParsed);
+		strcat(toolsRecvTemplate, "\"],");
+		free(toolResultParsed);
+		toolResultParsed=NULL;
+	}
+	toolsTemplate[strlen(toolsTemplate)-1]=0;
+	toolsRecvTemplate[strlen(toolsRecvTemplate)-1]=0;
+	size_t len=strlen(thoughts)+strlen(response)+strlen(inParsed)+strlen(toolsTemplate)+strlen(toolsRecvTemplate)+2048;
 	jsonTemplate=malloc(len);
 	memset(jsonTemplate,0,len);
 	time_t timestamp = time(NULL);
@@ -418,8 +426,8 @@ void create_json(){
 			"\"prompt\": \"%s\",\n"
 			"\"thoughts\": \"%s\",\n"
 			"\"response\": \"%s\",\n"
-			"\"tools\": \"%s\",\n"
-			"\"tool_response\": \"%s\",\n"
+			"\"tools\": [%s],\n"
+			"\"tool_response\": [%s],\n"
 			"\"timestamp\": \"%s\",\n"
 			"\"load_duration\": %.4f,\n"
 			"\"prompt_eval_duration\": %.4f,\n"
@@ -435,8 +443,8 @@ void create_json(){
 			,inParsed
 			,thoughts
 			,response
-			,tools
-			,(toolResultParsed)?(toolResultParsed):("")
+			,toolsTemplate
+			,toolsRecvTemplate
 					,strTimeStamp
 					,OCL_get_response_load_duration(ocl)
 					,OCL_get_response_prompt_eval_duration(ocl)
@@ -450,6 +458,8 @@ void create_json(){
 	);
 	fputs(jsonTemplate, stdout);
 	fflush(stdout);
+	for(int i=0;i<cTools;i++) free(tools[i]);
+	free(tools);
 	free(jsonTemplate);
 	free(inParsed);
 }
@@ -742,8 +752,6 @@ int main(int argc, char *argv[]) {
 			po.showModels=true;
 			continue;
 		}
-		//TODO just for legacy
-		if(strcmp(argv[i],"--show-loading-model")==0) continue;
 		if(strcmp(argv[i],"--execute-tools")==0){
 			po.executeTools=true;
 			continue;
@@ -834,8 +842,3 @@ int main(int argc, char *argv[]) {
 	}
 	close_program(false);
 }
-
-
-
-
-

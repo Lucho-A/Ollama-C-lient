@@ -1,5 +1,14 @@
+### ollama-c-lient-v0.0.4 Dev./Testing
+#### date: 
+#### severity: low
+#### bugs-fixed:
+- fixed tools in json format.
+- fixed showing response when set --stdout-parsed && --stdout-json 
+#### others:
+- '--show-loading-model' removed.
+
 ### ollama-c-lient-v0.0.3
-#### date: 2028/09/25
+#### date: 2025/09/25
 #### severity: low
 #### bugs-fixed:
 - fixed mis-assigned realloc(), potential buffer overflow.

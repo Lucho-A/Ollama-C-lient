@@ -18,7 +18,7 @@
 #define OCL_NAME 								"libOCl"
 #define OCL_MAJOR_VERSION						"0"
 #define OCL_MINOR_VERSION						"0"
-#define OCL_MICRO_VERSION						"3"
+#define OCL_MICRO_VERSION						"4"
 #define OCL_VERSION								OCL_MAJOR_VERSION "." OCL_MINOR_VERSION "." OCL_MICRO_VERSION
 #define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
@@ -134,7 +134,7 @@ char * OCL_error_handling(OCl *, int);
 int OCl_get_models(OCl *, char(*)[512]);
 char * OCL_get_response(OCl *);
 char * OCL_get_response_thoughts(OCl *);
-char * OCL_get_response_tools(OCl *);
+int OCL_get_response_tools(OCl *, char ***);
 double OCL_get_response_load_duration(const OCl *);
 double OCL_get_response_prompt_eval_duration(const OCl *);
 double OCL_get_response_eval_duration(const OCl *);
