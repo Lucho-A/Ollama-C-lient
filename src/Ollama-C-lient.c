@@ -348,12 +348,12 @@ static void print_response(char const *token, bool done, int responseType){
 		}
 		return;
 	}
-	if(responseType==OCL_THINKING_TYPE && !thinking){
+	if(responseType==OCL_THINKING_TYPE && !thinking && !po.stdoutJson){
 		thinking=true;
 		fputs("(Thinking...)\n", stdout);
 		fflush(stdout);
 	}
-	if(responseType!=OCL_THINKING_TYPE && thinking){
+	if(responseType!=OCL_THINKING_TYPE && thinking && !po.stdoutJson){
 		thinking=false;
 		fputs("(Stop thinking...)\n", stdout);
 		fflush(stdout);

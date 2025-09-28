@@ -1,5 +1,5 @@
-### ollama-c-lient-v0.0.4 Dev./Testing
-#### date: 
+### ollama-c-lient-v0.0.4
+#### date: 2025/09/28
 #### severity: low
 #### bugs-fixed:
 - fixed tools in json format.
