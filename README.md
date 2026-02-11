@@ -53,7 +53,7 @@ The options supported are:
 |--response-speed | int:0 _[>=0]_ | in microseconds, if > 0, the responses will be sending out to stdout at the interval set up.|
 |--socket-conn-to | int:5 _[>=0]_ | in seconds, sets up the connection time out. |
 |--socket-send-to | int:5 _[>=0]_ | in seconds, sets up the sending time out. |
-|--socket-recv-to | int:15 _[>=0]_ | in seconds, sets up the receiving time out. When a model is loading, this value is set to 120s to prevent false errors reporting. |
+|--socket-recv-to | int:15 _[>=0]_ | in seconds, sets up the receiving time out. |
 |--api-key | string:NULL | sets the API key.|
 |--model | string:NULL | model to use. |
 |--no-think | N/A:false | sets a no-thinking status for the model. |
@@ -125,10 +125,10 @@ OCL="/home/user/ollama-c-lient/ollama-c-lient
     --keep-alive 1800
     --context-file /home/user/ollama-c-lient/chat.context
     --system-role-file /home/user/ollama-c-lient/chat.role
-    --color-font-response '0;0;90'
-    --color-font-system '0;0;37'
-    --color-font-info '0;2;33'
-    --color-font-error '0;0;31'
+    --color-font-response 0;0;90
+    --color-font-system 0;0;37
+    --color-font-info 0;2;33
+    --color-font-error 0;0;31
     --stdout-parsed"
 echo
 while true; do

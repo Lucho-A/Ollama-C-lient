@@ -17,7 +17,7 @@
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.4"
+#define PROGRAM_VERSION					"0.0.5"
 
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
@@ -247,6 +247,9 @@ char *parse_output(const char *in, bool parse, bool removeChars){
 				switch(in[i+1]){
 				case 'n':
 					buff[cont++]='\n';
+					break;
+				case 'f':
+					buff[cont++]='\f';
 					break;
 				case 'r':
 					buff[cont++]='\r';

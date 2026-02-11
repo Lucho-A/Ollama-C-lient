@@ -94,6 +94,7 @@ int OCl_parse_string(char **stringTo, char const *stringFrom){
 		switch(stringFrom[i]){
 		case '\"':
 		case '\n':
+		case '\f':
 		case '\t':
 		case '\r':
 		case '\\':
@@ -115,6 +116,10 @@ int OCl_parse_string(char **stringTo, char const *stringFrom){
 		case '\n':
 			(*stringTo)[cont]='\\';
 			(*stringTo)[++cont]='n';
+			break;
+		case '\f':
+			(*stringTo)[cont]='\\';
+			(*stringTo)[++cont]='f';
 			break;
 		case '\t':
 			(*stringTo)[cont]='\\';
@@ -821,7 +826,7 @@ static bool get_string_from_token(char const *text, char const *token, char *res
 	int cont=0;
 	while(content!=NULL){
 		size_t i=0, len=strlen(token);
-		for(i=len;(content[i-1]=='\\' || (content[i]!=endChar && content[i]!='}') );i++) result[cont++]=content[i];
+		for(i=len;((content[i-1]=='\\' && content[i-2]!='\\') || (content[i]!=endChar) );i++) result[cont++]=content[i];
 		content[0]='X';
 		content=strstr(content,token);
 	}
@@ -958,19 +963,6 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			strncat(ocl->ocl_resp->response,buffer, bufferAssigned-1);
 			char token[1024]="";
 			if(get_string_from_token(buffer, "\"thinking\":\"", token, '"')){
-				char const *b=strstr(token,"\\\"},");
-				if(b){
-					int idx=0;
-					for(size_t i=0;i<strlen(token);i++,idx++){
-						if(b==&token[i]){
-							token[idx]='\\';
-							token[idx+1]=0;
-							i+=3;
-						}else{
-							token[idx]=token[i];
-						}
-					}
-				}
 				strncat(ocl->ocl_resp->thoughts,token, bufferAssigned-1);
 				if(callback!=NULL) callback(token, ocl->ocl_resp->done, OCL_THINKING_TYPE);
 				continue;
@@ -983,19 +975,6 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 				continue;
 			}
 			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){
-				char const *b=strstr(token,"\\\"},");
-				if(b){
-					int idx=0;
-					for(size_t i=0;i<strlen(token);i++,idx++){
-						if(b==&token[i]){
-							token[idx]='\\';
-							token[idx+1]=0;
-							i+=3;
-						}else{
-							token[idx]=token[i];
-						}
-					}
-				}
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) ocl->ocl_resp->done=true;
 				if(callback!=NULL) callback(token, ocl->ocl_resp->done, OCL_CONTENT_TYPE);
 				strncat(ocl->ocl_resp->content,token, bufferAssigned-1);
