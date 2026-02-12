@@ -1,5 +1,5 @@
-### ollama-c-lient-v0.0.5-Under Dev./Testing
-#### date: 
+### ollama-c-lient-v0.0.5
+#### date: 2026/02/11
 #### severity: low
 #### bugs-fixed:
 - fixed parsing '\f'
