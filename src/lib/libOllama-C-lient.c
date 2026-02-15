@@ -320,16 +320,17 @@ static int OCl_set_max_tokens_ctx(OCl *ocl, char const *maxTokensCtx){
 }
 
 int OCl_init(){
+	oclSslError=0;
 	SSL_library_init();
 	ERR_load_crypto_strings();
 	if((oclSslCtx=SSL_CTX_new(TLS_client_method()))==NULL) return OCL_ERR_SSL_CONTEXT;
 	SSL_CTX_set_verify(oclSslCtx, SSL_VERIFY_PEER, NULL);
 	if(!SSL_CTX_set_default_verify_paths(oclSslCtx)){
+		oclSslError=ERR_get_error();
 		OCl_shutdown();
 		return OCL_ERR_SSL_CERT_PATH_NOT_FOUND;
 	}
 	oclCanceled=false;
-	oclSslError=0;
 	return OCL_RETURN_OK;
 }
 
@@ -672,7 +673,7 @@ char * OCL_error_handling(OCl *ocl, int error){
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Error connecting socket: %s", strerror(errno));
 		break;
 	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Socket connection time out. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Socket connection time out ");
 		break;
 	case OCL_ERR_SSLCTX_NULL:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: SSL context null: %s (Did you call OCL_init()?). SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
@@ -702,13 +703,13 @@ char * OCL_error_handling(OCl *ocl, int error){
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Receiving packet time out: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_RECEIVING_PACKETS:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Receiving packet error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Receiving packet error: %s. SSL Error: %s", strerror(errno),ERR_error_string(ERR_get_error(), NULL));
 		break;
 	case OCL_ERR_RESPONSE_MESSAGE:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Error message into JSON. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Error message into JSON ");
 		break;
 	case OCL_ERR_PARTIAL_RESPONSE_RECV:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Partial response received. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Partial response received ");
 		break;
 	case OCL_ERR_ZEROBYTESSENT:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Zero bytes sent. Try again...");
@@ -768,46 +769,46 @@ char * OCL_error_handling(OCl *ocl, int error){
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Port not valid ");
 		break;
 	case OCL_ERR_KEEP_ALIVE:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Keep alive value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Keep alive value not valid ");
 		break;
 	case OCL_ERR_TEMP:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Temperature value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Temperature value not valid ");
 		break;
 	case OCL_ERR_REPEAT_LAST_N:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Repeat_last_n value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Repeat_last_n value not valid ");
 		break;
 	case OCL_ERR_REPEAT_PENALTY:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Repeat_penalty value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Repeat_penalty value not valid ");
 		break;
 	case OCL_ERR_SEED:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Seed value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Seed value not valid ");
 		break;
 	case OCL_ERR_TOP_K:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Top_k value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Top_k value not valid ");
 		break;
 	case OCL_ERR_TOP_P:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Top_p value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Top_p value not valid ");
 		break;
 	case OCL_ERR_MIN_P:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Min_p value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Min_p value not valid ");
 		break;
 	case OCL_ERR_MAX_HISTORY_CTX:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. message context value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. message context value not valid ");
 		break;
 	case OCL_ERR_MAX_TOKENS_CTX:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. tokens context value not valid. ");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. tokens context value not valid ");
 		break;
 	case OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Connection Timeout value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Connection Timeout value not valid ");
 		break;
 	case OCL_ERR_SOCKET_SEND_TIMEOUT_NOT_VALID:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Send Timeout value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Send Timeout value not valid ");
 		break;
 	case OCL_ERR_SOCKET_RECV_TIMEOUT_NOT_VALID:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Recv. Timeout value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Recv. Timeout value not valid ");
 		break;
 	case OCL_ERR_RESPONSE_SPEED_NOT_VALID:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Response Speed value not valid");
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Response Speed value not valid ");
 		break;
 	case OCL_ERR_MSG_FOUND:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: %s", ocl->ocl_resp->error);
@@ -826,7 +827,14 @@ static bool get_string_from_token(char const *text, char const *token, char *res
 	int cont=0;
 	while(content!=NULL){
 		size_t i=0, len=strlen(token);
-		for(i=len;((content[i-1]=='\\' && content[i-2]!='\\') || (content[i]!=endChar) );i++) result[cont++]=content[i];
+		for(i=len;(content[i]!=endChar);i++){
+			if(content[i]=='\\'){
+				result[cont++]=content[i];
+				result[cont++]=content[++i];
+				continue;
+			}
+			result[cont++]=content[i];
+		}
 		content[0]='X';
 		content=strstr(content,token);
 	}
@@ -892,7 +900,9 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	}
 	SSL_set_connect_state(sslConn);
 	SSL_set_tlsext_host_name(sslConn, ocl->srvAddr);
-	if(!SSL_connect(sslConn)){
+	int retVal=0;
+	if((retVal=SSL_connect(sslConn))<1){
+		oclSslError=ERR_get_error();
 		clean_ssl(sslConn);
 		return OCL_ERR_SSL_CONNECT;
 	}
@@ -901,14 +911,13 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	struct timeval tvSendTo;
 	tvSendTo.tv_sec=ocl->socketSendTimeout;
 	tvSendTo.tv_usec=0;
-	int retVal=0;
 	while(totalBytesSent<strlen(payload)){
 		FD_ZERO(&wFdset);
 		FD_SET(socketConn, &wFdset);
-		if((retVal=select(socketConn+1,NULL,&wFdset,NULL,&tvSendTo))<=0){
-			oclSslError=SSL_get_error(sslConn, retVal);
+		select(socketConn+1,NULL,&wFdset,NULL,&tvSendTo);
+		if (!FD_ISSET(socketConn, &wFdset)){
 			clean_ssl(sslConn);
-			if(retVal<0) return OCL_ERR_SENDING_PACKETS;
+			close(socketConn);
 			return OCL_ERR_SEND_TIMEOUT;
 		}
 		totalBytesSent+=SSL_write(sslConn, payload+totalBytesSent, strlen(payload)-totalBytesSent);
@@ -927,17 +936,11 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	while(true && !oclCanceled){
 		FD_ZERO(&rFdset);
 		FD_SET(socketConn, &rFdset);
-		if((retVal=select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo))<=0){
-			oclSslError=SSL_get_error(sslConn, retVal);
-			switch(oclSslError){
-			case 5: //SSL_SYSCALL?? PROXY/VPN issues??
-				continue;
-			default:
-				close(socketConn);
-				clean_ssl(sslConn);
-				if(retVal==0) return OCL_ERR_RECV_TIMEOUT;
-				return OCL_ERR_RECEIVING_PACKETS;
-			}
+		select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo);
+		if (!FD_ISSET(socketConn, &wFdset)){
+			close(socketConn);
+			clean_ssl(sslConn);
+			return OCL_ERR_RECV_TIMEOUT;
 		}
 		char buffer[BUFFER_SIZE_16K]="";
 		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);
@@ -1236,10 +1239,6 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 	if(retVal<0){
 		sfree(messageParsed);
 		return retVal;
-	}
-	if(retVal==0){
-		sfree(messageParsed);
-		return OCL_ERR_RECV_TIMEOUT;
 	}
 	if(!ocl->ocl_resp->done && !oclCanceled){
 		sfree(messageParsed);

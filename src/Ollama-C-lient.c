@@ -17,7 +17,7 @@
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.5"
+#define PROGRAM_VERSION					"0.0.6"
 
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
@@ -363,7 +363,6 @@ static void print_response(char const *token, bool done, int responseType){
 	}
 	if(po.stdoutChunked && !po.stdoutJson){
 		if(responseType==OCL_THINKING_TYPE && !po.showThoughts) return;
-		strncat(chunkings,token,8196-1);
 		if((strstr(token, "\\n") && ((int) strlen(chunkings))>po.stdoutBufferSize) || done){
 			char *parsedOut=parse_output(chunkings, true, true);
 			fputs(parsedOut, stdout);
@@ -372,6 +371,7 @@ static void print_response(char const *token, bool done, int responseType){
 			free(parsedOut);
 			parsedOut=NULL;
 		}
+		strncat(chunkings,token,8196-1);
 		return;
 	}
 	if(po.responseSpeed==0) return;
@@ -387,7 +387,6 @@ static void print_response(char const *token, bool done, int responseType){
 			}
 			free(parsedOut);
 			parsedOut=NULL;
-
 		}else{
 			char *parsedOut=parse_output(chunkings, false, true);
 			for(size_t i=0;i<strlen(parsedOut) && !oclCanceled;i++){
@@ -400,6 +399,7 @@ static void print_response(char const *token, bool done, int responseType){
 		}
 		memset(chunkings,0,8196);
 	}
+	return;
 }
 
 void create_json(){
@@ -467,16 +467,16 @@ void create_json(){
 			,response
 			,toolsTemplate
 			,toolsRecvTemplate
-					,strTimeStamp
-					,OCL_get_response_load_duration(ocl)
-					,OCL_get_response_prompt_eval_duration(ocl)
-					,OCL_get_response_eval_duration(ocl)
-					,OCL_get_response_total_duration(ocl)
-					,OCL_get_response_prompt_eval_count(ocl)
-					,OCL_get_response_eval_count(ocl)
-					,OCL_get_response_tokens_per_sec(ocl)
-					,OCL_get_response_chars_content(ocl)
-					,OCL_get_response_size(ocl)/1024.0
+			,strTimeStamp
+			,OCL_get_response_load_duration(ocl)
+			,OCL_get_response_prompt_eval_duration(ocl)
+			,OCL_get_response_eval_duration(ocl)
+			,OCL_get_response_total_duration(ocl)
+			,OCL_get_response_prompt_eval_count(ocl)
+			,OCL_get_response_eval_count(ocl)
+			,OCL_get_response_tokens_per_sec(ocl)
+			,OCL_get_response_chars_content(ocl)
+			,OCL_get_response_size(ocl)/1024.0
 	);
 	fputs(jsonTemplate, stdout);
 	fflush(stdout);

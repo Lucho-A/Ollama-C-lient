@@ -1,3 +1,13 @@
+### ollama-c-lient-v0.0.6-Dev/Testing
+#### date: 
+#### severity: low
+#### bugs-fixed:
+- fixed chunked output
+- fixed catching SSL connection errors
+#### others:
+- more descriptive SSL errors
+- minor changes, optimizations and code cleaned up
+
 ### ollama-c-lient-v0.0.5
 #### date: 2026/02/11
 #### severity: low
