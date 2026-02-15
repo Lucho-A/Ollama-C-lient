@@ -1,5 +1,5 @@
-### ollama-c-lient-v0.0.6-Dev/Testing
-#### date: 
+### ollama-c-lient-v0.0.6
+#### date: 20260215
 #### severity: low
 #### bugs-fixed:
 - fixed chunked output
