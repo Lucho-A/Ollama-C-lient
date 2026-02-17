@@ -820,14 +820,14 @@ char * OCL_error_handling(OCl *ocl, int error){
 	return error_hndl;
 }
 
-static bool get_string_from_token(char const *text, char const *token, char *result, char endChar){
+static bool get_string_from_token(char const *text, char const *token, char *result, char endChar, char endCharAlt){
 	memset(result, 0,1024);
 	char *content=strstr(text,token);
 	if(!content) return false;
 	int cont=0;
 	while(content!=NULL){
 		size_t i=0, len=strlen(token);
-		for(i=len;(content[i]!=endChar);i++){
+		for(i=len;(content[i]!=endChar && content[i]!=endCharAlt);i++){
 			if(content[i]=='\\'){
 				result[cont++]=content[i];
 				result[cont++]=content[++i];
@@ -965,36 +965,39 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			}
 			strncat(ocl->ocl_resp->response,buffer, bufferAssigned-1);
 			char token[1024]="";
-			if(get_string_from_token(buffer, "\"thinking\":\"", token, '"')){
+			if(get_string_from_token(buffer, "\"thinking\":\"", token, '"',0)){
 				strncat(ocl->ocl_resp->thoughts,token, bufferAssigned-1);
 				if(callback!=NULL) callback(token, ocl->ocl_resp->done, OCL_THINKING_TYPE);
 				continue;
 			}
-			if(get_string_from_token(buffer, "\"tool_calls\":\[", token, ']')){
+			if(get_string_from_token(buffer, "\"tool_calls\":\[", token, ']',0)){
 				strncat(ocl->ocl_resp->toolCalls[ocl->ocl_resp->contTools],token,BUFFER_SIZE_1K-1);
 				strncat(ocl->ocl_resp->toolCalls[ocl->ocl_resp->contTools],"}}}",BUFFER_SIZE_1K-1);
 				ocl->ocl_resp->contTools++;
 				if(callback!=NULL) callback(ocl->ocl_resp->toolCalls[ocl->ocl_resp->contTools-1], ocl->ocl_resp->done, OCL_TOOL_TYPE);
 				continue;
 			}
-			if(get_string_from_token(buffer, "\"content\":\"", token, '"')){
+			if(get_string_from_token(buffer, "\"content\":\"", token, '"',0)){
 				if(strstr(buffer,"\"done\":true")!=NULL || strstr(buffer,"\"done\": true")!=NULL) ocl->ocl_resp->done=true;
 				if(callback!=NULL) callback(token, ocl->ocl_resp->done, OCL_CONTENT_TYPE);
 				strncat(ocl->ocl_resp->content,token, bufferAssigned-1);
 				if(ocl->ocl_resp->done){
 					char result[128]="";
-					if(get_string_from_token(buffer, "\"load_duration\":", result, ',')) ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(buffer, "\"prompt_eval_duration\":", result, ',')) ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(buffer, "\"eval_duration\":", result, '}')) ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(buffer, "\"total_duration\":", result, ',')) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
-					if(get_string_from_token(buffer, "\"prompt_eval_count\":", result, ',')) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
-					if(get_string_from_token(buffer, "\"eval_count\":", result, ',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
+					if(get_string_from_token(buffer, "\"load_duration\":", result, ',',0)) ocl->ocl_resp->loadDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"prompt_eval_duration\":", result, ',',0)) ocl->ocl_resp->promptEvalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"eval_duration\":", result, '}',0)) ocl->ocl_resp->evalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"total_duration\":", result, ',',0)) ocl->ocl_resp->totalDuration=strtod(result,NULL)/1000000000.0;
+					if(get_string_from_token(buffer, "\"prompt_eval_count\":", result, ',',0)) ocl->ocl_resp->promptEvalCount=strtol(result,NULL,10);
+					if(get_string_from_token(buffer, "\"eval_count\":", result, '}',',')) ocl->ocl_resp->evalCount=strtol(result,NULL,10);
 					if(ocl->ocl_resp->evalDuration!=0) ocl->ocl_resp->tokensPerSec=ocl->ocl_resp->evalCount/ocl->ocl_resp->evalDuration;
 					break;
 				}
 				continue;
 			}
-			if(strstr(buffer,"{\"models\":[{\"")!=NULL) break;
+			if(strstr(ocl->ocl_resp->response,"{\"models\":[{\"")!=NULL){
+				if(strstr(ocl->ocl_resp->response,"}}]}")!=NULL) break;
+				continue;
+			}
 			char httpResponse[128]="";
 			for(int i=0;buffer[i]!='\r' && buffer[i]!='\n';i++) httpResponse[i]=buffer[i];
 			if(strstr(httpResponse, "HTTP/1.1 5")){
@@ -1004,7 +1007,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 				return OCL_ERR_SERVICE_UNAVAILABLE;
 			}
 			char err[512]="";
-			if(get_string_from_token(buffer,"{\"error\":", err,'}') || get_string_from_token(buffer,"\r\n\r\n", err,'\n')){
+			if(get_string_from_token(buffer,"{\"error\":", err,'}',0) || get_string_from_token(buffer,"\r\n\r\n", err,'\n',0)){
 				snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s: %s", httpResponse, err);
 				close(socketConn);
 				clean_ssl(sslConn);

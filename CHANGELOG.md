@@ -1,3 +1,10 @@
+### ollama-c-lient-v0.0.7-Dev/Testing
+#### date: 
+#### severity: low
+#### bugs-fixed:
+- fixed missing models when '--show-models'
+- fixed parsing 'eval_count' for Cloud models
+
 ### ollama-c-lient-v0.0.6
 #### date: 20260215
 #### severity: low
