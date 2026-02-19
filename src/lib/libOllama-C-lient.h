@@ -18,7 +18,7 @@
 #define OCL_NAME 								"libOCl"
 #define OCL_MAJOR_VERSION						"0"
 #define OCL_MINOR_VERSION						"0"
-#define OCL_MICRO_VERSION						"6"
+#define OCL_MICRO_VERSION						"7"
 #define OCL_VERSION								OCL_MAJOR_VERSION "." OCL_MINOR_VERSION "." OCL_MICRO_VERSION
 #define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
