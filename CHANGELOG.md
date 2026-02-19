@@ -1,5 +1,5 @@
-### ollama-c-lient-v0.0.7-Dev/Testing
-#### date: 
+### ollama-c-lient-v0.0.7
+#### date: 2026/02/18
 #### severity: low
 #### bugs-fixed:
 - fixed missing models when '--show-models'
