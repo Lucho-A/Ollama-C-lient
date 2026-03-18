@@ -875,11 +875,6 @@ static int create_connection(const char *srvAddr, int srvPort, int socketConnect
 	}
 	socklen_t len = sizeof(retVal);
 	getsockopt(socketConn, SOL_SOCKET, SO_ERROR, &retVal, &len);
-	if(retVal!=0){
-		close(socketConn);
-		errno=retVal;
-		return OCL_ERR_SOCKET_CONNECTION;
-	}
 	fcntl(socketConn, F_SETFL, socketFlags & ~O_NONBLOCK);
 	return socketConn;
 }
@@ -937,7 +932,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 		FD_ZERO(&rFdset);
 		FD_SET(socketConn, &rFdset);
 		select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo);
-		if (!FD_ISSET(socketConn, &wFdset)){
+		if (!FD_ISSET(socketConn, &rFdset)){
 			close(socketConn);
 			clean_ssl(sslConn);
 			return OCL_ERR_RECV_TIMEOUT;

@@ -13,11 +13,12 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 
 #include "lib/libOllama-C-lient.h"
 
 #define PROGRAM_NAME					"Ollama-C-lient"
-#define PROGRAM_VERSION					"0.0.7"
+#define PROGRAM_VERSION					"0.0.8"
 
 #define BANNER 							printf("\n%s v%s by L. <https://github.com/lucho-a/ollama-c-lient>\n\n",PROGRAM_NAME, PROGRAM_VERSION);
 
@@ -164,22 +165,6 @@ static int close_program(bool finishWithErrors){
 	exit(EXIT_SUCCESS);
 }
 
-static void signal_handler(int signalType){
-	switch(signalType){
-	case SIGSEGV:
-	case SIGINT:
-	case SIGTSTP:
-		oclCanceled=true;
-		break;
-	case SIGHUP:
-		close_program(true);
-		break;
-	case SIGPIPE:
-	default:
-		break;
-	}
-}
-
 static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int msgType){
 	char sdterrMsg[1024]="";
 	switch(msgType){
@@ -213,6 +198,23 @@ static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int
 		usleep(po.responseSpeed);
 	}
 	if(exitProgram) close_program(true);
+}
+
+static void signal_handler(int signalType){
+	switch(signalType){
+	case SIGINT:
+		oclCanceled=true;
+		break;
+	case SIGHUP:
+		close_program(true);
+		break;
+	default:
+		oclCanceled=true;
+		char signalMsg[1024]="";
+		snprintf(signalMsg,1024,"Canceled by signal: %d. %s",signalType,strerror(errno));
+		print_msg_to_stderr(signalMsg,"",true,ERROR_MSG);
+		break;
+	}
 }
 
 static void print_response_info(){
@@ -400,6 +402,44 @@ static void print_response(char const *token, bool done, int responseType){
 		memset(chunkings,0,8196);
 	}
 	return;
+}
+
+void create_models_json(char models[][512], int cantModels){
+	char *jsonTemplate=NULL;
+	char jsonModels[2048]="";
+	for(int i=0;i<cantModels;i++){
+		strcat(jsonModels,"\"");
+		strcat(jsonModels,models[i]);
+		strcat(jsonModels,"\",");
+	}
+	jsonModels[strlen(jsonModels)-1]=0;
+	size_t len=strlen(jsonModels)+2048;
+	jsonTemplate=malloc(len);
+	memset(jsonTemplate,0,len);
+	time_t timestamp = time(NULL);
+	struct tm tm = *localtime(&timestamp);
+	char strTimeStamp[50]="";
+	snprintf(strTimeStamp,sizeof(strTimeStamp)
+			,"%d%02d%02d_%02d%02d%02d_UTC%s"
+			,tm.tm_year + 1900
+			,tm.tm_mon + 1
+			,tm.tm_mday
+			,tm.tm_hour
+			,tm.tm_min
+			,tm.tm_sec
+			,tm.tm_zone);
+	snprintf(jsonTemplate,len,
+			"{\n"
+			"\"status\": \"success\",\n"
+			"\"models\": [%s],\n"
+			"\"timestamp\": \"%s\"\n"
+			"}\n"
+			,jsonModels
+			,strTimeStamp
+	);
+	fputs(jsonTemplate, stdout);
+	fflush(stdout);
+	free(jsonTemplate);
 }
 
 void create_json(){
@@ -815,56 +855,61 @@ int main(int argc, char *argv[]) {
 		char models[512][512]={""};
 		int cantModels=OCl_get_models(ocl, models);
 		if(cantModels<0) print_msg_to_stderr(OCL_error_handling(ocl,cantModels),"",true, ERROR_MSG);
-		for(int i=0;i<cantModels;i++){
-			printf("  - ");
-			for(size_t j=0;j<strlen(models[i]);j++){
-				usleep(po.responseSpeed);
-				fputc(models[i][j], stdout);
-				fflush(stdout);
-			}
-			printf("\n");
-		}
-	}
-	if(po.stdoutJson) po.responseSpeed=0;
-	if(po.stdoutChunked) po.stdoutParsed=true;
-	if(sm.input){
-		pthread_t tSendingMessage;
-		void *tRetVal=NULL;
-		pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
-		pthread_join(tSendingMessage,&tRetVal);
-		if(tRetVal!=NULL) close_program(true);
-		if(po.responseSpeed==0 && !oclCanceled){
-			if(po.stdoutJson){
-				create_json();
-			}else{
-				if(!po.stdoutParsed){
-					if(po.showThoughts){
-						fputs("<thinking>", stdout);
-						fputs(OCL_get_response_thoughts(ocl), stdout);
-						fputs("</thinking>\n", stdout);
-					}
-					fputs(OCL_get_response(ocl), stdout);
+		if(po.stdoutJson){
+			create_models_json(models, cantModels);
+		}else{
+			for(int i=0;i<cantModels;i++){
+				printf("  - ");
+				for(size_t j=0;j<strlen(models[i]);j++){
+					usleep(po.responseSpeed);
+					fputc(models[i][j], stdout);
 					fflush(stdout);
+				}
+				printf("\n");
+			}
+		}
+	}else{
+		if(po.stdoutJson) po.responseSpeed=0;
+		if(po.stdoutChunked) po.stdoutParsed=true;
+		if(sm.input){
+			pthread_t tSendingMessage;
+			void *tRetVal=NULL;
+			pthread_create(&tSendingMessage, NULL, start_sending_message, &sm);
+			pthread_join(tSendingMessage,&tRetVal);
+			if(tRetVal!=NULL) close_program(true);
+			if(po.responseSpeed==0 && !oclCanceled){
+				if(po.stdoutJson){
+					create_json();
 				}else{
-					if(!po.stdoutChunked){
-						char *out=NULL;
+					if(!po.stdoutParsed){
 						if(po.showThoughts){
 							fputs("<thinking>", stdout);
-							out=parse_output(OCL_get_response_thoughts(ocl),false, true);
-							fputs(out, stdout);
+							fputs(OCL_get_response_thoughts(ocl), stdout);
 							fputs("</thinking>\n", stdout);
 						}
-						out=parse_output(OCL_get_response(ocl),false, true);
-						fputs(out, stdout);
+						fputs(OCL_get_response(ocl), stdout);
 						fflush(stdout);
-						free(out);
-						out=NULL;
+					}else{
+						if(!po.stdoutChunked){
+							char *out=NULL;
+							if(po.showThoughts){
+								fputs("<thinking>", stdout);
+								out=parse_output(OCL_get_response_thoughts(ocl),false, true);
+								fputs(out, stdout);
+								fputs("</thinking>\n", stdout);
+							}
+							out=parse_output(OCL_get_response(ocl),false, true);
+							fputs(out, stdout);
+							fflush(stdout);
+							free(out);
+							out=NULL;
+						}
 					}
 				}
 			}
+			if(po.showResponseInfo && !po.stdoutJson && !oclCanceled) print_response_info();
+			printf("\n");
 		}
-		if(po.showResponseInfo && !po.stdoutJson && !oclCanceled) print_response_info();
-		printf("\n");
 	}
 	close_program(false);
 }
