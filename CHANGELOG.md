@@ -3,7 +3,7 @@
 #### severity: low
 #### improvements:
 - '--stdout-json', now also works for '--show-models'
-- in case of signal exception, stderr is written (except for 'Hangup', or 'Interactive' signals)
+- in case of signal exception, stderr is written (except for 'Interactive' signal)
 #### bugs-fixed:
 - fixed not return when receiving data timeout
 - minor changes, optimizations and code cleaned up

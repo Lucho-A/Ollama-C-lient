@@ -20,6 +20,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <ctype.h>
+#include <sys/poll.h>
 
 #define BUFFER_SIZE_1K				(1024)
 #define BUFFER_SIZE_2K				(1024*2)
@@ -693,11 +694,17 @@ char * OCL_error_handling(OCl *ocl, int error){
 	case OCL_ERR_SSL_CONNECT:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: SSL Connection error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
+	case OCL_ERR_POLLOUT:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: pollout  error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
+		break;
 	case OCL_ERR_SEND_TIMEOUT:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Sending packet time out ");
 		break;
 	case OCL_ERR_SENDING_PACKETS:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Sending packet error. SSL Error: %s", ERR_error_string(oclSslError, NULL));
+		break;
+	case OCL_ERR_POLLIN:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: pollin  error: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
 		break;
 	case OCL_ERR_RECV_TIMEOUT:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Receiving packet time out: %s. SSL Error: %s", strerror(errno),ERR_error_string(oclSslError, NULL));
@@ -901,26 +908,21 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 		clean_ssl(sslConn);
 		return OCL_ERR_SSL_CONNECT;
 	}
-	fd_set rFdset, wFdset;
+	struct pollfd po[1];
+	po[0].fd=socketConn;
+	po[0].events=POLLOUT;
 	size_t totalBytesSent=0;
-	struct timeval tvSendTo;
-	tvSendTo.tv_sec=ocl->socketSendTimeout;
-	tvSendTo.tv_usec=0;
 	while(totalBytesSent<strlen(payload)){
-		FD_ZERO(&wFdset);
-		FD_SET(socketConn, &wFdset);
-		select(socketConn+1,NULL,&wFdset,NULL,&tvSendTo);
-		if (!FD_ISSET(socketConn, &wFdset)){
+		retVal=poll(po,1,ocl->socketSendTimeout*1000);
+		if (retVal<=0){
 			clean_ssl(sslConn);
 			close(socketConn);
-			return OCL_ERR_SEND_TIMEOUT;
+			if(retVal==0) return OCL_ERR_SEND_TIMEOUT;
+			return OCL_ERR_POLLOUT;
 		}
 		totalBytesSent+=SSL_write(sslConn, payload+totalBytesSent, strlen(payload)-totalBytesSent);
 	}
 	ssize_t bytesReceived=0,totalBytesReceived=0;
-	struct timeval tvRecvTo;
-	tvRecvTo.tv_sec=ocl->socketRecvTimeout;
-	tvRecvTo.tv_usec=0;
 	ocl->ocl_resp->thoughts[0]=0;
 	ocl->ocl_resp->content[0]=0;
 	ocl->ocl_resp->response[0]=0;
@@ -928,14 +930,16 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 	memset(ocl->ocl_resp->error,0,BUFFER_SIZE_1K);
 	ocl->ocl_resp->done=false;
 	long int bufferAssigned=BUFFER_SIZE_1M;
+	struct pollfd pi[1];
+	pi[0].fd=socketConn;
+	pi[0].events=POLLIN;
 	while(true && !oclCanceled){
-		FD_ZERO(&rFdset);
-		FD_SET(socketConn, &rFdset);
-		select(socketConn+1,&rFdset,NULL,NULL,&tvRecvTo);
-		if (!FD_ISSET(socketConn, &rFdset)){
+		retVal=poll(pi,1,ocl->socketRecvTimeout*1000);
+		if (retVal<=0){
 			close(socketConn);
 			clean_ssl(sslConn);
-			return OCL_ERR_RECV_TIMEOUT;
+			if(retVal==0) return OCL_ERR_RECV_TIMEOUT;
+			return OCL_ERR_POLLIN;
 		}
 		char buffer[BUFFER_SIZE_16K]="";
 		bytesReceived=SSL_read(sslConn,buffer, BUFFER_SIZE_16K);

@@ -170,21 +170,21 @@ static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int
 	switch(msgType){
 	case ERROR_MSG:
 		if(isatty(fileno(stderr))){
-			snprintf(sdterrMsg,1024,"%sERROR: %s %s\x1b[0m\n",po.colors.colorFontError, msg,extraMsg);
+			snprintf(sdterrMsg,1024,"\n%sERROR: %s %s\x1b[0m\n",po.colors.colorFontError, msg,extraMsg);
 		}else{
 			snprintf(sdterrMsg,1024,"ERROR: %s %s\n",msg,extraMsg);
 		}
 		break;
 	case SYSTEM_MSG:
 		if(isatty(fileno(stderr))){
-			snprintf(sdterrMsg,1024,"%sSYSTEM: %s\x1b[0m\n",po.colors.colorFontSystem, msg);
+			snprintf(sdterrMsg,1024,"\n%sSYSTEM: %s\x1b[0m\n",po.colors.colorFontSystem, msg);
 		}else{
 			snprintf(sdterrMsg,1024,"SYSTEM: %s\n",msg);
 		}
 		break;
 	case INFO_MSG:
 		if(isatty(fileno(stderr))){
-			snprintf(sdterrMsg,1024,"%s%s\x1b[0m\n",po.colors.colorFontInfo, msg);
+			snprintf(sdterrMsg,1024,"\n%s%s\x1b[0m\n",po.colors.colorFontInfo, msg);
 		}else{
 			snprintf(sdterrMsg,1024,"%s\n",msg);
 		}
@@ -201,15 +201,11 @@ static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int
 }
 
 static void signal_handler(int signalType){
+	oclCanceled=true;
 	switch(signalType){
 	case SIGINT:
-		oclCanceled=true;
-		break;
-	case SIGHUP:
-		close_program(true);
 		break;
 	default:
-		oclCanceled=true;
 		char signalMsg[1024]="";
 		snprintf(signalMsg,1024,"Canceled by signal: %d. %s",signalType,strerror(errno));
 		print_msg_to_stderr(signalMsg,"",true,ERROR_MSG);
