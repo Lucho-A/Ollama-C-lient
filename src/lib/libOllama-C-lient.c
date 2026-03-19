@@ -882,6 +882,10 @@ static int create_connection(const char *srvAddr, int srvPort, int socketConnect
 	}
 	socklen_t len = sizeof(retVal);
 	getsockopt(socketConn, SOL_SOCKET, SO_ERROR, &retVal, &len);
+	if(retVal!=0){
+		errno=retVal;
+		return OCL_ERR_SOCKET_CONNECTION;
+	}
 	fcntl(socketConn, F_SETFL, socketFlags & ~O_NONBLOCK);
 	return socketConn;
 }
