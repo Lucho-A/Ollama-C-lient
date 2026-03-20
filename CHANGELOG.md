@@ -5,8 +5,8 @@
 - '--stdout-json', now also works for '--show-models'
 - in case of signal exception, stderr is written (except for 'Interactive' signal)
 #### bugs-fixed:
-- fixed not return when receiving data timeout
-- fixed catching connections exceptions
+- fixed not returning when receiving data timeout
+- fixed not catching connections exceptions
 - minor changes, optimizations and code cleaned up
 
 ### ollama-c-lient-v0.0.7
