@@ -1,12 +1,14 @@
-### ollama-c-lient-v0.0.8 - Under Dev./Testing
-#### date: 
-#### severity: low
+### ollama-c-lient-v0.0.8
+#### date: 2026/03/20
+#### severity: medium
 #### improvements:
-- '--stdout-json', now also works for '--show-models'
-- in case of signal exception, stderr is written (except for 'Interactive' signal)
+- '--stdout-json', now, also works for '--show-models'
+- in case of signal exception, stderr is written (except for 'Interactive' signals)
+- enhanced resilience when wrong server messages are received.
 #### bugs-fixed:
 - fixed not returning when receiving data timeout
 - fixed not catching connections exceptions
+#### others:
 - minor changes, optimizations and code cleaned up
 
 ### ollama-c-lient-v0.0.7

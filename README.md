@@ -106,6 +106,10 @@ The options supported are:
 
 ###### (1) only relevant for developing purposes using the library.
 
+### Exit Status
+
+The exit status will be 0 if no errors arose. Otherwise, 1.
+
 ### Examples:
 
 #### Chatting
@@ -155,10 +159,10 @@ exit 0
 cat prompt.txt | ./ollama-c-lient --server-addr 192.168.43.21 --server-port 4433 --model mistral-nemo --no-think --stdout-json > resp.json
 ```
 ```
-(echo 'What can you tell me about the content of this file?: ' && cat /home/user/file.txt) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --stdout-parsed < prompt.txt
+(echo 'What can you tell me about the content of this file?: ' && cat /home/user/file.txt) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --stdout-parsed
 ```
 ```
-(echo -n 'At ' && date +"%Y-%m-%d %H:%M:%S" && echo 'What can you tell me about current processes?: ' && ps ax) | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral --stdout-chunked | grep 'Ollama-C-lient'
+(echo -n 'At ' && date +"%Y-%m-%d %H:%M:%S" && echo 'What can you tell me about current processes?: ' && ps ax) | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral --stdout-chunked | grep 'ollama-c-lient'
 ```
 ```
 (echo 'Tell me a prompt about whatever: ' && cat whatever.txt) | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model mistral | ./ollama-c-lient --server-addr 192.168.1.2 --server-port 443 --model deepseek-r1:14b --stdout-parsed

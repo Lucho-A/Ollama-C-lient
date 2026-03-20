@@ -204,6 +204,7 @@ static void signal_handler(int signalType){
 	oclCanceled=true;
 	switch(signalType){
 	case SIGINT:
+	case SIGTSTP:
 		break;
 	default:
 		char signalMsg[1024]="";
