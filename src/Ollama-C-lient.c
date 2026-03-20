@@ -132,11 +132,11 @@ static void show_help(char *programName){
 	printf("--show-thoughts \t\t N/A:false \t\t shows what the model is 'thinking' in reasoning models like 'deepseek-r1'.\n");
 	printf("--show-models \t\t\t N/A:false \t\t shows the models available.\n");
 	printf("--stdout-parsed \t\t N/A:false \t\t parses the output (useful for speeching/chatting).\n");
-	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). Sets '--stdout-parsed', as well. \n");
-	printf("--stdout-buffer-size \t\t int:0 \t\t\t Set the minimum char length of the stream before starting stdout. \n");
+	printf("--stdout-chunked \t\t N/A:false \t\t chunks the output by paragraph (particularly useful for speeching). It sets '--stdout-parsed', as well. \n");
+	printf("--stdout-buffer-size \t\t int:0 \t\t\t Sets the minimum char length of the stream before starting stdout. \n");
 	printf("--exclude-chars \t\t string:NULL \t\t Chars to exclude from the responses. \n");
 	printf("--stdout-json \t\t\t N/A:false \t\t writes stdout in JSON format. Output always no streamed and in RAW format.\n");
-	printf("--execute-tools \t\t N/A:false \t\t execute the tools (function) with the arguments.\n\n");
+	printf("--execute-tools \t\t N/A:false \t\t executes the tools (function) with the arguments.\n\n");
 	printf("Example: \n\n");
 	printf("$ (echo 'What can you tell me about my storage: ' && df) | ./ollama-c-lient --model deepseek-r1 --stdout-parsed --response-speed 1\n");
 	printf("\nSee https://github.com/lucho-a/ollama-c-lient for a full description & more examples.\n\n");
@@ -818,7 +818,7 @@ int main(int argc, char *argv[]) {
 			po.executeTools=true;
 			continue;
 		}
-		print_msg_to_stderr(argv[i],": argument not recognized",true, ERROR_MSG);
+		print_msg_to_stderr(argv[i],": not a valid option",true, ERROR_MSG);
 	}
 	if((retVal=OCl_get_instance(
 			&ocl,

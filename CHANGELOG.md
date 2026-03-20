@@ -6,7 +6,7 @@
 - in case of signal exception, stderr is written (except for 'Interactive' signal)
 #### bugs-fixed:
 - fixed not return when receiving data timeout
-- fixed no catching connection errors
+- fixed catching connections exceptions
 - minor changes, optimizations and code cleaned up
 
 ### ollama-c-lient-v0.0.7

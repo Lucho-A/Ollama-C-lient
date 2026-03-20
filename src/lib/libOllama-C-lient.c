@@ -820,8 +820,9 @@ char * OCL_error_handling(OCl *ocl, int error){
 	case OCL_ERR_MSG_FOUND:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: %s", ocl->ocl_resp->error);
 		break;
+	case OCL_ERR_UNHANDLED_ERROR:
 	default:
-		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Error not handled. Errno: %s", strerror(errno));
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Error not handled. Errno: %s ", strerror(errno));
 		break;
 	}
 	return error_hndl;
@@ -1020,7 +1021,7 @@ static int send_message(OCl *ocl, char const *payload, void (*callback)(const ch
 			snprintf(ocl->ocl_resp->error,BUFFER_SIZE_1K,"%s", httpResponse);
 			close(socketConn);
 			clean_ssl(sslConn);
-			return OCL_ERR_SERVICE_UNAVAILABLE;
+			return OCL_ERR_UNHANDLED_ERROR;
 		}
 	}
 	close(socketConn);
