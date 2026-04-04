@@ -187,7 +187,7 @@ for model in "${MODELS[@]}"; do
     OCL=$OCL" --model ${model}"
     echo "${1}" | $OCL > NULL
 done
-OCL="${OLL_PATH}ollama-c-lient
+OCL="${OCL_PATH}ollama-c-lient
     --server-addr myAIserver.com
     --server-port 443
     --no-think
