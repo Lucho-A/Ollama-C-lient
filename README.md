@@ -175,8 +175,8 @@ To get an answer from different models in order to, for example, limit bias, you
 ```
 #!/bin/bash
 MODELS=("model1:Xb" "model2:Xb" "model3:Xb")
-OLL_PATH="/home/user/Ollama-C-lient/"
-OLL="${OLL_PATH}ollama-c-lient
+OCL_PATH="/home/user/Ollama-C-lient/"
+OCL="${OLL_PATH}ollama-c-lient
     --server-addr myAIserver.com
     --server-port 443
     --no-think
@@ -184,10 +184,10 @@ OLL="${OLL_PATH}ollama-c-lient
     --context-file context.temp
     --max-msgs-ctx 0"
 for model in "${MODELS[@]}"; do
-    OLL=$OLL" --model ${model}"
-    echo "${1}" | $OLL > NULL
+    OCL=$OCL" --model ${model}"
+    echo "${1}" | $OCL > NULL
 done
-OLL="${OLL_PATH}ollama-c-lient
+OCL="${OLL_PATH}ollama-c-lient
     --server-addr myAIserver.com
     --server-port 443
     --no-think
@@ -196,7 +196,7 @@ OLL="${OLL_PATH}ollama-c-lient
     --model model4:Xb
     --stdout-parsed
     --response-speed 15000"
-echo "${1}. Give an answer based on the context provided." | $OLL
+echo "${1}. Give an answer based on the context provided." | $OCL
 rm context.temp
 echo
 exit 0
