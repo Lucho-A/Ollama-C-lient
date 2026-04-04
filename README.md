@@ -170,6 +170,38 @@ cat prompt.txt | ./ollama-c-lient --server-addr 192.168.43.21 --server-port 4433
 ```
 (echo 'What can you tell me about about this paint? ') | ./ollama-c-lient --model gemma3:12b --stdout-parsed --response-speed 15000 --color-font-response "0;0;90" --image-file ~/paints/van-gogh.jpg
 ```
+
+To get an answer from different models in order to, for example, limit bias, you can use something like:
+```
+#!/bin/bash
+MODELS=("model1:Xb" "model2:Xb" "model3:Xb")
+OLL_PATH="/home/user/Ollama-C-lient/"
+OLL="${OLL_PATH}ollama-c-lient
+    --server-addr myAIserver.com
+    --server-port 443
+    --no-think
+    --api-key 1234567890abcd
+    --context-file context.temp
+    --max-msgs-ctx 0"
+for model in "${MODELS[@]}"; do
+    OLL=$OLL" --model ${model}"
+    echo "${1}" | $OLL > NULL
+done
+OLL="${OLL_PATH}ollama-c-lient
+    --server-addr myAIserver.com
+    --server-port 443
+    --no-think
+    --api-key 1234567890abcd
+    --static-context-file context.temp
+    --model model4:Xb
+    --stdout-parsed
+    --response-speed 15000"
+echo "${1}. Give an answer based on the context provided." | $OLL
+rm context.temp
+echo
+exit 0
+```
+
 ###### Note: since the incorporation of reasoning models, is not recommended incorporating a 'system-role'. Instead, just leave it blank and incorporate the instructions as part of the 'user-role'.
 
 #### Scripting/Agents (with tools)
@@ -213,7 +245,7 @@ CMD="/home/user/ocl/ollama-c-lient
     --stdout-parsed
     --response-speed 1
     --context-file /home/user/ocl/context.ocl"
-(echo "Pls, tell me about the following output:\n" && ls -la $1) | $CMD
+(echo "Tell me about the following directory/files:\n" && ls -la $1) | $CMD
 exit 0
 ```
 
