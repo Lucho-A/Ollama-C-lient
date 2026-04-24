@@ -56,7 +56,7 @@ The options supported are:
 |--socket-recv-to | int:15 _[>=0]_ | in seconds, sets up the receiving time out. |
 |--api-key | string:NULL | sets the API key.|
 |--model | string:NULL | model to use. |
-|--no-think | N/A:false | sets a no-thinking status for the model. |
+|--think | string:"false" _[false, true, low, medium, high, max]_ | sets the thinking-level for the model. |
 |--temperature | double:0.5 _[>=0]_ | sets the temperature parameter. |
 |--seed | int:0 _[>=0]_ | sets the seed parameter. |
 |--repeat-last-n | int:64 _[>=-1]_ | sets repeat_last_n parameter. |

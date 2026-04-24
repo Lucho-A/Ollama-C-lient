@@ -45,7 +45,7 @@ typedef struct _ocl{
 	int socketRecvTimeout;
 	char apiKey[1024];
 	char model[512];
-	bool noThink;
+	char think[16];
 	int keepalive;
 	double temp;
 	int repeat_last_n;
@@ -190,8 +190,12 @@ int OCl_set_model(OCl *ocl, const char *model){
 	return OCL_RETURN_OK;
 }
 
-int OCl_set_no_think(OCl *ocl,bool noThink){
-	ocl->noThink=noThink;
+int OCl_set_think(OCl *ocl,const char *think){
+	if(strcmp(think,"false")==0 || strcmp(think,"true")==0){
+		snprintf(ocl->think,16,"%s", think);
+	}else{
+		snprintf(ocl->think,16,"\"%s\"", think);
+	}
 	return OCL_RETURN_OK;
 }
 
@@ -542,7 +546,7 @@ static int OCl_import_tools(OCl *ocl, const char *toolsFile){
 
 int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, const char *socketConnTo, 
 		const char *socketSendTo,const char *socketRecvTo, const char *apiKey, const char *model
-		, bool noThink, const char *keepAlive, const char *systemRole, const char *systemRoleFile
+		, const char *think, const char *keepAlive, const char *systemRole, const char *systemRoleFile
 		,const char *maxContextMsg, const char *temp
 		, const char *repeat_last_n, const char *repeat_penalty, const char *seed
 		, const char *top_k, const char *top_p, const char *min_p, const char *maxTokensCtx
@@ -573,7 +577,7 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	OCl_set_recv_timeout(*ocl, OCL_SOCKET_RECV_TIMEOUT_S);
 	OCl_set_apiKey(*ocl, OCL_API_KEY);
 	OCl_set_model(*ocl, OCL_MODEL);
-	OCl_set_no_think(*ocl, false);
+	OCl_set_think(*ocl, "false");
 	OCl_set_keepalive(*ocl, OCL_KEEPALIVE_S);
 	OCl_set_temp(*ocl, OCL_TEMP);
 	OCl_set_repeat_last_n(*ocl, OCL_REPEAT_LAST_N);
@@ -601,7 +605,7 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	if((retVal=OCl_set_recv_timeout(*ocl, socketRecvTo))!=OCL_RETURN_OK) return retVal;
 	OCl_set_apiKey(*ocl, apiKey);
 	OCl_set_model(*ocl, model);
-	OCl_set_no_think(*ocl, noThink);
+	OCl_set_think(*ocl, think);
 	if((retVal=OCl_set_keepalive(*ocl, keepAlive))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_temp(*ocl, temp))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_repeat_last_n(*ocl, repeat_last_n))!=OCL_RETURN_OK) return retVal;
@@ -1177,17 +1181,17 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				messageParsed,
 				imageFileBase64,
 				ocl->tools,
-				(ocl->noThink)?("false"):("true"),
-						ocl->keepalive,
-						"true",
-						ocl->temp,
-						ocl->repeat_last_n,
-						ocl->repeat_penalty,
-						ocl->seed,
-						ocl->top_k,
-						ocl->top_p,
-						ocl->min_p,
-						ocl->maxTokensCtx);
+				ocl->think,
+				ocl->keepalive,
+				"true",
+				ocl->temp,
+				ocl->repeat_last_n,
+				ocl->repeat_penalty,
+				ocl->seed,
+				ocl->top_k,
+				ocl->top_p,
+				ocl->min_p,
+				ocl->maxTokensCtx);
 	}else{
 		snprintf(body,len,
 				"{\"model\":\"%s\","
@@ -1213,17 +1217,17 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				context,
 				messageParsed,
 				ocl->tools,
-				(ocl->noThink)?("false"):("true"),
-						ocl->keepalive,
-						"true",
-						ocl->temp,
-						ocl->repeat_last_n,
-						ocl->repeat_penalty,
-						ocl->seed,
-						ocl->top_k,
-						ocl->top_p,
-						ocl->min_p,
-						ocl->maxTokensCtx);
+				ocl->think,
+				ocl->keepalive,
+				"true",
+				ocl->temp,
+				ocl->repeat_last_n,
+				ocl->repeat_penalty,
+				ocl->seed,
+				ocl->top_k,
+				ocl->top_p,
+				ocl->min_p,
+				ocl->maxTokensCtx);
 	}
 	sfree(imageFileBase64);
 	sfree(context);

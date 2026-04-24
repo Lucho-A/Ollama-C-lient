@@ -1,3 +1,7 @@
+### ollama-c-lient-v0.0.9 - Under Dev./Testing
+#### improvements:
+- '--no-think' was replaced by '--think' to allow setting the thinking-level of the model (true, false, low, medium, high, max). V.gr. '--think high'
+
 ### ollama-c-lient-v0.0.8
 #### date: 2026/03/20
 #### severity: medium

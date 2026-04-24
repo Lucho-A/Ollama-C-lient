@@ -18,7 +18,7 @@
 #define OCL_NAME 								"libOCl"
 #define OCL_MAJOR_VERSION						"0"
 #define OCL_MINOR_VERSION						"0"
-#define OCL_MICRO_VERSION						"8"
+#define OCL_MICRO_VERSION						"9"
 #define OCL_VERSION								OCL_MAJOR_VERSION "." OCL_MINOR_VERSION "." OCL_MICRO_VERSION
 #define OCL_DESCRIPTION							"C library for interacting with Ollama server"
 
@@ -121,7 +121,7 @@ extern bool oclCanceled;
 
 int OCl_init();
 int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *
-		, const char *, const char *, bool, const char *, const char *,const char *,const char *
+		, const char *, const char *, const char *, const char *, const char *,const char *,const char *
 		,const char *, const char *, const char *,const char *, const char *, const char *
 		, const char *, const char *, const char *, const char *, const char *);
 int OCl_free(OCl *);
