@@ -156,7 +156,7 @@ exit 0
 ./ollama-c-lient --model deepseek-r1 < prompt.txt
 ```
 ```
-cat prompt.txt | ./ollama-c-lient --server-addr 192.168.43.21 --server-port 4433 --model mistral-nemo --no-think --stdout-json > resp.json
+cat prompt.txt | ./ollama-c-lient --server-addr 192.168.43.21 --server-port 4433 --model deepseek-r1 --think high --stdout-json > resp.json
 ```
 ```
 (echo 'What can you tell me about the content of this file?: ' && cat /home/user/file.txt) | ./ollama-c-lient --server-addr 192.168.5.123 --server-port 4433 --model deepseek-r1 --stdout-parsed
@@ -179,7 +179,6 @@ OCL_PATH="/home/user/Ollama-C-lient/"
 OCL="${OLL_PATH}ollama-c-lient
     --server-addr myAIserver.com
     --server-port 443
-    --no-think
     --api-key 1234567890abcd
     --context-file context.temp
     --max-msgs-ctx 0"
@@ -190,7 +189,6 @@ done
 OCL="${OCL_PATH}ollama-c-lient
     --server-addr myAIserver.com
     --server-port 443
-    --no-think
     --api-key 1234567890abcd
     --static-context-file context.temp
     --model model4:Xb
@@ -206,7 +204,7 @@ exit 0
 
 #### Scripting/Agents (with tools)
 ```
-echo 'Listing /home' | ./ollama-c-lient --server-addr 192.168.12.34 --server-port 4433 --model mistral-nemo --no-think --response-speed 15000 --context-file /home/user/ocl/context.ocl --tools-file /home/user/ocl/tools.ocl --execute-tools
+echo 'Listing /home' | ./ollama-c-lient --server-addr 192.168.12.34 --server-port 4433 --model mistral-nemo --response-speed 15000 --context-file /home/user/ocl/context.ocl --tools-file /home/user/ocl/tools.ocl --execute-tools
 ```
 
 ... with a tool file like:
@@ -240,7 +238,6 @@ CMD="/home/user/ocl/ollama-c-lient
     --server-addr 192.168.12.34
     --server-port 4433
     --model mistral-nemo
-    --no-think
     --temperature 0.6
     --stdout-parsed
     --response-speed 1
