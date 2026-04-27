@@ -641,6 +641,10 @@ static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int
 				i++;
 				continue;
 			}
+			if(strcmp(argv[i],"--no-think")==0){
+				snprintf(po.ocl.think,8,"%s","false");
+				continue;
+			}
 			if(strcmp(argv[i],"--temperature")==0){
 				if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 				snprintf(po.ocl.temp,8,"%s",argv[i+1]);

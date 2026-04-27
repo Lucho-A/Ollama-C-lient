@@ -2,7 +2,7 @@
 #### new-features:
 - added parameter: '--num-predict'
 #### improvements:
-- '--no-think' was replaced by '--think' to allow setting the thinking-level of the model (true, false, low, medium, high, max). V.gr. '--think high'
+- '--no-think' was replaced by '--think' to allow setting the thinking-level of the model (true, false, low, medium, high, max). V.gr. '--think high'. For legacy, '--no-think' won't be descoped in this release.
 
 ### ollama-c-lient-v0.0.8
 #### date: 2026/03/20
