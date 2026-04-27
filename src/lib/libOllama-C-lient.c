@@ -54,6 +54,7 @@ typedef struct _ocl{
 	int top_k;
 	double top_p;
 	double min_p;
+	int num_predict;
 	int maxHistoryCtx;
 	int maxTokensCtx;
 	Message *rootContextMessages;
@@ -306,6 +307,15 @@ static int OCl_set_min_p(OCl *ocl, char const *min_p){
 	return OCL_RETURN_OK;
 }
 
+static int OCl_set_num_predict(OCl *ocl, char const *num_predict){
+	if(num_predict!=NULL && strcmp(num_predict,"")!=0){
+		char *tail=NULL;
+		ocl->num_predict=strtol(num_predict,&tail,10);
+		if(ocl->num_predict < -1 || tail[0]!=0) return OCL_ERR_NUM_PREDICT;
+	}
+	return OCL_RETURN_OK;
+}
+
 static int OCl_set_max_history_ctx(OCl *ocl, char const *maxHistoryCtx){
 	if(maxHistoryCtx!=NULL && strcmp(maxHistoryCtx,"")!=0){
 		char *tail=NULL;
@@ -549,7 +559,7 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 		, const char *think, const char *keepAlive, const char *systemRole, const char *systemRoleFile
 		,const char *maxContextMsg, const char *temp
 		, const char *repeat_last_n, const char *repeat_penalty, const char *seed
-		, const char *top_k, const char *top_p, const char *min_p, const char *maxTokensCtx
+		, const char *top_k, const char *top_p, const char *min_p,const char *num_predict, const char *maxTokensCtx
 		,const char *contextFile, const char *contextStaticFile, const char *toolsFile){
 	*ocl=malloc(sizeof(OCl));
 	int retVal=0;
@@ -586,6 +596,7 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	OCl_set_top_k(*ocl, OCL_TOP_K);
 	OCl_set_top_p(*ocl, OCL_TOP_P);
 	OCl_set_min_p(*ocl, OCL_MIN_P);
+	OCl_set_num_predict(*ocl, OCL_NUM_PREDICT);
 	OCl_set_max_history_ctx(*ocl, OCL_MAX_HISTORY_CTX);
 	OCl_set_max_tokens_ctx(*ocl, OCL_MAX_TOKENS_CTX);
 	OCl_set_role(*ocl, OCL_SYSTEM_ROLE);
@@ -614,6 +625,7 @@ int OCl_get_instance(OCl **ocl, const char *serverAddr, const char *serverPort, 
 	if((retVal=OCl_set_top_k(*ocl, top_k))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_top_p(*ocl, top_p))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_min_p(*ocl, min_p))!=OCL_RETURN_OK) return retVal;
+	if((retVal=OCl_set_num_predict(*ocl, num_predict))!=OCL_RETURN_OK) return retVal;;
 	if((retVal=OCl_set_max_history_ctx(*ocl, maxContextMsg))!=OCL_RETURN_OK) return retVal;
 	if((retVal=OCl_set_max_tokens_ctx(*ocl, maxTokensCtx))!=OCL_RETURN_OK) return retVal;
 	if(systemRoleFile){
@@ -802,6 +814,9 @@ char * OCL_error_handling(OCl *ocl, int error){
 		break;
 	case OCL_ERR_MIN_P:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Min_p value not valid ");
+		break;
+	case OCL_ERR_NUM_PREDICT:
+		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Num_predict value not valid ");
 		break;
 	case OCL_ERR_MAX_HISTORY_CTX:
 		snprintf(error_hndl, BUFFER_SIZE_2K,"OCl ERROR: Max. message context value not valid ");
@@ -1173,6 +1188,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"top_k\": %d,"
 				"\"top_p\": %f,"
 				"\"min_p\": %f,"
+				"\"num_predict\": %d,"
 				"\"num_ctx\": %d,"
 				"\"stop\": null}}",
 				ocl->model,
@@ -1191,6 +1207,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				ocl->top_k,
 				ocl->top_p,
 				ocl->min_p,
+				ocl->num_predict,
 				ocl->maxTokensCtx);
 	}else{
 		snprintf(body,len,
@@ -1210,6 +1227,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				"\"top_k\": %d,"
 				"\"top_p\": %f,"
 				"\"min_p\": %f,"
+				"\"num_predict\": %d,"
 				"\"num_ctx\": %d,"
 				"\"stop\": null}}",
 				ocl->model,
@@ -1227,6 +1245,7 @@ int OCl_send_chat(OCl *ocl, const char *message, const char *imageFile, void (*c
 				ocl->top_k,
 				ocl->top_p,
 				ocl->min_p,
+				ocl->num_predict,
 				ocl->maxTokensCtx);
 	}
 	sfree(imageFileBase64);

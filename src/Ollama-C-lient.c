@@ -48,6 +48,7 @@ struct OclParams{
 	char top_k[8];
 	char top_p[8];
 	char min_p[8];
+	char num_predict[8];
 	char seed[8];
 	char keepalive[8];
 	char maxMsgCtx[8];
@@ -116,6 +117,7 @@ static void show_help(char *programName){
 	printf("--top-k \t\t\t int:40 [>=0] \t\t sets the top_k parameter.\n");
 	printf("--top-p \t\t\t double:0.9 [>=0] \t sets the top_p parameter.\n");
 	printf("--min-p \t\t\t double:0.0 [>=0] \t sets the min_p parameter.\n");
+	printf("--num-predict \t\t\t int:-1 [>=-1] \t sets the num_predict parameter.\n");
 	printf("--keep-alive \t\t\t int:300 [>=0] \t\t in seconds, tell to the server how many seconds the model will be available until unloaded.\n");
 	printf("--max-msgs-ctx \t\t\t int:3 [>=0] \t\t sets the maximum messages to be added as context in the messages.\n");
 	printf("--max-msgs-tokens \t\t int:4096 [>=0] \t sets the maximum tokens.\n");
@@ -681,6 +683,12 @@ static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int
 				i++;
 				continue;
 			}
+			if(strcmp(argv[i],"--num-predict")==0){
+				if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
+				snprintf(po.ocl.num_predict,8,"%s",argv[i+1]);
+				i++;
+				continue;
+			}
 			if(strcmp(argv[i],"--keep-alive")==0){
 				if(!argv[i+1]) print_msg_to_stderr("Argument missing: ",argv[i],true, ERROR_MSG);
 				snprintf(po.ocl.keepalive,8,"%s",argv[i+1]);
@@ -851,6 +859,7 @@ static void print_msg_to_stderr(char *msg, char *extraMsg, bool exitProgram, int
 				po.ocl.top_k,
 				po.ocl.top_p,
 				po.ocl.min_p,
+				po.ocl.num_predict,
 				po.ocl.maxTokensCtx,
 				po.ocl.contextFile,
 				po.ocl.staticContextFile,

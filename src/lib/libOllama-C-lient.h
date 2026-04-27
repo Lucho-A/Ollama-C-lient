@@ -43,6 +43,7 @@
 #define OCL_TOP_K								"40"
 #define OCL_TOP_P								"0.9"
 #define OCL_MIN_P								"0.0"
+#define OCL_NUM_PREDICT							"-1"
 #define OCL_MAX_HISTORY_CTX						"3"
 #define OCL_MAX_TOKENS_CTX						"4096"
 
@@ -105,6 +106,7 @@ enum ocl_errors{
 	OCL_ERR_TOP_K,
 	OCL_ERR_TOP_P,
 	OCL_ERR_MIN_P,
+	OCL_ERR_NUM_PREDICT,
 	OCL_ERR_MAX_HISTORY_CTX,
 	OCL_ERR_MAX_TOKENS_CTX,
 	OCL_ERR_SOCKET_CONNECTION_TIMEOUT_NOT_VALID,
@@ -122,7 +124,7 @@ extern bool oclCanceled;
 int OCl_init();
 int OCl_get_instance(OCl **, const char *, const char *, const char *, const char *, const char *
 		, const char *, const char *, const char *, const char *, const char *,const char *,const char *
-		,const char *, const char *, const char *,const char *, const char *, const char *
+		,const char *, const char *, const char *,const char *,const char *, const char *, const char *
 		, const char *, const char *, const char *, const char *, const char *);
 int OCl_free(OCl *);
 int OCl_shutdown();

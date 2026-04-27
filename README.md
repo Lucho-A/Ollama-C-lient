@@ -64,6 +64,7 @@ The options supported are:
 |--top-k | int:40 _[>=0]_ | sets top_k parameter. |
 |--top-p | double:0.9 _[>=0]_ | sets the top_p parameter. |
 |--min-p | double:0.0 _[>=0]_ | sets the min_p parameter. |
+|--num-predict | int:-1 _[>=-1]_ | sets the num_predict parameter. |
 |--keep-alive | int:300 _[>=0]_ | in seconds, tells to the server how many seconds the model will be available until unloaded. |
 |--max-msgs-ctx | int:3 _[>=0]_ | sets the maximum messages to be added as context in the messages. |
 |--max-msgs-tokens | int:4096 _[>=0]_ | sets the maximum tokens. |
