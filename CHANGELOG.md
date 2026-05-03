@@ -1,4 +1,6 @@
-### ollama-c-lient-v0.0.9 - Under Dev./Testing
+### ollama-c-lient-v0.0.9
+#### date: 2026/05/03
+#### severity: low
 #### new-features:
 - added parameter: '--num-predict'
 #### improvements:
