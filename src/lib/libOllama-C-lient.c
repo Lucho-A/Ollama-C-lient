@@ -1354,5 +1354,15 @@ int OCl_get_models(OCl *ocl, char(*models)[512]){
 		model[0]=' ';
 		model=strstr(model,"\"model\":\"");
 	}
+	for(int i=0;i<contModel-1;i++){
+		for(int j=i;j<contModel;j++){
+			if(strcmp(models[i],models[j])>0){
+				char buf[255]="";
+				strcpy(buf,models[i]);
+				strcpy(models[i],models[j]);
+				strcpy(models[j],buf);
+			}
+		}
+	}
 	return contModel;
 }
