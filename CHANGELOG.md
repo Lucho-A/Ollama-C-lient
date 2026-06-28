@@ -1,5 +1,5 @@
-### ollama-c-lient-v0.1.0 Dev/Testing
-#### date:
+### ollama-c-lient-v0.1.0
+#### date: 2026/06/28
 #### severity: low
 #### improvements:
 - '--show-models' sorts the output
